@@ -36,19 +36,6 @@ class LoginScreen extends StatelessWidget {
                     'assets/logo.png', // Substitua pelo caminho correto do logo
                     height: 80,
                   ),
-                  SizedBox(height: 10),
-                  Text(
-                    "UNISAGRADO",
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  Text(
-                    "Ensino Superior de Excelência",
-                    style: TextStyle(fontSize: 14, color: Colors.white),
-                  ),
                 ],
               ),
             ),

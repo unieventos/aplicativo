@@ -63,7 +63,7 @@ class EventosPage extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Image.asset(
-                      'assets/event_image.jpg', // Substitua com sua imagem
+                      'assets/logo.png',
                       height: 180,
                       width: double.infinity,
                       fit: BoxFit.cover,
