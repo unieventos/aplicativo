@@ -22,11 +22,7 @@ class LoginScreen extends StatelessWidget {
           Container(
             height: MediaQuery.of(context).size.height * 0.30, // 30% da tela
             decoration: BoxDecoration(
-              color: Colors.red,
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(30),
-                bottomRight: Radius.circular(30),
-              ),
+              color: Color(0xFFCC2229),
             ),
             child: Center(
               child: Column(
@@ -34,8 +30,8 @@ class LoginScreen extends StatelessWidget {
                 children: [
                   Image.asset(
                     'assets/logo.png',
-                    width: MediaQuery.of(context).size.width * 0.5,
-                    height: MediaQuery.of(context).size.height * 0.2,
+                    width: MediaQuery.of(context).size.width * 0.8,
+                    height: MediaQuery.of(context).size.height * 0.3,
                     fit: BoxFit.contain,
                   ),
                 ],

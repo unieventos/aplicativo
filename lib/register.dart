@@ -15,115 +15,129 @@ class RegisterScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
+      body: Stack(
         children: [
-          Container(
-            height: MediaQuery.of(context).size.height * 0.3,
-            decoration: BoxDecoration(
-              color: Colors.red,
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(30),
-                bottomRight: Radius.circular(30),
-              ),
-            ),
-            child: Center(
-              child: Text(
-                "Cadastre-se",
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+          Column(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Container(
+                  color: Color(0xFFCC2229),
                 ),
               ),
-            ),
+              Expanded(
+                flex: 7,
+                child: Container(
+                  color: Color(0xFFEFEFEF),
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: 20),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32.0),
-            child: Column(
-              children: [
-                TextField(
-                  decoration: InputDecoration(
-                    labelText: "Nome Completo",
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+          Positioned(
+            left: 20,
+            right: 20,
+            top: MediaQuery.of(context).size.height * 0.15,
+            child: Container(
+              padding: EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "Cadastre-se",
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFCC2229),
                     ),
-                    filled: true,
-                    fillColor: Colors.white,
                   ),
-                ),
-                SizedBox(height: 15),
-                TextField(
-                  decoration: InputDecoration(
-                    labelText: "E-mail",
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+                  SizedBox(height: 20),
+                  TextField(
+                    decoration: InputDecoration(
+                      labelText: "Nome Completo",
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
                     ),
-                    filled: true,
-                    fillColor: Colors.white,
                   ),
-                ),
-                SizedBox(height: 15),
-                DropdownButtonFormField<String>(
-                  decoration: InputDecoration(
-                    labelText: "Selecione o Curso",
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+                  SizedBox(height: 15),
+                  TextField(
+                    decoration: InputDecoration(
+                      labelText: "E-mail",
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
                     ),
-                    filled: true,
-                    fillColor: Colors.white,
                   ),
-                  items:
-                      ["Ciência da Computação", "Engenharia", "Direito"]
-                          .map(
-                            (curso) => DropdownMenuItem(
-                              value: curso,
-                              child: Text(curso),
-                            ),
-                          )
-                          .toList(),
-                  onChanged: (value) {},
-                ),
-                SizedBox(height: 15),
-                TextField(
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: "Senha",
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+                  SizedBox(height: 15),
+                  DropdownButtonFormField<String>(
+                    decoration: InputDecoration(
+                      labelText: "Selecione o Curso",
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
                     ),
-                    filled: true,
-                    fillColor: Colors.white,
+                    items:
+                        ["Ciência da Computação", "Engenharia", "Direito"]
+                            .map(
+                              (curso) => DropdownMenuItem(
+                                value: curso,
+                                child: Text(curso),
+                              ),
+                            )
+                            .toList(),
+                    onChanged: (value) {},
                   ),
-                ),
-                SizedBox(height: 15),
-                TextField(
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: "Confirmar Senha",
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+                  SizedBox(height: 15),
+                  TextField(
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: "Senha",
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
                     ),
-                    filled: true,
-                    fillColor: Colors.white,
                   ),
-                ),
-                SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.brown.shade700,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                  SizedBox(height: 15),
+                  TextField(
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: "Confirmar Senha",
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
                     ),
-                    minimumSize: Size(double.infinity, 50),
                   ),
-                  child: Text(
-                    "CADASTRAR",
-                    style: TextStyle(fontSize: 18, color: Colors.white),
+                  SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {},
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFFCC2229),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      minimumSize: Size(double.infinity, 50),
+                    ),
+                    child: Text(
+                      "CADASTRAR",
+                      style: TextStyle(fontSize: 18, color: Colors.white),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
