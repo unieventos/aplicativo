@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'eventRegister.dart'; // importa sua tela que você quer testar
+
 
 void main() {
   runApp(EventosApp());
