@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'login.dart'; // importa a sua tela de login
 import 'eventRegister.dart';
 
+
 void main() {
   runApp(MyApp());
 }
@@ -11,7 +12,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: Login(), // define a tela inicial como a de login
+      home: EventPage(), // define a tela inicial como a de login
     );
   }
 }
