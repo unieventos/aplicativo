@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 class EventPage extends StatefulWidget {
   @override
@@ -18,14 +19,27 @@ class _EventPageState extends State<EventPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Eventos'),
+        backgroundColor: Colors.white,
+        title: const Text(
+          'Eventos',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+        ),
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.search, color: Colors.black),
+          onPressed: () {},
+        ),
         actions: [
           IconButton(
-            icon: Icon(Icons.notifications_none),
+            icon: const Icon(Icons.filter_list, color: Colors.black),
             onPressed: () {},
-          )
+          ),
+          IconButton(
+            icon: const Icon(Icons.notifications_none, color: Colors.black),
+            onPressed: () {},
+          ),
         ],
+        elevation: 0,
       ),
       bottomNavigationBar: BottomNavigationBar(
         items: const [
@@ -39,105 +53,139 @@ class _EventPageState extends State<EventPage> {
         },
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             Image.asset(
-              'assets/event_image.png',
+              'assets/event_register_image.jpg',
               height: 200,
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextField(
               decoration: InputDecoration(
                 labelText: 'Título do evento',
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               value: selectedCourse,
               decoration: InputDecoration(
-                labelText: 'Selecione o Curso',
-                border: OutlineInputBorder(),
+                labelText: 'Selecione o Setor',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              items: ['ADS', 'Direito', 'Enfermagem']
+              items: ['Pastoral', 'Odontologia', 'Enfermagem', 'Ciência da Computação']
                   .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                   .toList(),
               onChanged: (value) => setState(() => selectedCourse = value),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             TextField(
               maxLines: 4,
               decoration: InputDecoration(
                 labelText: 'Detalhes do evento',
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      DateTime? picked = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now(),
+                        firstDate: DateTime(2023),
+                        lastDate: DateTime(2100),
+                      );
+                      setState(() => dateRanges[0]["start"] = picked);
+                    },
+                    icon: const Icon(Icons.calendar_today),
+                    label: Text(dateRanges[0]["start"] == null
+                        ? 'Início'
+                        : DateFormat('dd/MM/yyyy').format(dateRanges[0]["start"]!)),
+                    style: ElevatedButton.styleFrom(
+                      foregroundColor: Colors.black,
+                      backgroundColor: Colors.grey[200],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      DateTime? picked = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now(),
+                        firstDate: DateTime(2023),
+                        lastDate: DateTime(2100),
+                      );
+                      setState(() => dateRanges[0]["end"] = picked);
+                    },
+                    icon: const Icon(Icons.calendar_today),
+                    label: Text(dateRanges[0]["end"] == null
+                        ? 'Fim'
+                        : DateFormat('dd/MM/yyyy').format(dateRanges[0]["end"]!)),
+                    style: ElevatedButton.styleFrom(
+                      foregroundColor: Colors.black,
+                      backgroundColor: Colors.grey[200],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             CheckboxListTile(
-              title: Text('Datas específicas'),
+              controlAffinity: ListTileControlAffinity.leading,
+              title: const Text('Outras datas'),
               value: showDates,
               onChanged: (value) => setState(() => showDates = value!),
             ),
-            if (showDates)
-              ...dateRanges.map((range) => Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        DateTime? picked = await showDatePicker(
-                          context: context,
-                          initialDate: DateTime.now(),
-                          firstDate: DateTime(2023),
-                          lastDate: DateTime(2100),
-                        );
-                        setState(() => range["start"] = picked);
-                      },
-                      child: Text(range["start"] == null
-                          ? 'Início'
-                          : '${range["start"]!.day}/${range["start"]!.month}'),
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        DateTime? picked = await showDatePicker(
-                          context: context,
-                          initialDate: DateTime.now(),
-                          firstDate: DateTime(2023),
-                          lastDate: DateTime(2100),
-                        );
-                        setState(() => range["end"] = picked);
-                      },
-                      child: Text(range["end"] == null
-                          ? 'Fim'
-                          : '${range["end"]!.day}/${range["end"]!.month}'),
-                    ),
-                  ),
-                ],
-              )),
-            SizedBox(height: 12),
+            const SizedBox(height: 8),
             ElevatedButton.icon(
               onPressed: () {
                 // lógica para upload
               },
-              icon: Icon(Icons.upload_file),
-              label: Text('Upload de arquivos'),
+              icon: const Icon(Icons.upload_file),
+              label: const Text('Upload de arquivos'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.grey[300],
                 foregroundColor: Colors.black,
+                backgroundColor: Colors.grey[200],
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                minimumSize: const Size(double.infinity, 48),
               ),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
                 // lógica para publicar evento
               },
-              child: Text('PUBLICAR'),
+              child: const Text(
+                'PUBLICAR',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                minimumSize: Size(double.infinity, 48),
+                backgroundColor: Color.fromRGBO(204, 34, 41, 1),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                minimumSize: const Size(double.infinity, 50),
               ),
             ),
           ],
@@ -146,3 +194,4 @@ class _EventPageState extends State<EventPage> {
     );
   }
 }
+
