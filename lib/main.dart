@@ -12,7 +12,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: EventPage(), // define a tela inicial como a de login
+      home: LoginScreen(), // define a tela inicial como a de login
     );
   }
 }

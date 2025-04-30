@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/esqueci_senha.dart';
 import 'package:flutter_application_1/register.dart';
+
 
 void login() {
   runApp(Login());
@@ -69,7 +71,12 @@ class LoginScreen extends StatelessWidget {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => EsqueciSenha()),
+                        );
+                      },
                       child: Text(
                         "Esqueceu a senha?",
                         style: TextStyle(color: Colors.grey),
