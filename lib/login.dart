@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_application_1/esqueci_senha.dart';
 import 'package:flutter_application_1/register.dart';
 
@@ -14,7 +15,22 @@ class Login extends StatelessWidget {
   }
 }
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
+  @override
+  _LoginScreenState createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _senhaController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _senhaController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -22,7 +38,7 @@ class LoginScreen extends StatelessWidget {
       body: Stack(
         children: [
           Container(
-            height: size.height * 0.30, // 30% da tela
+            height: size.height * 0.30,
             decoration: BoxDecoration(
               color: Color(0xFFCC2229),
             ),
@@ -46,6 +62,9 @@ class LoginScreen extends StatelessWidget {
               child: Column(
                 children: [
                   TextField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    autofillHints: [AutofillHints.username, AutofillHints.email],
                     decoration: InputDecoration(
                       labelText: "Usuário",
                       border: OutlineInputBorder(
@@ -57,7 +76,9 @@ class LoginScreen extends StatelessWidget {
                   ),
                   SizedBox(height: 15),
                   TextField(
+                    controller: _senhaController,
                     obscureText: true,
+                    autofillHints: [AutofillHints.password],
                     decoration: InputDecoration(
                       labelText: "Senha",
                       border: OutlineInputBorder(
@@ -85,9 +106,11 @@ class LoginScreen extends StatelessWidget {
                   ),
                   SizedBox(height: 10),
                   ElevatedButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      TextInput.finishAutofillContext(); // Salvar o preenchimento
+                    },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.brown.shade700, // Tom mais escuro
+                      backgroundColor: Colors.brown.shade700,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
