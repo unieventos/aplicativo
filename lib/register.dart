@@ -123,7 +123,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: () {
-                      TextInput.finishAutofillContext();
+                      // Cadastro logic here
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Color(0xFFCC2229),
