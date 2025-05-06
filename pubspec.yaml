@@ -6,7 +6,8 @@ flutter:
   uses-material-design: true  # Configuração de material design
   assets:
     - assets/logo.png
-    - assets/event_register_image.jpg  # Adicionar imagens e outros assets
+    - assets/event_register_image.jpg
+    - assets/event.png # Adicionar imagens e outros assets
 
 publish_to: 'none' # Remova essa linha se quiser publicar no pub.dev
 

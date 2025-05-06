@@ -57,7 +57,7 @@ class _EventPageState extends State<EventPage> {
         child: Column(
           children: [
             Image.asset(
-              'assets/event_register_image.jpg',
+              'assets/event.png',
               height: 200,
             ),
             const SizedBox(height: 16),
@@ -105,7 +105,9 @@ class _EventPageState extends State<EventPage> {
                         firstDate: DateTime(2023),
                         lastDate: DateTime(2100),
                       );
-                      setState(() => dateRanges[0]["start"] = picked);
+                      if (picked != null) {
+                        setState(() => dateRanges[0]["start"] = picked);
+                      }
                     },
                     icon: const Icon(Icons.calendar_today),
                     label: Text(dateRanges[0]["start"] == null
@@ -123,14 +125,19 @@ class _EventPageState extends State<EventPage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () async {
+                    onPressed: dateRanges[0]["start"] == null
+                        ? null // desativa o botão se a data de início for nula
+                        : () async {
                       DateTime? picked = await showDatePicker(
                         context: context,
-                        initialDate: DateTime.now(),
-                        firstDate: DateTime(2023),
+                        initialDate: dateRanges[0]["start"]!,
+                        firstDate: dateRanges[0]["start"]!,
                         lastDate: DateTime(2100),
                       );
-                      setState(() => dateRanges[0]["end"] = picked);
+
+                      if (picked != null) {
+                        setState(() => dateRanges[0]["end"] = picked);
+                      }
                     },
                     icon: const Icon(Icons.calendar_today),
                     label: Text(dateRanges[0]["end"] == null
@@ -146,13 +153,6 @@ class _EventPageState extends State<EventPage> {
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 8),
-            CheckboxListTile(
-              controlAffinity: ListTileControlAffinity.leading,
-              title: const Text('Outras datas'),
-              value: showDates,
-              onChanged: (value) => setState(() => showDates = value!),
             ),
             const SizedBox(height: 8),
             ElevatedButton.icon(
