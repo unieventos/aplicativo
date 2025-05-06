@@ -70,8 +70,8 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
                           onPressed: () {
                             // ação de modificar
                           },
-                          icon: const Icon(Icons.edit),
-                          label: const Text("Modificar"),
+                          icon: const Icon(Icons.edit, color: Colors.red),
+                          label: const Text("Modificar", style: TextStyle(color: Colors.red)),
                         ),
                         ElevatedButton.icon(
                           onPressed: () {
@@ -82,8 +82,8 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.red,
                           ),
-                          icon: const Icon(Icons.delete),
-                          label: const Text("Deletar"),
+                          icon: const Icon(Icons.delete, color: Colors.white,),
+                          label: const Text("Deletar", style: TextStyle(color: Colors.white)),
                         ),
                       ],
                     ),
