@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/search.dart';
 import 'login.dart'; // importa a sua tela de login
 import 'eventRegister.dart';
 import 'UserRegister.dart';
@@ -13,7 +14,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: Login() // define a tela inicial como a de login
+      home: EventosPage() // define a tela inicial como a de login
     );
   }
 }
