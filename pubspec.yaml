@@ -21,6 +21,8 @@ dependencies:
   intl: ^0.18.0
   cupertino_icons: ^1.0.8
   flutter_launcher_icons: ^0.14.3
+  http: ^0.13.6
+  flutter_secure_storage: ^9.0.0
 
 dev_dependencies:
   flutter_test:

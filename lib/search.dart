@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_application_1/register.dart';
+import 'package:flutter_application_1/eventRegister.dart';
+import 'package:flutter_application_1/login.dart';
 void main() {
   runApp(MaterialApp(
     home: EventosPage(),
@@ -177,11 +179,25 @@ class _EventosPageState extends State<EventosPage> {
             IconButton(icon: const Icon(Icons.feed, color: Colors.blue), onPressed: () {}),
             const SizedBox(width: 40), // space for FAB
             IconButton(icon: const Icon(Icons.celebration), onPressed: () {}),
+            IconButton(
+              icon: const Icon(Icons.logout),
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => LoginScreen()),
+                );
+              },
+            ),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => EventPage()),
+          );
+        },
         child: const Icon(Icons.add),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,

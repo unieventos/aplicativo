@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'login.dart';
-import 'eventRegister.dart';
-import 'register.dart';
 
 class EventPage extends StatefulWidget {
   @override
@@ -11,6 +8,8 @@ class EventPage extends StatefulWidget {
 
 class _EventPageState extends State<EventPage> {
   String? selectedCourse;
+  bool showDates = false;
+
   List<Map<String, DateTime?>> dateRanges = [
     {"start": null, "end": null},
     {"start": null, "end": null},
@@ -43,41 +42,15 @@ class _EventPageState extends State<EventPage> {
         elevation: 0,
       ),
       bottomNavigationBar: BottomNavigationBar(
-        selectedItemColor: Colors.grey,
-        unselectedItemColor: Colors.grey,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.feed), label: 'Feeds'),
+          BottomNavigationBarItem(icon: Icon(Icons.add), label: ''),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+        ],
         currentIndex: 1,
         onTap: (index) {
-          if (index == 0) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => EventPage()),
-            );
-          } else if (index == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => EventPage()),
-            );
-          } else if (index == 2) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => RegisterScreen()),
-            );
-          }
+          // Navegação entre abas
         },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.feed, color: Colors.grey),
-            label: "Feeds",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add, color: Colors.grey),
-            label: "",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person, color: Colors.grey),
-            label: "Profile",
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -153,7 +126,7 @@ class _EventPageState extends State<EventPage> {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: dateRanges[0]["start"] == null
-                        ? null
+                        ? null // desativa o botão se a data de início for nula
                         : () async {
                       DateTime? picked = await showDatePicker(
                         context: context,
@@ -161,6 +134,7 @@ class _EventPageState extends State<EventPage> {
                         firstDate: dateRanges[0]["start"]!,
                         lastDate: DateTime(2100),
                       );
+
                       if (picked != null) {
                         setState(() => dateRanges[0]["end"] = picked);
                       }

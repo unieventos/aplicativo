@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_application_1/register.dart';
-
+import 'package:flutter_application_1/auth_service.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_application_1/search.dart';
 
 void login() {
   runApp(Login());
@@ -22,6 +24,10 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _senhaController = TextEditingController();
+
+  bool _permanecerLogado = false;
+
+  final storage = FlutterSecureStorage();
 
   @override
   void dispose() {
@@ -95,9 +101,54 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _permanecerLogado,
+                        onChanged: (bool? value) {
+                          setState(() {
+                            _permanecerLogado = value ?? false;
+                          });
+                        },
+                      ),
+                      Text("Permanecer logado"),
+                    ],
+                  ),
                   ElevatedButton(
-                    onPressed: () {
-                      TextInput.finishAutofillContext(); // Salvar o preenchimento
+                    onPressed: () async {
+                      TextInput.finishAutofillContext();
+
+                      final token = await AuthService.fazerLogin(
+                        _emailController.text.trim(),
+                        _senhaController.text.trim(),
+                        _permanecerLogado
+                      );
+
+                      if (token != null) {
+                        await storage.write(key: 'token', value: token);
+                        await storage.write(key: 'permanecerLogado', value: _permanecerLogado.toString());
+
+                        // Aqui você pode redirecionar para a próxima tela
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (_) => EventosPage()),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Login ou Senha inválidos',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            backgroundColor: Color(0xFFCC2229),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            margin: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          ),
+                        );
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.brown.shade700,
@@ -108,6 +159,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     child: Text(
                       "LOGIN",
+                      
                       style: TextStyle(fontSize: 18, color: Colors.white),
                     ),
                   ),
