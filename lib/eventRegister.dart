@@ -1,3 +1,4 @@
+import 'package:flutter_application_1/search.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -27,7 +28,12 @@ class _EventPageState extends State<EventPage> {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.search, color: Colors.black),
-          onPressed: () {},
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => EventosPage()),
+            );
+          },
         ),
         actions: [
           IconButton(
@@ -41,17 +47,23 @@ class _EventPageState extends State<EventPage> {
         ],
         elevation: 0,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.feed), label: 'Feeds'),
-          BottomNavigationBarItem(icon: Icon(Icons.add), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        ],
-        currentIndex: 1,
-        onTap: (index) {
-          // Navegação entre abas
-        },
+      bottomNavigationBar: BottomAppBar(
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 6,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            IconButton(icon: const Icon(Icons.feed, color: Colors.blue), onPressed: () {}),
+            const SizedBox(width: 40), // espaço para o FAB
+            IconButton(icon: const Icon(Icons.person), onPressed: () {}),
+          ],
+        ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {},
+        child: const Icon(Icons.add),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -194,4 +206,3 @@ class _EventPageState extends State<EventPage> {
     );
   }
 }
-
