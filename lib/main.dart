@@ -3,6 +3,8 @@ import 'package:flutter_application_1/search.dart';
 import 'login.dart'; // importa a sua tela de login
 import 'eventRegister.dart';
 import 'UserRegister.dart';
+import 'register.dart';
+import 'modifyUser.dart';
 
 
 void main() {

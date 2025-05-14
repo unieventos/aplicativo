@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'login.dart'; // importa a sua tela de login
+import 'eventRegister.dart';
+import 'register.dart';
+import 'modifyUser.dart';
 
 void main() {
   runApp(MaterialApp(
@@ -68,7 +72,10 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
                       children: [
                         ElevatedButton.icon(
                           onPressed: () {
-                            // ação de modificar
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => ModifyUserApp()),
+                            );
                           },
                           icon: const Icon(Icons.edit, color: Colors.red),
                           label: const Text("Modificar", style: TextStyle(color: Colors.red)),
@@ -94,17 +101,37 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
         },
       ),
       bottomNavigationBar: BottomNavigationBar(
+        selectedItemColor: Colors.grey,
+        unselectedItemColor: Colors.grey,
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => EventPage()),
+            );
+          } else if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => EventPage()),
+            );
+          } else if (index == 2) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => RegisterScreen()),
+            );
+          }
+        },
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.feed),
+            icon: Icon(Icons.feed, color: Colors.grey),
             label: "Feeds",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.add),
+            icon: Icon(Icons.add, color: Colors.grey),
             label: "",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
+            icon: Icon(Icons.person, color: Colors.grey),
             label: "Profile",
           ),
         ],
@@ -113,14 +140,19 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
         padding: const EdgeInsets.only(bottom: 60),
         child: ElevatedButton(
           onPressed: () {
-            // ação para adicionar novo usuário
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => RegisterScreen()),
+            );
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.red,
             padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
           ),
-          child: const Text("Novo Usuario",
-            style: TextStyle(color: Colors.white),),
+          child: const Text(
+            "Novo Usuário",
+            style: TextStyle(color: Colors.white),
+          ),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
