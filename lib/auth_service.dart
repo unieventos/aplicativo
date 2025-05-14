@@ -13,6 +13,8 @@ class AuthService {
       final body = jsonDecode(response.body);
       return body['token']; // ou 'access_token', dependendo da API
     } else {
+      print('Erro: ${response.statusCode}');
+      print('Mensagem: ${response.body}');
       return null;
     }
   }
