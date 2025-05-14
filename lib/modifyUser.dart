@@ -1,33 +1,54 @@
 import 'package:flutter/material.dart';
 
-void register() {
-  runApp(Register());
+void modify() {
+  runApp(ModifyUserApp());
 }
 
-class Register extends StatelessWidget {
+class ModifyUserApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(debugShowCheckedModeBanner: false, home: RegisterScreen());
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: ModifyUserScreen(
+        nome: "João da Silva",
+        email: "joao@email.com",
+        curso: "Engenharia",
+      ),
+    );
   }
 }
 
-class RegisterScreen extends StatefulWidget {
+class ModifyUserScreen extends StatefulWidget {
+  final String nome;
+  final String email;
+  final String curso;
+
+  ModifyUserScreen({required this.nome, required this.email, required this.curso});
+
   @override
-  _RegisterScreenState createState() => _RegisterScreenState();
+  _ModifyUserScreenState createState() => _ModifyUserScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
-  final TextEditingController _nomeController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _senhaController = TextEditingController();
-  final TextEditingController _confirmarSenhaController = TextEditingController();
+class _ModifyUserScreenState extends State<ModifyUserScreen> {
+  late TextEditingController _nomeController;
+  late TextEditingController _emailController;
+  late TextEditingController _senhaController;
+  String? _cursoSelecionado;
+
+  @override
+  void initState() {
+    super.initState();
+    _nomeController = TextEditingController(text: widget.nome);
+    _emailController = TextEditingController(text: widget.email);
+    _senhaController = TextEditingController();
+    _cursoSelecionado = widget.curso;
+  }
 
   @override
   void dispose() {
     _nomeController.dispose();
     _emailController.dispose();
     _senhaController.dispose();
-    _confirmarSenhaController.dispose();
     super.dispose();
   }
 
@@ -57,13 +78,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    "Registro Usuário",
+                    "Modificar Perfil",
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFFCC2229)),
                   ),
                   SizedBox(height: 20),
                   TextField(
                     controller: _nomeController,
-                    autofillHints: [AutofillHints.name],
                     decoration: InputDecoration(
                       labelText: "Nome Completo",
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -75,7 +95,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   TextField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    autofillHints: [AutofillHints.email],
                     decoration: InputDecoration(
                       labelText: "E-mail",
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -85,6 +104,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   SizedBox(height: 15),
                   DropdownButtonFormField<String>(
+                    value: _cursoSelecionado,
                     decoration: InputDecoration(
                       labelText: "Selecione o Curso",
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -94,27 +114,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     items: ["Ciência da Computação", "Engenharia", "Direito"]
                         .map((curso) => DropdownMenuItem(value: curso, child: Text(curso)))
                         .toList(),
-                    onChanged: (value) {},
+                    onChanged: (value) {
+                      setState(() {
+                        _cursoSelecionado = value;
+                      });
+                    },
                   ),
                   SizedBox(height: 15),
                   TextField(
                     controller: _senhaController,
                     obscureText: true,
-                    autofillHints: [AutofillHints.newPassword],
                     decoration: InputDecoration(
-                      labelText: "Senha",
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: 15),
-                  TextField(
-                    controller: _confirmarSenhaController,
-                    obscureText: true,
-                    autofillHints: [AutofillHints.newPassword],
-                    decoration: InputDecoration(
-                      labelText: "Confirmar Senha",
+                      labelText: "Nova Senha (opcional)",
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       filled: true,
                       fillColor: Colors.white,
@@ -123,7 +134,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: () {
-                      // Cadastro logic here
+                      // Lógica para salvar alterações
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Color(0xFFCC2229),
@@ -131,7 +142,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       minimumSize: Size(double.infinity, 50),
                     ),
                     child: Text(
-                      "CADASTRAR",
+                      "SALVAR ALTERAÇÕES",
                       style: TextStyle(fontSize: 18, color: Colors.white),
                     ),
                   ),

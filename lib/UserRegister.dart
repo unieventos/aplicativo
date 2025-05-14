@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'login.dart'; // importa a sua tela de login
 import 'eventRegister.dart';
 import 'register.dart';
+import 'modifyUser.dart';
 
 void main() {
   runApp(MaterialApp(
@@ -73,7 +74,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
                           onPressed: () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => RegisterScreen()),
+                              MaterialPageRoute(builder: (context) => ModifyUserApp()),
                             );
                           },
                           icon: const Icon(Icons.edit, color: Colors.red),
