@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'login.dart'; // importa a sua tela de login
 import 'eventRegister.dart';
 import 'UserRegister.dart';
+import 'register.dart';
 
 
 void main() {
