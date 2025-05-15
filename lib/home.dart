@@ -128,8 +128,8 @@ class EventosPage extends StatelessWidget {
             // Imagem do evento
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: Image.network(
-                'https://img.freepik.com/fotos-premium/publico-assistindo-show-no-palco_865967-41951.jpg',
+              child: Image.asset(
+                'assets/event.png',
                 height: 180,
                 width: double.infinity,
                 fit: BoxFit.cover,
@@ -148,7 +148,7 @@ class EventosPage extends StatelessWidget {
             ),
             SizedBox(height: 10),
 
-            // Convidados
+            //Convidados
             Row(
               children: [
                 SizedBox(
