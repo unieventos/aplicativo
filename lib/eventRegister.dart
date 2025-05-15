@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'register.dart';
 
-class EventPage extends StatefulWidget {
+class EVRegister extends StatefulWidget {
   @override
-  _EventPageState createState() => _EventPageState();
+  _EVRegisterState createState() => _EVRegisterState();
 }
 
-class _EventPageState extends State<EventPage> {
+class _EVRegisterState extends State<EVRegister> {
   String? selectedCourse;
   bool showDates = false;
 
@@ -32,7 +32,7 @@ class _EventPageState extends State<EventPage> {
           onPressed: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => EventosPage()),
+              MaterialPageRoute(builder: (context) => SearchPage()),
             );
           },
         ),
@@ -51,15 +51,13 @@ class _EventPageState extends State<EventPage> {
       bottomNavigationBar: BottomNavigationBar(
         selectedItemColor: Colors.grey,
         unselectedItemColor: Colors.grey,
-        currentIndex: 1, // esta tela é o índice 1 (criar evento)
+        currentIndex: 1,
         onTap: (index) {
           if (index == 0) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => EventosPage()),
+              MaterialPageRoute(builder: (context) => SearchPage()),
             );
-          } else if (index == 1) {
-            // já está nesta tela, não faz nada
           } else if (index == 2) {
             Navigator.pushReplacement(
               context,
@@ -157,7 +155,7 @@ class _EventPageState extends State<EventPage> {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: dateRanges[0]["start"] == null
-                        ? null // desativa o botão se a data de início for nula
+                        ? null
                         : () async {
                       DateTime? picked = await showDatePicker(
                         context: context,
@@ -165,7 +163,6 @@ class _EventPageState extends State<EventPage> {
                         firstDate: dateRanges[0]["start"]!,
                         lastDate: DateTime(2100),
                       );
-
                       if (picked != null) {
                         setState(() => dateRanges[0]["end"] = picked);
                       }
@@ -225,3 +222,4 @@ class _EventPageState extends State<EventPage> {
     );
   }
 }
+

@@ -131,7 +131,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         // Aqui você pode redirecionar para a próxima tela
                         Navigator.pushReplacement(
                           context,
-                          MaterialPageRoute(builder: (_) => EventosPage()),
+                          MaterialPageRoute(builder: (_) => SearchPage()),
                         );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(

@@ -45,12 +45,12 @@ class EventosPage extends StatelessWidget {
           if (index == 0) {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => EventPage()),
+              MaterialPageRoute(builder: (context) => EVRegister()),
             );
           } else if (index == 1) {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => EventPage()),
+              MaterialPageRoute(builder: (context) => EVRegister()),
             );
           } else if (index == 2) {
             Navigator.push(

@@ -113,7 +113,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
           } else if (index == 1) {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => EventPage()),
+              MaterialPageRoute(builder: (context) => EVRegister()),
             );
           } else if (index == 2) {
             Navigator.push(

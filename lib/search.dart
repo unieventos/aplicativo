@@ -3,9 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_application_1/register.dart';
 import 'package:flutter_application_1/eventRegister.dart';
 import 'package:flutter_application_1/login.dart';
+
 void main() {
   runApp(MaterialApp(
-    home: EventosPage(),
+    home: SearchPage(),
     debugShowCheckedModeBanner: false,
   ));
 }
@@ -18,12 +19,12 @@ class Evento {
   Evento(this.nome, this.tipo, this.resumo);
 }
 
-class EventosPage extends StatefulWidget {
+class SearchPage extends StatefulWidget {
   @override
-  _EventosPageState createState() => _EventosPageState();
+  _SearchPageState createState() => _SearchPageState();
 }
 
-class _EventosPageState extends State<EventosPage> {
+class _SearchPageState extends State<SearchPage> {
   List<Evento> eventos = [
     Evento("NOME DO EVENTO", "CURSO", "BREVE RESUMO DO ENVENTO AQUI, SEM SER MUIT DETALHADO, CONTENDO INFO RELEVANTE"),
     Evento("NOME DO EVENTO", "CURSO", "BREVE RESUMO DO ENVENTO AQUI, SEM SER MUIT DETALHADO, CONTENDO INFO RELEVANTE"),
@@ -195,7 +196,7 @@ class _EventosPageState extends State<EventosPage> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => EventPage()),
+            MaterialPageRoute(builder: (context) => EVRegister()),
           );
         },
         child: const Icon(Icons.add),
