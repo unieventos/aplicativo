@@ -3,6 +3,7 @@ import 'login.dart'; // importa a sua tela de login
 import 'eventRegister.dart';
 import 'register.dart';
 import 'modifyUser.dart';
+import 'home.dart';
 
 void main() {
   runApp(MaterialApp(
@@ -107,7 +108,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
           if (index == 0) {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => EventPage()),
+              MaterialPageRoute(builder: (context) => EventosApp()),
             );
           } else if (index == 1) {
             Navigator.push(
@@ -132,7 +133,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person, color: Colors.grey),
-            label: "Profile",
+            label: "Perfil",
           ),
         ],
       ),

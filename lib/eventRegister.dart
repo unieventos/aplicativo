@@ -1,6 +1,7 @@
 import 'package:flutter_application_1/search.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'register.dart';
 
 class EventPage extends StatefulWidget {
   @override
@@ -47,21 +48,39 @@ class _EventPageState extends State<EventPage> {
         ],
         elevation: 0,
       ),
-      bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 6,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            IconButton(icon: const Icon(Icons.feed, color: Colors.blue), onPressed: () {}),
-            const SizedBox(width: 40), // espaço para o FAB
-            IconButton(icon: const Icon(Icons.person), onPressed: () {}),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        child: const Icon(Icons.add),
+      bottomNavigationBar: BottomNavigationBar(
+        selectedItemColor: Colors.grey,
+        unselectedItemColor: Colors.grey,
+        currentIndex: 1, // esta tela é o índice 1 (criar evento)
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => EventosPage()),
+            );
+          } else if (index == 1) {
+            // já está nesta tela, não faz nada
+          } else if (index == 2) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => RegisterScreen()),
+            );
+          }
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.feed),
+            label: "Feeds",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add),
+            label: "",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: "Perfil",
+          ),
+        ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       body: SingleChildScrollView(
