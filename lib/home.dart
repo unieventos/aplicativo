@@ -117,8 +117,8 @@ class EventosPage extends StatelessWidget {
             // Imagem do evento
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: Image.network(
-                'https://img.freepik.com/fotos-premium/publico-assistindo-show-no-palco_865967-41951.jpg',
+              child: Image.asset(
+                'assets/event.png',
                 height: 180,
                 width: double.infinity,
                 fit: BoxFit.cover,
@@ -137,10 +137,13 @@ class EventosPage extends StatelessWidget {
             ),
             SizedBox(height: 10),
 
-            // Convidados
+            //Convidados
             Row(
               children: [
-                Stack(
+                SizedBox(
+                width: 120, // ou o valor que quiser
+                height: 30, // altura para os avatares
+                child: Stack(
                   children: List.generate(5, (index) {
                     return Positioned(
                       left: index * 20,
@@ -148,11 +151,12 @@ class EventosPage extends StatelessWidget {
                         backgroundColor: Colors.white,
                         child: CircleAvatar(
                           radius: 15,
-                          backgroundImage: AssetImage('assets/avatar.jpg'), // Use diferentes imagens se quiser
+                          backgroundImage: AssetImage('assets/event.png'), // Use diferentes imagens se quiser
                         ),
                       ),
                     );
                   }),
+                ),
                 ),
                 SizedBox(width: 120),
                 Text("+150 outros", style: TextStyle(color: Colors.grey)),
