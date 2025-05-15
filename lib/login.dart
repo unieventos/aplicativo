@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_application_1/home.dart';
 import 'package:flutter_application_1/register.dart';
 import 'package:flutter_application_1/auth_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -131,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         // Aqui você pode redirecionar para a próxima tela
                         Navigator.pushReplacement(
                           context,
-                          MaterialPageRoute(builder: (_) => SearchPage()),
+                          MaterialPageRoute(builder: (_) => EventosApp()),
                         );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(

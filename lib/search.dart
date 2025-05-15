@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_application_1/register.dart';
 import 'package:flutter_application_1/eventRegister.dart';
 import 'package:flutter_application_1/login.dart';
+import 'package:flutter_application_1/home.dart';
 
 void main() {
   runApp(MaterialApp(
@@ -171,37 +172,46 @@ class _SearchPageState extends State<SearchPage> {
           );
         },
       ),
-      bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 6,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            IconButton(icon: const Icon(Icons.feed, color: Colors.blue), onPressed: () {}),
-            const SizedBox(width: 40), // space for FAB
-            IconButton(icon: const Icon(Icons.celebration), onPressed: () {}),
-            IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => LoginScreen()),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => EVRegister()),
-          );
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.feed, color: Colors.grey),
+            label: "Feeds",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add, color: Colors.grey),
+            label: "",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person, color: Colors.grey),
+            label: "Profile",
+          ),
+        ],
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => EventosApp()),
+              (Route<dynamic> route) => false,
+            );
+          } else if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => EVRegister()),
+            );
+          } else if (index == 2) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => RegisterScreen()),
+            );
+          }
         },
-        child: const Icon(Icons.add),
+        currentIndex: 0,
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 }

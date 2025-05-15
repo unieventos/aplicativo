@@ -1,4 +1,5 @@
 import 'package:flutter_application_1/search.dart';
+import 'package:flutter_application_1/home.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'register.dart';
@@ -49,14 +50,14 @@ class _EVRegisterState extends State<EVRegister> {
         elevation: 0,
       ),
       bottomNavigationBar: BottomNavigationBar(
-        selectedItemColor: Colors.grey,
+        selectedItemColor: Colors.blue,
         unselectedItemColor: Colors.grey,
         currentIndex: 1,
         onTap: (index) {
           if (index == 0) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => SearchPage()),
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => EventosApp()),
+              (Route<dynamic> route) => false,
             );
           } else if (index == 2) {
             Navigator.pushReplacement(
@@ -198,6 +199,25 @@ class _EVRegisterState extends State<EVRegister> {
                 minimumSize: const Size(double.infinity, 48),
               ),
             ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => EventosApp()),
+                  (Route<dynamic> route) => false,
+                );
+              },
+              icon: Icon(Icons.description, color: Colors.white),
+              label: Text('Ir para Home'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                minimumSize: Size(double.infinity, 48),
+              ),
+            ),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
@@ -222,4 +242,3 @@ class _EVRegisterState extends State<EVRegister> {
     );
   }
 }
-

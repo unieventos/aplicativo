@@ -3,6 +3,7 @@ import 'login.dart'; // importa a sua tela de login
 import 'eventRegister.dart';
 import 'register.dart';
 import 'modifyUser.dart';
+import 'search.dart';
 
 void main() => runApp(EventosApp());
 
@@ -26,7 +27,15 @@ class EventosPage extends StatelessWidget {
         backgroundColor: Colors.white,
         centerTitle: true,
         elevation: 1,
-        leading: Icon(Icons.arrow_back_ios, color: Colors.black),
+        leading: IconButton(
+          icon: Icon(Icons.search, color: Colors.black),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => SearchPage()),
+            );
+          },
+        ),
         actions: [
           Icon(Icons.notifications_none, color: Colors.black),
           SizedBox(width: 12),
@@ -35,17 +44,19 @@ class EventosPage extends StatelessWidget {
       body: ListView(
         padding: EdgeInsets.all(16),
         children: [
+          exemploEventoCard(),
           _buildEventoCard(),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
-        selectedItemColor: Colors.grey,
+        currentIndex: 0, // Feed está selecionado
+        selectedItemColor: Colors.blue,
         unselectedItemColor: Colors.grey,
         onTap: (index) {
           if (index == 0) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => EVRegister()),
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => EventosApp()),
+              (Route<dynamic> route) => false,
             );
           } else if (index == 1) {
             Navigator.push(
@@ -61,15 +72,15 @@ class EventosPage extends StatelessWidget {
         },
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.feed, color: Colors.grey),
+            icon: Icon(Icons.feed),
             label: "Feeds",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.add, color: Colors.grey),
+            icon: Icon(Icons.add),
             label: "",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person, color: Colors.grey),
+            icon: Icon(Icons.person),
             label: "Profile",
           ),
         ],
@@ -90,7 +101,7 @@ class EventosPage extends StatelessWidget {
             Row(
               children: [
                 CircleAvatar(
-                  backgroundImage: AssetImage('assets/avatar.jpg'), // Altere conforme necessário
+                  backgroundImage: NetworkImage('https://randomuser.me/api/portraits/men/32.jpg'), // Altere conforme necessário
                   radius: 20,
                 ),
                 SizedBox(width: 10),
@@ -140,21 +151,121 @@ class EventosPage extends StatelessWidget {
             // Convidados
             Row(
               children: [
-                Stack(
-                  children: List.generate(5, (index) {
-                    return Positioned(
-                      left: index * 20,
-                      child: CircleAvatar(
-                        backgroundColor: Colors.white,
+                SizedBox(
+                  width: 110,
+                  height: 32,
+                  child: Stack(
+                    children: List.generate(5, (index) {
+                      final urls = [
+                        'https://randomuser.me/api/portraits/women/30.jpg',
+                        'https://randomuser.me/api/portraits/women/31.jpg',
+                        'https://randomuser.me/api/portraits/women/32.jpg',
+                        'https://randomuser.me/api/portraits/women/33.jpg',
+                        'https://randomuser.me/api/portraits/women/34.jpg',
+                      ];
+                      return Positioned(
+                        left: index * 20,
                         child: CircleAvatar(
-                          radius: 15,
-                          backgroundImage: AssetImage('assets/avatar.jpg'), // Use diferentes imagens se quiser
+                          backgroundColor: Colors.white,
+                          child: CircleAvatar(
+                            radius: 15,
+                            backgroundImage: NetworkImage(urls[index]),
+                          ),
                         ),
-                      ),
-                    );
-                  }),
+                      );
+                    }),
+                  ),
                 ),
-                SizedBox(width: 120),
+                SizedBox(width: 24),
+                Text("+150 outros", style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget exemploEventoCard() {
+    return Card(
+      margin: EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundImage: NetworkImage('https://randomuser.me/api/portraits/men/32.jpg'),
+                  radius: 20,
+                ),
+                SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Exemplo Usuário", style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text("Exemplo Curso", style: TextStyle(color: Colors.blue)),
+                  ],
+                ),
+                Spacer(),
+                Icon(Icons.more_vert),
+              ],
+            ),
+            SizedBox(height: 10),
+            Text(
+              "Este é um exemplo de card de evento.",
+              style: TextStyle(fontSize: 14),
+            ),
+            SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.network(
+                'https://img.freepik.com/fotos-premium/publico-assistindo-show-no-palco_865967-41951.jpg',
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+            SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Icon(Icons.favorite_border),
+                Icon(Icons.comment_outlined),
+                Icon(Icons.download),
+              ],
+            ),
+            SizedBox(height: 10),
+            Row(
+              children: [
+                SizedBox(
+                  width: 110,
+                  height: 32,
+                  child: Stack(
+                    children: List.generate(5, (index) {
+                      final urls = [
+                        'https://randomuser.me/api/portraits/women/30.jpg',
+                        'https://randomuser.me/api/portraits/women/31.jpg',
+                        'https://randomuser.me/api/portraits/women/32.jpg',
+                        'https://randomuser.me/api/portraits/women/33.jpg',
+                        'https://randomuser.me/api/portraits/women/34.jpg',
+                      ];
+                      return Positioned(
+                        left: index * 20,
+                        child: CircleAvatar(
+                          backgroundColor: Colors.white,
+                          child: CircleAvatar(
+                            radius: 15,
+                            backgroundImage: NetworkImage(urls[index]),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+                SizedBox(width: 24),
                 Text("+150 outros", style: TextStyle(color: Colors.grey)),
               ],
             ),
