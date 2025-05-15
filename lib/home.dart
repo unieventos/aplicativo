@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'login.dart'; // importa a sua tela de login
+import 'eventRegister.dart';
+import 'register.dart';
+import 'modifyUser.dart';
 
 void main() => runApp(EventosApp());
 
@@ -35,20 +39,38 @@ class EventosPage extends StatelessWidget {
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0,
-        selectedItemColor: Colors.black,
-        items: [
+        selectedItemColor: Colors.grey,
+        unselectedItemColor: Colors.grey,
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => EventPage()),
+            );
+          } else if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => EventPage()),
+            );
+          } else if (index == 2) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => RegisterScreen()),
+            );
+          }
+        },
+        items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.feed),
-            label: 'Feeds',
+            icon: Icon(Icons.feed, color: Colors.grey),
+            label: "Feeds",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.add_box, size: 32),
-            label: '',
+            icon: Icon(Icons.add, color: Colors.grey),
+            label: "",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
+            icon: Icon(Icons.person, color: Colors.grey),
+            label: "Profile",
           ),
         ],
       ),

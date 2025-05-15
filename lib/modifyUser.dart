@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'UserRegister.dart';
 
 void modify() {
   runApp(ModifyUserApp());
@@ -64,6 +65,21 @@ class _ModifyUserScreenState extends State<ModifyUserScreen> {
               Expanded(flex: 7, child: Container(color: Color(0xFFEFEFEF))),
             ],
           ),
+
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 10, // respeita status bar
+            left: 10,
+            child: IconButton(
+              icon: Icon(Icons.arrow_back, color: Colors.white, size: 30),
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => CadastroUsuarioPage()),
+                );
+              },
+            ),
+          ),
+
           Positioned(
             left: 20,
             right: 20,

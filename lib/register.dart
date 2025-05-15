@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'UserRegister.dart';
 
 void register() {
   runApp(Register());
@@ -43,6 +44,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
               Expanded(flex: 7, child: Container(color: Color(0xFFEFEFEF))),
             ],
           ),
+
+          // Botão de voltar posicionado no topo esquerdo
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 10, // respeita status bar
+            left: 10,
+            child: IconButton(
+              icon: Icon(Icons.arrow_back, color: Colors.white, size: 30),
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => CadastroUsuarioPage()),
+                );
+              },
+            ),
+          ),
+
           Positioned(
             left: 20,
             right: 20,
@@ -144,3 +161,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 }
+
