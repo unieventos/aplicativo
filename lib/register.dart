@@ -1,24 +1,67 @@
 import 'package:flutter/material.dart';
 import 'UserRegister.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+import 'home.dart';
+import 'eventRegister.dart';
 
 void register() {
   runApp(Register());
 }
 
-class Register extends StatelessWidget {
+class Register extends StatefulWidget {
+  @override
+  _RegisterState createState() => _RegisterState();
+}
+
+class _RegisterState extends State<Register> {
+  final storage = FlutterSecureStorage();
+  String? _role;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRole();
+  }
+
+  Future<void> _loadRole() async {
+    final storedRole = await storage.read(key: 'role');
+    setState(() {
+      _role = storedRole;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(debugShowCheckedModeBanner: false, home: RegisterScreen());
+    if (_role == null) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: RegisterScreen(role: _role!),
+    );
   }
 }
 
 class RegisterScreen extends StatefulWidget {
+  final String role;
+  RegisterScreen({required this.role});
+
   @override
   _RegisterScreenState createState() => _RegisterScreenState();
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _nomeController = TextEditingController();
+  final TextEditingController _sobrenomeController = TextEditingController();
+  final TextEditingController _loginController = TextEditingController();
+  final TextEditingController _roleController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _senhaController = TextEditingController();
   final TextEditingController _confirmarSenhaController = TextEditingController();
@@ -26,6 +69,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void dispose() {
     _nomeController.dispose();
+    _sobrenomeController.dispose();
+    _loginController.dispose();
+    _roleController.dispose();
     _emailController.dispose();
     _senhaController.dispose();
     _confirmarSenhaController.dispose();
@@ -82,7 +128,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     controller: _nomeController,
                     autofillHints: [AutofillHints.name],
                     decoration: InputDecoration(
-                      labelText: "Nome Completo",
+                      labelText: "Nome",
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                  ),
+                  SizedBox(height: 15),
+                  TextField(
+                    controller: _sobrenomeController,
+                    autofillHints: [AutofillHints.familyName],
+                    decoration: InputDecoration(
+                      labelText: "Sobrenome",
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                  ),
+                  SizedBox(height: 15),
+                  TextField(
+                    controller: _loginController,
+                    decoration: InputDecoration(
+                      labelText: "Login",
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                  ),
+                  SizedBox(height: 15),
+                  TextField(
+                    controller: _roleController,
+                    decoration: InputDecoration(
+                      labelText: "Perfil",
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       filled: true,
                       fillColor: Colors.white,
@@ -158,7 +235,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ],
       ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: 2,
+        selectedItemColor: Colors.black,
+        unselectedItemColor: Colors.grey,
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
+        type: BottomNavigationBarType.fixed,
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => EventosApp()));
+          } else if (index == 1) {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => EVRegister()));
+          } else if (index == 2) {
+            // já está na tela de cadastro
+          } else if (index == 3) {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => RegisterScreen(role: widget.role)));
+          }
+        },
+        items: widget.role == 'admin'
+            ? const [
+                BottomNavigationBarItem(icon: Icon(Icons.feed), label: ''),
+                BottomNavigationBarItem(icon: Icon(Icons.add), label: ''),
+                BottomNavigationBarItem(icon: Icon(Icons.admin_panel_settings), label: ''),
+                BottomNavigationBarItem(icon: Icon(Icons.person), label: ''),
+              ]
+            : const [
+                BottomNavigationBarItem(icon: Icon(Icons.feed), label: ''),
+                BottomNavigationBarItem(icon: Icon(Icons.add), label: ''),
+                BottomNavigationBarItem(icon: Icon(Icons.person), label: ''),
+              ],
+      ),
     );
   }
 }
-

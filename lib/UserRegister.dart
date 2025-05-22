@@ -1,9 +1,14 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
+import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'login.dart'; // importa a sua tela de login
 import 'eventRegister.dart';
 import 'register.dart';
 import 'modifyUser.dart';
 import 'home.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'perfil.dart';
 
 void main() {
   runApp(MaterialApp(
@@ -12,11 +17,21 @@ void main() {
 }
 
 class Usuario {
+  final String id;
   final String nome;
+  final String sobrenome;
   final String email;
+  final int cursoId;
   bool expandido;
 
-  Usuario(this.nome, this.email, {this.expandido = false});
+  Usuario({
+    required this.id,
+    required this.nome,
+    required this.sobrenome,
+    required this.email,
+    required this.cursoId,
+    this.expandido = false,
+  });
 }
 
 class CadastroUsuarioPage extends StatefulWidget {
@@ -25,115 +40,206 @@ class CadastroUsuarioPage extends StatefulWidget {
 }
 
 class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
-  List<Usuario> usuarios = [
-    Usuario("João Siiva", "joao@email.com"),
-    Usuario("María Oliveira", "maria@email.com"),
-    Usuario("Carla Souza", "carla@email.com"),
-    Usuario("Pedro Santos", "pedro@email.com"),
-  ];
+  final bool isAdmin = true; // Altere para false se quiser simular usuário comum
+  static const _pageSize = 10;
+  final PagingController<int, Usuario> _pagingController = PagingController(firstPageKey: 0);
+  int _selectedIndex = 2; // índice de Admin alterado para 2
+  String _searchText = '';
+
+
+  @override
+  void initState() {
+    super.initState();
+    _pagingController.addPageRequestListener((pageKey) {
+      _fetchPage(pageKey);
+    });
+  }
+
+  Future<void> _fetchPage(int pageKey) async {
+    try {
+      final newItems = await UsuarioApi.fetchUsuarios(pageKey, _pageSize, _searchText);
+      final isLastPage = newItems.length < _pageSize;
+
+      if (isLastPage) {
+        _pagingController.appendLastPage(newItems);
+      } else {
+        final nextPageKey = pageKey + 1;
+        _pagingController.appendPage(newItems, nextPageKey);
+      }
+    } catch (error) {
+      _pagingController.error = error;
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar usuários: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _pagingController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Cadastro Usuario",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),),
+        automaticallyImplyLeading: false,
+        title: const Text("Gerenciador de Usuarios",
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
         centerTitle: true,
       ),
-      body: ListView.builder(
-        itemCount: usuarios.length,
-        itemBuilder: (context, index) {
-          final usuario = usuarios[index];
-          return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const CircleAvatar(child: Icon(Icons.person)),
-                  title: Text(usuario.nome),
-                  subtitle: Text(usuario.email),
-                  trailing: IconButton(
-                    icon: Icon(
-                      usuario.expandido
-                          ? Icons.keyboard_arrow_up
-                          : Icons.keyboard_arrow_down,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        usuario.expandido = !usuario.expandido;
-                      });
-                    },
-                  ),
-                ),
-                if (usuario.expandido)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => ModifyUserApp()),
-                            );
-                          },
-                          icon: const Icon(Icons.edit, color: Colors.red),
-                          label: const Text("Modificar", style: TextStyle(color: Colors.red)),
-                        ),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              usuarios.removeAt(index);
-                            });
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                          ),
-                          icon: const Icon(Icons.delete, color: Colors.white,),
-                          label: const Text("Deletar", style: TextStyle(color: Colors.white)),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: TextField(
+              decoration: const InputDecoration(
+                labelText: 'Pesquisar usuário',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchText = value;
+                  _pagingController.refresh();
+                });
+              },
             ),
-          );
-        },
+          ),
+          Expanded(
+            child: PagedListView<int, Usuario>(
+              pagingController: _pagingController,
+              builderDelegate: PagedChildBuilderDelegate<Usuario>(
+                itemBuilder: (context, usuario, index) {
+                  final isLastItem = index == _pagingController.itemList!.length - 1;
+                  return Column(
+                    children: [
+                      Card(
+                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        child: Column(
+                          children: [
+                            ListTile(
+                              leading: const CircleAvatar(child: Icon(Icons.person)),
+                              title: Text(usuario.nome + ' ' + usuario.sobrenome),
+                              subtitle: Text(usuario.email),
+                              trailing: IconButton(
+                                icon: Icon(
+                                  usuario.expandido
+                                      ? Icons.keyboard_arrow_up
+                                      : Icons.keyboard_arrow_down,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    usuario.expandido = !usuario.expandido;
+                                  });
+                                },
+                              ),
+                            ),
+                            if (usuario.expandido)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    ElevatedButton.icon(
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (context) => ModifyUserApp()),
+                                        );
+                                      },
+                                      icon: const Icon(Icons.edit, color: Colors.red),
+                                      label: const Text("Modificar", style: TextStyle(color: Colors.red)),
+                                    ),
+                                    ElevatedButton.icon(
+                                      onPressed: () {
+                                        _pagingController.refresh();
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.red,
+                                      ),
+                                      icon: const Icon(Icons.delete, color: Colors.white),
+                                      label: const Text("Deletar", style: TextStyle(color: Colors.white)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (isLastItem) const SizedBox(height: 80),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: BottomNavigationBar(
-        selectedItemColor: Colors.grey,
+        selectedItemColor: Colors.black,
         unselectedItemColor: Colors.grey,
+        currentIndex: _selectedIndex,
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
+        type: BottomNavigationBarType.fixed,
         onTap: (index) {
+          if (index == _selectedIndex) return;
+
           if (index == 0) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => EventosApp()),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (context) => EventosApp()));
           } else if (index == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => EVRegister()),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (context) => EVRegister()));
           } else if (index == 2) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => RegisterScreen()),
-            );
+            // já está na tela CadastroUsuarioPage
+            return;
+          } else if (index == 3) {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => PerfilPage()));
           }
+
+          setState(() {
+            _selectedIndex = index;
+          });
         },
-        items: const [
+        items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.feed, color: Colors.grey),
-            label: "Feeds",
+            icon: Icon(
+              Icons.feed,
+              color: _selectedIndex == 0 ? Colors.black : Colors.grey,
+              size: _selectedIndex == 0 ? 28 : 24,
+            ),
+            label: '',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.add, color: Colors.grey),
-            label: "",
+            icon: Icon(
+              Icons.add,
+              color: _selectedIndex == 1 ? Colors.black : Colors.grey,
+              size: _selectedIndex == 1 ? 28 : 24,
+            ),
+            label: '',
           ),
+          if (isAdmin)
+            BottomNavigationBarItem(
+              icon: Icon(
+                Icons.admin_panel_settings,
+                color: _selectedIndex == 2 ? Colors.black : Colors.grey,
+                size: _selectedIndex == 2 ? 28 : 24,
+              ),
+              label: '',
+            ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person, color: Colors.grey),
-            label: "Perfil",
+            icon: Icon(
+              Icons.person,
+              color: _selectedIndex == 3 ? Colors.black : Colors.grey,
+              size: _selectedIndex == 3 ? 28 : 24,
+            ),
+            label: '',
           ),
         ],
       ),
@@ -143,7 +249,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
           onPressed: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => RegisterScreen()),
+              MaterialPageRoute(builder: (context) => RegisterScreen(role: 'admin')),
             );
           },
           style: ElevatedButton.styleFrom(
@@ -157,6 +263,54 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+    );
+  }
+}
+
+
+class UsuarioApi {
+  static const String baseUrl = 'http://172.171.192.14:8080/unieventos/usuarios';
+
+  static Future<List<Usuario>> fetchUsuarios(int page, int pageSize, String search) async {
+    final storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'token');
+
+    if (token == null) {
+      throw Exception('Token não encontrado. Usuário não autenticado.');
+    }
+
+    final url = Uri.parse('$baseUrl?page=$page&size=$pageSize&sortBy=nome&name=$search');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> jsonData = json.decode(utf8.decode(response.bodyBytes));
+      final List<dynamic> usuarioList = jsonData['_embedded']?['usuarioResourceV1List'] ?? [];
+
+      return usuarioList.map((jsonItem) {
+        final userJson = jsonItem['user'] as Map<String, dynamic>;
+        return UsuarioFactory.fromJson(userJson);
+      }).toList();
+    } else {
+      throw Exception('Erro ao carregar usuários: ${response.statusCode}');
+    }
+  }
+}
+
+extension UsuarioFactory on Usuario {
+  static Usuario fromJson(Map<String, dynamic> json) {
+    return Usuario(
+      id: json['id'] ?? '',
+      nome: json['nome'] ?? '',
+      sobrenome: json['sobrenome'] ?? '',
+      email: json['email'] ?? '',
+      cursoId: json['cursoId'] ?? 0,
     );
   }
 }

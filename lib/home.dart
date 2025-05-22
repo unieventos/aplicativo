@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'login.dart'; // importa a sua tela de login
 import 'eventRegister.dart';
 import 'register.dart';
 import 'modifyUser.dart';
 import 'search.dart';
+import 'UserRegister.dart';
 
 void main() => runApp(EventosApp());
 
@@ -18,9 +20,36 @@ class EventosApp extends StatelessWidget {
   }
 }
 
-class EventosPage extends StatelessWidget {
+class EventosPage extends StatefulWidget {
+  @override
+  _EventosPageState createState() => _EventosPageState();
+}
+
+class _EventosPageState extends State<EventosPage> {
+  final _storage = FlutterSecureStorage();
+  String? _role;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRole();
+  }
+
+  Future<void> _loadRole() async {
+    final role = await _storage.read(key: 'role');
+    setState(() {
+      _role = role;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_role == null) {
+      return Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text("Eventos", style: TextStyle(color: Colors.black)),
@@ -66,24 +95,43 @@ class EventosPage extends StatelessWidget {
           } else if (index == 2) {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => RegisterScreen()),
+              MaterialPageRoute(builder: (context) => RegisterScreen(role: _role!)),
             );
           }
         },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.feed),
-            label: "Feeds",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add),
-            label: "",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: "Profile",
-          ),
-        ],
+        items: _role == 'admin'
+            ? const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.feed),
+                  label: "Feeds",
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.add),
+                  label: "",
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.admin_panel_settings),
+                  label: "",
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person),
+                  label: "",
+                ),
+              ]
+            : const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.feed),
+                  label: "Feeds",
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.add),
+                  label: "",
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person),
+                  label: "Profile",
+                ),
+              ],
       ),
     );
   }

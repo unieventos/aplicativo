@@ -62,7 +62,7 @@ class _EVRegisterState extends State<EVRegister> {
           } else if (index == 2) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => RegisterScreen()),
+              MaterialPageRoute(builder: (context) => RegisterScreen(role: 'admin')), // ajuste conforme necessário
             );
           }
         },

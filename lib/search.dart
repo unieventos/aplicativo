@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_application_1/register.dart';
+import 'package:flutter_application_1/UserRegister.dart';
 import 'package:flutter_application_1/eventRegister.dart';
 import 'package:flutter_application_1/login.dart';
 import 'package:flutter_application_1/home.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 void main() {
   runApp(MaterialApp(
@@ -26,6 +28,9 @@ class SearchPage extends StatefulWidget {
 }
 
 class _SearchPageState extends State<SearchPage> {
+  final storage = FlutterSecureStorage();
+  String? _role;
+
   List<Evento> eventos = [
     Evento("NOME DO EVENTO", "CURSO", "BREVE RESUMO DO ENVENTO AQUI, SEM SER MUIT DETALHADO, CONTENDO INFO RELEVANTE"),
     Evento("NOME DO EVENTO", "CURSO", "BREVE RESUMO DO ENVENTO AQUI, SEM SER MUIT DETALHADO, CONTENDO INFO RELEVANTE"),
@@ -43,10 +48,23 @@ class _SearchPageState extends State<SearchPage> {
   void initState() {
     super.initState();
     expandido = List<bool>.filled(eventos.length, false);
+    _loadRole();
+  }
+
+  Future<void> _loadRole() async {
+    final storedRole = await storage.read(key: 'role');
+    setState(() {
+      _role = storedRole;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_role == null) {
+      return Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -174,20 +192,11 @@ class _SearchPageState extends State<SearchPage> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.feed, color: Colors.grey),
-            label: "Feeds",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add, color: Colors.grey),
-            label: "",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person, color: Colors.grey),
-            label: "Profile",
-          ),
-        ],
+        currentIndex: 0,
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
         onTap: (index) {
           if (index == 0) {
             Navigator.of(context).pushAndRemoveUntil(
@@ -202,15 +211,22 @@ class _SearchPageState extends State<SearchPage> {
           } else if (index == 2) {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => RegisterScreen()),
+              MaterialPageRoute(builder: (context) => RegisterScreen(role: _role!)),
             );
           }
         },
-        currentIndex: 0,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        showSelectedLabels: true,
-        showUnselectedLabels: true,
+        items: _role == 'admin'
+            ? const [
+                BottomNavigationBarItem(icon: Icon(Icons.feed), label: "Feeds"),
+                BottomNavigationBarItem(icon: Icon(Icons.add), label: ""),
+                BottomNavigationBarItem(icon: Icon(Icons.admin_panel_settings), label: ""),
+                BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
+              ]
+            : const [
+                BottomNavigationBarItem(icon: Icon(Icons.feed), label: "Feeds"),
+                BottomNavigationBarItem(icon: Icon(Icons.add), label: ""),
+                BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
+              ],
       ),
     );
   }

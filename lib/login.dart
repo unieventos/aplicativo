@@ -13,7 +13,10 @@ void login() {
 class Login extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(debugShowCheckedModeBanner: false, home: LoginScreen());
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: LoginScreen(),
+    );
   }
 }
 
@@ -128,6 +131,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       if (token != null) {
                         await storage.write(key: 'token', value: token);
                         await storage.write(key: 'permanecerLogado', value: _permanecerLogado.toString());
+                        await storage.write(key: 'role', value: 'ADMIN');
 
                         // Aqui você pode redirecionar para a próxima tela
                         Navigator.pushReplacement(
