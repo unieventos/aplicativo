@@ -149,7 +149,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
                                   children: [
                                     ElevatedButton.icon(
                                       onPressed: () {
-                                        Navigator.push(
+                                        Navigator.pushReplacement(
                                           context,
                                           MaterialPageRoute(builder: (context) => ModifyUserApp()),
                                         );
@@ -193,14 +193,14 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
           if (index == _selectedIndex) return;
 
           if (index == 0) {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => EventosApp()));
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EventosApp()));
           } else if (index == 1) {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => EVRegister()));
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EVRegister()));
           } else if (index == 2) {
             // já está na tela CadastroUsuarioPage
             return;
           } else if (index == 3) {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => PerfilPage()));
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => PerfilPage()));
           }
 
           setState(() {
@@ -248,7 +248,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
               padding: const EdgeInsets.only(bottom: 60),
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.push(
+                  Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(builder: (context) => RegisterScreen(role: 'admin')),
                   );

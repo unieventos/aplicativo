@@ -244,13 +244,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
         type: BottomNavigationBarType.fixed,
         onTap: (index) {
           if (index == 0) {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => EventosApp()));
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EventosApp()));
           } else if (index == 1) {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => EVRegister()));
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EVRegister()));
           } else if (index == 2) {
             // já está na tela de cadastro
           } else if (index == 3) {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => RegisterScreen(role: widget.role)));
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => RegisterScreen(role: widget.role)));
           }
         },
         items: widget.role == 'admin'

@@ -7,6 +7,29 @@ import 'package:flutter_application_1/login.dart';
 import 'package:flutter_application_1/home.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+
+import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:convert';
+import 'login.dart'; // importa a sua tela de login
+import 'eventRegister.dart';
+import 'register.dart';
+import 'modifyUser.dart';
+import 'search.dart';
+import 'UserRegister.dart';
+import 'perfil.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter/material.dart';
+import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
+import 'login.dart'; // importa a sua tela de login
+import 'eventRegister.dart';
+import 'register.dart';
+import 'modifyUser.dart';
+import 'home.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'perfil.dart';
+
 void main() {
   runApp(MaterialApp(
     home: SearchPage(),
@@ -30,6 +53,7 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> {
   final storage = FlutterSecureStorage();
   String? _role;
+  final bool isAdmin = true; // Altere para false se quiser simular usuário comum
 
   List<Evento> eventos = [
     Evento("NOME DO EVENTO", "CURSO", "BREVE RESUMO DO ENVENTO AQUI, SEM SER MUIT DETALHADO, CONTENDO INFO RELEVANTE"),
@@ -191,42 +215,59 @@ class _SearchPageState extends State<SearchPage> {
         },
       ),
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: 0,
-        selectedItemColor: Colors.blue,
+        selectedItemColor: Colors.black,
         unselectedItemColor: Colors.grey,
-        showSelectedLabels: true,
-        showUnselectedLabels: true,
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
+        type: BottomNavigationBarType.fixed,
         onTap: (index) {
+
           if (index == 0) {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => EventosApp()),
-              (Route<dynamic> route) => false,
-            );
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EventosApp()));
           } else if (index == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => EVRegister()),
-            );
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EVRegister()));
           } else if (index == 2) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => RegisterScreen(role: _role!)),
-            );
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => CadastroUsuarioPage()));
+          } else if (index == 3) {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => PerfilPage()));
           }
+
         },
-        items: _role == 'admin'
-            ? const [
-                BottomNavigationBarItem(icon: Icon(Icons.feed), label: "Feeds"),
-                BottomNavigationBarItem(icon: Icon(Icons.add), label: ""),
-                BottomNavigationBarItem(icon: Icon(Icons.admin_panel_settings), label: ""),
-                BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
-              ]
-            : const [
-                BottomNavigationBarItem(icon: Icon(Icons.feed), label: "Feeds"),
-                BottomNavigationBarItem(icon: Icon(Icons.add), label: ""),
-                BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
-              ],
+        items: [
+          BottomNavigationBarItem(
+            icon: Icon(
+              Icons.feed,
+              color: Colors.grey,
+              size: 24,
+            ),
+            label: '',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(
+              Icons.add,
+              color: Colors.grey,
+              size: 24,
+            ),
+            label: '',
+          ),
+          if (isAdmin)
+            BottomNavigationBarItem(
+              icon: Icon(
+                Icons.admin_panel_settings,
+                color: Colors.grey,
+                size: 24,
+              ),
+              label: '',
+            ),
+          BottomNavigationBarItem(
+            icon: Icon(
+              Icons.person,
+              color: Colors.grey,
+              size: 24,
+            ),
+            label: '',
+          ),
+        ],
       ),
     );
   }

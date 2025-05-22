@@ -35,7 +35,7 @@ class _EVRegisterState extends State<EVRegister> {
         leading: IconButton(
           icon: const Icon(Icons.search, color: Colors.black),
           onPressed: () {
-            Navigator.push(
+            Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => SearchPage()),
             );
@@ -64,13 +64,13 @@ class _EVRegisterState extends State<EVRegister> {
           if (index == _selectedIndex) return;
 
           if (index == 0) {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => EventosApp()));
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EventosApp()));
           } else if (index == 1) {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => EVRegister()));
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EVRegister()));
           } else if (index == 2) {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => CadastroUsuarioPage()));
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => CadastroUsuarioPage()));
           } else if (index == 3) {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => PerfilPage()));
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => PerfilPage()));
           }
 
           setState(() {
