@@ -6,6 +6,7 @@ import 'register.dart';
 import 'modifyUser.dart';
 import 'search.dart';
 import 'UserRegister.dart';
+import 'perfil.dart';
 
 void main() => runApp(EventosApp());
 
@@ -28,6 +29,9 @@ class EventosPage extends StatefulWidget {
 class _EventosPageState extends State<EventosPage> {
   final _storage = FlutterSecureStorage();
   String? _role;
+  final bool isAdmin = true; // Altere para false se quiser simular usuário comum
+  int _selectedIndex = 0; // índice de Admin alterado para 2
+
 
   @override
   void initState() {
@@ -78,60 +82,64 @@ class _EventosPageState extends State<EventosPage> {
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0, // Feed está selecionado
-        selectedItemColor: Colors.blue,
+        selectedItemColor: Colors.black,
         unselectedItemColor: Colors.grey,
+        currentIndex: _selectedIndex,
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
+        type: BottomNavigationBarType.fixed,
         onTap: (index) {
+          if (index == _selectedIndex) return;
+
           if (index == 0) {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => EventosApp()),
-              (Route<dynamic> route) => false,
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (context) => EventosApp()));
           } else if (index == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => EVRegister()),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (context) => EVRegister()));
           } else if (index == 2) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => RegisterScreen(role: _role!)),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (context) => CadastroUsuarioPage()));
+          } else if (index == 3) {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => PerfilPage()));
           }
+
+          setState(() {
+            _selectedIndex = index;
+          });
         },
-        items: _role == 'admin'
-            ? const [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.feed),
-                  label: "Feeds",
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.add),
-                  label: "",
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.admin_panel_settings),
-                  label: "",
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.person),
-                  label: "",
-                ),
-              ]
-            : const [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.feed),
-                  label: "Feeds",
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.add),
-                  label: "",
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.person),
-                  label: "Profile",
-                ),
-              ],
+        items: [
+          BottomNavigationBarItem(
+            icon: Icon(
+              Icons.feed,
+              color: _selectedIndex == 0 ? Colors.black : Colors.grey,
+              size: _selectedIndex == 0 ? 28 : 24,
+            ),
+            label: '',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(
+              Icons.add,
+              color: _selectedIndex == 1 ? Colors.black : Colors.grey,
+              size: _selectedIndex == 1 ? 28 : 24,
+            ),
+            label: '',
+          ),
+          if (isAdmin)
+            BottomNavigationBarItem(
+              icon: Icon(
+                Icons.admin_panel_settings,
+                color: _selectedIndex == 2 ? Colors.black : Colors.grey,
+                size: _selectedIndex == 2 ? 28 : 24,
+              ),
+              label: '',
+            ),
+          BottomNavigationBarItem(
+            icon: Icon(
+              Icons.person,
+              color: _selectedIndex == 3 ? Colors.black : Colors.grey,
+              size: _selectedIndex == 3 ? 28 : 24,
+            ),
+            label: '',
+          ),
+        ],
       ),
     );
   }

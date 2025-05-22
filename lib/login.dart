@@ -5,6 +5,7 @@ import 'package:flutter_application_1/register.dart';
 import 'package:flutter_application_1/auth_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_application_1/search.dart';
+import 'package:flutter_application_1/user_service.dart';
 
 void login() {
   runApp(Login());
@@ -133,6 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         await storage.write(key: 'permanecerLogado', value: _permanecerLogado.toString());
                         await storage.write(key: 'role', value: 'ADMIN');
 
+                        UserService.buscarUsuario();
                         // Aqui você pode redirecionar para a próxima tela
                         Navigator.pushReplacement(
                           context,

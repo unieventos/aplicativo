@@ -3,6 +3,8 @@ import 'package:flutter_application_1/home.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'register.dart';
+import 'UserRegister.dart';
+import 'perfil.dart';
 
 class EVRegister extends StatefulWidget {
   @override
@@ -12,6 +14,8 @@ class EVRegister extends StatefulWidget {
 class _EVRegisterState extends State<EVRegister> {
   String? selectedCourse;
   bool showDates = false;
+  final bool isAdmin = true; // Altere para false se quiser simular usuário comum
+  int _selectedIndex = 1;
 
   List<Map<String, DateTime?>> dateRanges = [
     {"start": null, "end": null},
@@ -50,34 +54,62 @@ class _EVRegisterState extends State<EVRegister> {
         elevation: 0,
       ),
       bottomNavigationBar: BottomNavigationBar(
-        selectedItemColor: Colors.blue,
+        selectedItemColor: Colors.black,
         unselectedItemColor: Colors.grey,
-        currentIndex: 1,
+        currentIndex: _selectedIndex,
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
+        type: BottomNavigationBarType.fixed,
         onTap: (index) {
+          if (index == _selectedIndex) return;
+
           if (index == 0) {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => EventosApp()),
-              (Route<dynamic> route) => false,
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (context) => EventosApp()));
+          } else if (index == 1) {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => EVRegister()));
           } else if (index == 2) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => RegisterScreen(role: 'admin')), // ajuste conforme necessário
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (context) => CadastroUsuarioPage()));
+          } else if (index == 3) {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => PerfilPage()));
           }
+
+          setState(() {
+            _selectedIndex = index;
+          });
         },
-        items: const [
+        items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.feed),
-            label: "Feeds",
+            icon: Icon(
+              Icons.feed,
+              color: _selectedIndex == 0 ? Colors.black : Colors.grey,
+              size: _selectedIndex == 0 ? 28 : 24,
+            ),
+            label: '',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.add),
-            label: "",
+            icon: Icon(
+              Icons.add,
+              color: _selectedIndex == 1 ? Colors.black : Colors.grey,
+              size: _selectedIndex == 1 ? 28 : 24,
+            ),
+            label: '',
           ),
+          if (isAdmin)
+            BottomNavigationBarItem(
+              icon: Icon(
+                Icons.admin_panel_settings,
+                color: _selectedIndex == 2 ? Colors.black : Colors.grey,
+                size: _selectedIndex == 2 ? 28 : 24,
+              ),
+              label: '',
+            ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: "Perfil",
+            icon: Icon(
+              Icons.person,
+              color: _selectedIndex == 3 ? Colors.black : Colors.grey,
+              size: _selectedIndex == 3 ? 28 : 24,
+            ),
+            label: '',
           ),
         ],
       ),

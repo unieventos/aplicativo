@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:convert';
 
 class PerfilPage extends StatefulWidget {
   @override
@@ -23,11 +24,11 @@ class _PerfilPageState extends State<PerfilPage> {
   }
 
   Future<void> _loadUserData() async {
-    final storedNome = await storage.read(key: 'nome') ?? '';
-    final storedSobrenome = await storage.read(key: 'sobrenome') ?? '';
-    final storedEmail = await storage.read(key: 'email') ?? '';
-    final storedCurso = await storage.read(key: 'curso') ?? '';
-    final storedRole = await storage.read(key: 'role') ?? '';
+    final storedNome = utf8.decode((await storage.read(key: 'nome'))?.codeUnits ?? []);
+    final storedSobrenome = utf8.decode((await storage.read(key: 'sobrenome'))?.codeUnits ?? []);
+    final storedEmail = utf8.decode((await storage.read(key: 'email'))?.codeUnits ?? []);
+    final storedCurso = utf8.decode((await storage.read(key: 'cursoId'))?.codeUnits ?? []);
+    final storedRole = utf8.decode((await storage.read(key: 'role'))?.codeUnits ?? []);
 
     setState(() {
       nome = storedNome;
@@ -48,24 +49,55 @@ class _PerfilPageState extends State<PerfilPage> {
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Nome: $nome $sobrenome', style: TextStyle(fontSize: 18)),
-            SizedBox(height: 8),
-            Text('Email: $email', style: TextStyle(fontSize: 18)),
-            SizedBox(height: 8),
-            Text('Curso: $curso', style: TextStyle(fontSize: 18)),
-            SizedBox(height: 8),
-            Text('Perfil: $role', style: TextStyle(fontSize: 18)),
-            SizedBox(height: 40),
-            Center(
-              child: ElevatedButton(
-                onPressed: () async {
-                  await storage.deleteAll();
-                  Navigator.of(context).pushReplacementNamed('/login');
-                },
-                child: Text('Logout'),
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: Icon(Icons.person),
+                      title: Text('$nome $sobrenome', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      subtitle: Text('Nome completo'),
+                    ),
+                    Divider(),
+                    ListTile(
+                      leading: Icon(Icons.email),
+                      title: Text(email, style: TextStyle(fontSize: 18)),
+                      subtitle: Text('Email'),
+                    ),
+                    Divider(),
+                    ListTile(
+                      leading: Icon(Icons.school),
+                      title: Text(curso, style: TextStyle(fontSize: 18)),
+                      subtitle: Text('Curso'),
+                    ),
+                    Divider(),
+                    ListTile(
+                      leading: Icon(Icons.admin_panel_settings),
+                      title: Text(role, style: TextStyle(fontSize: 18)),
+                      subtitle: Text('Perfil'),
+                    ),
+                  ],
+                ),
               ),
+            ),
+            SizedBox(height: 30),
+            ElevatedButton.icon(
+              onPressed: () async {
+                await storage.deleteAll();
+                Navigator.of(context).pushReplacementNamed('/login');
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              icon: Icon(Icons.logout, color: Colors.white),
+              label: Text('Logout', style: TextStyle(color: Colors.white, fontSize: 16)),
             ),
           ],
         ),
