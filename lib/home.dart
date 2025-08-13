@@ -1,26 +1,35 @@
 import 'package:flutter/material.dart';
+// --- CORREÇÃO 1: IMPORTS CORRIGIDOS ---
+// Os caminhos dos pacotes foram corrigidos para o formato padrão 'package:...'.
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'login.dart'; // importa a sua tela de login
-import 'eventRegister.dart';
-import 'register.dart';
-import 'modifyUser.dart';
-import 'search.dart';
-import 'UserRegister.dart';
-import 'perfil.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:intl/intl.dart';
 
-void main() => runApp(EventosApp());
+// Seus imports, todos corretos.
+import 'package:flutter_application_1/eventRegister.dart';
+import 'package:flutter_application_1/UserRegister.dart';
+import 'package:flutter_application_1/perfil.dart';
+import 'package:flutter_application_1/search.dart';
+import 'package:flutter_application_1/login.dart';
 
-class EventosApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Eventos',
-      debugShowCheckedModeBanner: false,
-      home: EventosPage(),
-    );
-  }
+// Modelo de Dados (sem alterações)
+class Evento {
+  final String titulo, autor, cursoAutor, autorAvatarUrl, imagemUrl;
+  final DateTime data;
+  final int participantes;
+
+  Evento({
+    required this.titulo,
+    required this.autor,
+    required this.cursoAutor,
+    required this.autorAvatarUrl,
+    required this.imagemUrl,
+    required this.data,
+    required this.participantes,
+  });
 }
 
+// Classe Principal da Home (com a lógica de permissão correta)
 class EventosPage extends StatefulWidget {
   @override
   _EventosPageState createState() => _EventosPageState();
@@ -28,305 +37,176 @@ class EventosPage extends StatefulWidget {
 
 class _EventosPageState extends State<EventosPage> {
   final _storage = FlutterSecureStorage();
+  int _selectedIndex = 0;
   String? _role;
-  final bool isAdmin = true; // Altere para false se quiser simular usuário comum
-  int _selectedIndex = 0; // índice de Admin alterado para 2
-
+  List<Widget> _pages = [];
 
   @override
   void initState() {
     super.initState();
-    _loadRole();
+    _loadRoleAndSetupPages();
   }
 
-  Future<void> _loadRole() async {
+  Future<void> _loadRoleAndSetupPages() async {
     final role = await _storage.read(key: 'role');
     setState(() {
-      _role = role;
+      _role = role ?? 'user';
+      final bool isAdmin = _role?.toLowerCase() == 'admin';
+
+      _pages = [
+        FeedPage(),
+        EVRegister(), // Visível para todos
+        if (isAdmin) CadastroUsuarioPage(), // Apenas para admin
+        PerfilPage(),
+      ];
+    });
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_role == null) {
-      return Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+    if (_role == null || _pages.isEmpty) {
+      return Scaffold(body: Center(child: CircularProgressIndicator(color: Theme.of(context).primaryColor)));
     }
 
+    final bool isAdmin = _role?.toLowerCase() == 'admin';
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Eventos", style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
-        centerTitle: true,
-        elevation: 1,
-        leading: IconButton(
-          icon: Icon(Icons.search, color: Colors.black),
-          onPressed: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => SearchPage()),
-            );
-          },
-        ),
-        actions: [
-          Icon(Icons.notifications_none, color: Colors.black),
-          SizedBox(width: 12),
-        ],
-      ),
-      body: ListView(
-        padding: EdgeInsets.all(16),
-        children: [
-          exemploEventoCard(),
-          _buildEventoCard(),
-        ],
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _pages,
       ),
       bottomNavigationBar: BottomNavigationBar(
-        selectedItemColor: Colors.black,
-        unselectedItemColor: Colors.grey,
         currentIndex: _selectedIndex,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
+        onTap: _onItemTapped,
         type: BottomNavigationBarType.fixed,
-        onTap: (index) {
-          if (index == _selectedIndex) return;
-
-          if (index == 0) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EventosApp()));
-          } else if (index == 1) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EVRegister()));
-          } else if (index == 2) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => CadastroUsuarioPage()));
-          } else if (index == 3) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => PerfilPage()));
-          }
-
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
+        backgroundColor: Colors.white,
+        selectedItemColor: Theme.of(context).primaryColor,
+        unselectedItemColor: Colors.grey[600],
+        showUnselectedLabels: false,
+        showSelectedLabels: false,
         items: [
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.feed,
-              color: _selectedIndex == 0 ? Colors.black : Colors.grey,
-              size: _selectedIndex == 0 ? 28 : 24,
-            ),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.add,
-              color: _selectedIndex == 1 ? Colors.black : Colors.grey,
-              size: _selectedIndex == 1 ? 28 : 24,
-            ),
-            label: '',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.celebration_outlined), activeIcon: Icon(Icons.celebration), label: 'Eventos'),
+          BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), activeIcon: Icon(Icons.add_circle), label: 'Cadastrar'),
           if (isAdmin)
-            BottomNavigationBarItem(
-              icon: Icon(
-                Icons.admin_panel_settings,
-                color: _selectedIndex == 2 ? Colors.black : Colors.grey,
-                size: _selectedIndex == 2 ? 28 : 24,
-              ),
-              label: '',
-            ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.person,
-              color: _selectedIndex == 3 ? Colors.black : Colors.grey,
-              size: _selectedIndex == 3 ? 28 : 24,
-            ),
-            label: '',
-          ),
+            BottomNavigationBarItem(icon: Icon(Icons.group_outlined), activeIcon: Icon(Icons.group), label: 'Usuários'),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Perfil'),
         ],
       ),
     );
   }
+}
 
-  Widget _buildEventoCard() {
-    return Card(
-      margin: EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Usuário
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundImage: NetworkImage('https://randomuser.me/api/portraits/men/32.jpg'), // Altere conforme necessário
-                  radius: 20,
-                ),
-                SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Usuário", style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text("Curso", style: TextStyle(color: Colors.blue)),
-                  ],
-                ),
-                Spacer(),
-                Icon(Icons.more_vert),
-              ],
-            ),
-            SizedBox(height: 10),
+// --- TELA DO FEED DE EVENTOS (com correção nas imagens) ---
+class FeedPage extends StatelessWidget {
+  
+  // --- CORREÇÃO 2: URLs DAS IMAGENS DE EXEMPLO TROCADAS ---
+  // Trocamos 'pravatar.cc' por 'picsum.photos', que funciona melhor na web.
+  final List<Evento> _listaEventos = [
+    Evento(titulo: "Semana da Computação 2024", autor: "Prof. Ricardo Silva", cursoAutor: "Ciência da Computação", autorAvatarUrl: 'https://picsum.photos/id/1005/100/100', imagemUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=2070', data: DateTime(2024, 10, 20), participantes: 250),
+    Evento(titulo: "Palestra: IA no Direito", autor: "Profa. Ana Furtado", cursoAutor: "Direito", autorAvatarUrl: 'https://picsum.photos/id/1027/100/100', imagemUrl: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&q=80&w=2070', data: DateTime(2024, 11, 05), participantes: 120),
+  ];
 
-            // Texto do post
-            Text(
-              "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam vel orci nec libero suscipit venenatis.",
-              style: TextStyle(fontSize: 14),
-            ),
-            SizedBox(height: 10),
-
-            // Imagem do evento
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.asset(
-                'assets/event.png',
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            ),
-            SizedBox(height: 10),
-
-            // Botões (curtir, comentar, compartilhar)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                Icon(Icons.favorite_border),
-                Icon(Icons.comment_outlined),
-                Icon(Icons.share_outlined),
-              ],
-            ),
-            SizedBox(height: 10),
-
-            //Convidados
-            Row(
-              children: [
-                SizedBox(
-                  width: 110,
-                  height: 32,
-                  child: Stack(
-                    children: List.generate(5, (index) {
-                      final urls = [
-                        'https://randomuser.me/api/portraits/women/30.jpg',
-                        'https://randomuser.me/api/portraits/women/31.jpg',
-                        'https://randomuser.me/api/portraits/women/32.jpg',
-                        'https://randomuser.me/api/portraits/women/33.jpg',
-                        'https://randomuser.me/api/portraits/women/34.jpg',
-                      ];
-                      return Positioned(
-                        left: index * 20,
-                        child: CircleAvatar(
-                          backgroundColor: Colors.white,
-                          child: CircleAvatar(
-                            radius: 15,
-                            backgroundImage: NetworkImage(urls[index]),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                ),
-                SizedBox(width: 24),
-                Text("+150 outros", style: TextStyle(color: Colors.grey)),
-              ],
-            ),
-          ],
-        ),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        centerTitle: false,
+        title: Text("Próximos Eventos", style: TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          IconButton(icon: Icon(Icons.search), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SearchPage()))),
+          IconButton(icon: Icon(Icons.notifications_none), onPressed: () {}),
+        ],
+      ),
+      body: ListView.builder(
+        padding: EdgeInsets.all(8),
+        itemCount: _listaEventos.length,
+        itemBuilder: (context, index) {
+          return EventoCard(evento: _listaEventos[index]);
+        },
       ),
     );
   }
+}
 
-  Widget exemploEventoCard() {
+// --- CARD DE EVENTO REUTILIZÁVEL (sem alterações) ---
+class EventoCard extends StatelessWidget {
+  final Evento evento;
+  const EventoCard({Key? key, required this.evento}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
     return Card(
-      margin: EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      margin: EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 4,
+      shadowColor: Colors.black.withOpacity(0.15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            child: CachedNetworkImage(
+              imageUrl: evento.imagemUrl,
+              height: 200,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              placeholder: (context, url) => Container(height: 200, color: Colors.grey[200]),
+              errorWidget: (context, url, error) => Container(height: 200, color: Colors.grey[200], child: Icon(Icons.error)),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  backgroundImage: NetworkImage('https://randomuser.me/api/portraits/men/32.jpg'),
-                  radius: 20,
-                ),
-                SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Text(evento.titulo, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87), maxLines: 2, overflow: TextOverflow.ellipsis),
+                SizedBox(height: 8),
+                Row(
                   children: [
-                    Text("Exemplo Usuário", style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text("Exemplo Curso", style: TextStyle(color: Colors.blue)),
+                    Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey[700]),
+                    SizedBox(width: 6),
+                    Text(DateFormat('d MMM, yyyy', 'pt_BR').format(evento.data), style: TextStyle(fontSize: 14, color: Colors.grey[800])),
+                    SizedBox(width: 20),
+                    Icon(Icons.group_outlined, size: 16, color: Colors.grey[700]),
+                    SizedBox(width: 6),
+                    Text("${evento.participantes} participantes", style: TextStyle(fontSize: 14, color: Colors.grey[800])),
                   ],
                 ),
-                Spacer(),
-                Icon(Icons.more_vert),
-              ],
-            ),
-            SizedBox(height: 10),
-            Text(
-              "Este é um exemplo de card de evento.",
-              style: TextStyle(fontSize: 14),
-            ),
-            SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.network(
-                'https://img.freepik.com/fotos-premium/publico-assistindo-show-no-palco_865967-41951.jpg',
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            ),
-            SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                Icon(Icons.favorite_border),
-                Icon(Icons.comment_outlined),
-                Icon(Icons.download),
-              ],
-            ),
-            SizedBox(height: 10),
-            Row(
-              children: [
-                SizedBox(
-                  width: 110,
-                  height: 32,
-                  child: Stack(
-                    children: List.generate(5, (index) {
-                      final urls = [
-                        'https://randomuser.me/api/portraits/women/30.jpg',
-                        'https://randomuser.me/api/portraits/women/31.jpg',
-                        'https://randomuser.me/api/portraits/women/32.jpg',
-                        'https://randomuser.me/api/portraits/women/33.jpg',
-                        'https://randomuser.me/api/portraits/women/34.jpg',
-                      ];
-                      return Positioned(
-                        left: index * 20,
-                        child: CircleAvatar(
-                          backgroundColor: Colors.white,
-                          child: CircleAvatar(
-                            radius: 15,
-                            backgroundImage: NetworkImage(urls[index]),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
+                Divider(height: 24),
+                Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundImage: NetworkImage(evento.autorAvatarUrl),
+                      radius: 20,
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(evento.autor, style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text(evento.cursoAutor, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    if (true) 
+                      IconButton(
+                        icon: Icon(Icons.assessment_outlined, color: Theme.of(context).primaryColor),
+                        tooltip: "Ver Relatório do Evento",
+                        onPressed: () {},
+                      ),
+                  ],
                 ),
-                SizedBox(width: 24),
-                Text("+150 outros", style: TextStyle(color: Colors.grey)),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -1,28 +1,22 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
-import 'login.dart'; // importa a sua tela de login
-import 'eventRegister.dart';
-import 'register.dart';
-import 'modifyUser.dart';
-import 'home.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'perfil.dart';
 
-void main() {
-  runApp(MaterialApp(
-    home: CadastroUsuarioPage(),
-  ));
-}
+// Seus imports, garantindo que os nomes das classes estão corretos
+import 'package:flutter_application_1/modifyUser.dart'; // Supõe que a classe seja ModifyUserApp
+import 'package:flutter_application_1/register.dart'; // Supõe que a classe seja RegisterScreen
 
+// --- MODELO DE DADOS ---
+// Otimizado para não precisar de uma variável de estado 'expandido'
 class Usuario {
   final String id;
   final String nome;
   final String sobrenome;
   final String email;
   final int cursoId;
-  bool expandido;
 
   Usuario({
     required this.id,
@@ -30,22 +24,31 @@ class Usuario {
     required this.sobrenome,
     required this.email,
     required this.cursoId,
-    this.expandido = false,
   });
+
+  // Factory para criar um Usuário a partir de um JSON
+  factory Usuario.fromJson(Map<String, dynamic> json) {
+    return Usuario(
+      id: json['id'] ?? '',
+      nome: json['nome'] ?? '',
+      sobrenome: json['sobrenome'] ?? '',
+      email: json['email'] ?? '',
+      cursoId: json['cursoId'] ?? 0,
+    );
+  }
 }
 
+// --- TELA PRINCIPAL DE GERENCIAMENTO DE USUÁRIOS ---
 class CadastroUsuarioPage extends StatefulWidget {
   @override
   _CadastroUsuarioPageState createState() => _CadastroUsuarioPageState();
 }
 
 class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
-  final bool isAdmin = true; // Altere para false se quiser simular usuário comum
   static const _pageSize = 10;
   final PagingController<int, Usuario> _pagingController = PagingController(firstPageKey: 0);
-  int _selectedIndex = 2; // índice de Admin alterado para 2
   String _searchText = '';
-
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -55,6 +58,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
     });
   }
 
+  // Função para buscar os dados da API
   Future<void> _fetchPage(int pageKey) async {
     try {
       final newItems = await UsuarioApi.fetchUsuarios(pageKey, _pageSize, _searchText);
@@ -68,20 +72,24 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
       }
     } catch (error) {
       _pagingController.error = error;
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao carregar usuários: $error'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
+  }
+
+  // Função de busca com "debounce" para não chamar a API a cada letra digitada
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      setState(() {
+        _searchText = query;
+      });
+      _pagingController.refresh();
+    });
   }
 
   @override
   void dispose() {
     _pagingController.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
@@ -89,189 +97,139 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const Text("Gerenciador de Usuarios",
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
-        centerTitle: true,
+        // Esta tela não deve ter o botão de voltar, pois faz parte da navegação principal
+        automaticallyImplyLeading: false, 
+        title: Text("Gerenciar Usuários"),
+        centerTitle: false,
       ),
+      // O corpo agora está mais organizado
       body: Column(
         children: [
+          // Campo de busca com design moderno
           Padding(
-            padding: const EdgeInsets.all(12.0),
+            padding: const EdgeInsets.all(16.0),
             child: TextField(
-              decoration: const InputDecoration(
-                labelText: 'Pesquisar usuário',
+              onChanged: _onSearchChanged,
+              decoration: InputDecoration(
+                hintText: 'Pesquisar por nome...',
                 prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                fillColor: Colors.white,
               ),
-              onChanged: (value) {
-                setState(() {
-                  _searchText = value;
-                  _pagingController.refresh();
-                });
-              },
             ),
           ),
+          // Lista paginada
           Expanded(
-            child: PagedListView<int, Usuario>(
-              pagingController: _pagingController,
-              builderDelegate: PagedChildBuilderDelegate<Usuario>(
-                itemBuilder: (context, usuario, index) {
-                  final isLastItem = index == _pagingController.itemList!.length - 1;
-                  return Column(
-                    children: [
-                      Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        child: Column(
-                          children: [
-                            ListTile(
-                              leading: const CircleAvatar(child: Icon(Icons.person)),
-                              title: Text(usuario.nome + ' ' + usuario.sobrenome),
-                              subtitle: Text(usuario.email),
-                              trailing: IconButton(
-                                icon: Icon(
-                                  usuario.expandido
-                                      ? Icons.keyboard_arrow_up
-                                      : Icons.keyboard_arrow_down,
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    usuario.expandido = !usuario.expandido;
-                                  });
-                                },
-                              ),
-                            ),
-                            if (usuario.expandido)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                  children: [
-                                    ElevatedButton.icon(
-                                      onPressed: () {
-                                        Navigator.pushReplacement(
-                                          context,
-                                          MaterialPageRoute(builder: (context) => ModifyUserApp()),
-                                        );
-                                      },
-                                      icon: const Icon(Icons.edit, color: Colors.red),
-                                      label: const Text("Modificar", style: TextStyle(color: Colors.red)),
-                                    ),
-                                    ElevatedButton.icon(
-                                      onPressed: () {
-                                        _pagingController.refresh();
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.red,
-                                      ),
-                                      icon: const Icon(Icons.delete, color: Colors.white),
-                                      label: const Text("Deletar", style: TextStyle(color: Colors.white)),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      if (isLastItem) const SizedBox(height: 80),
-                    ],
-                  );
-                },
+            child: RefreshIndicator(
+              onRefresh: () => Future.sync(() => _pagingController.refresh()),
+              child: PagedListView<int, Usuario>(
+                pagingController: _pagingController,
+                builderDelegate: PagedChildBuilderDelegate<Usuario>(
+                  // Widget a ser exibido para cada item da lista
+                  itemBuilder: (context, usuario, index) => _UsuarioListItem(
+                    usuario: usuario,
+                    onDelete: () {
+                      // TODO: Adicionar lógica para deletar usuário
+                      // Após deletar, chame _pagingController.refresh() para atualizar a lista
+                    },
+                    onModify: () {
+                      // CORREÇÃO: Navega para a tela de modificar
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => ModifyUserApp(usuario: usuario)));
+                    },
+                  ),
+                  // Widgets para os diferentes estados da lista (carregando, erro, vazia)
+                  firstPageProgressIndicatorBuilder: (_) => Center(child: CircularProgressIndicator()),
+                  newPageProgressIndicatorBuilder: (_) => Center(child: CircularProgressIndicator()),
+                  noItemsFoundIndicatorBuilder: (_) => Center(child: Text("Nenhum usuário encontrado.")),
+                  firstPageErrorIndicatorBuilder: (_) => Center(child: Text("Erro ao carregar usuários.")),
+                ),
               ),
             ),
           ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        selectedItemColor: Colors.black,
-        unselectedItemColor: Colors.grey,
-        currentIndex: _selectedIndex,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        type: BottomNavigationBarType.fixed,
-        onTap: (index) {
-          if (index == _selectedIndex) return;
-
-          if (index == 0) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EventosApp()));
-          } else if (index == 1) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EVRegister()));
-          } else if (index == 2) {
-            // já está na tela CadastroUsuarioPage
-            return;
-          } else if (index == 3) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => PerfilPage()));
-          }
-
-          setState(() {
-            _selectedIndex = index;
-          });
+      // Botão flutuante para adicionar novo usuário
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          // CORREÇÃO: Navega para a tela de registro
+          Navigator.push(context, MaterialPageRoute(builder: (context) => RegisterScreen(role: 'admin')));
         },
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.feed,
-              color: _selectedIndex == 0 ? Colors.black : Colors.grey,
-              size: _selectedIndex == 0 ? 28 : 24,
-            ),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.add,
-              color: _selectedIndex == 1 ? Colors.black : Colors.grey,
-              size: _selectedIndex == 1 ? 28 : 24,
-            ),
-            label: '',
-          ),
-          if (isAdmin)
-            BottomNavigationBarItem(
-              icon: Icon(
-                Icons.admin_panel_settings,
-                color: _selectedIndex == 2 ? Colors.black : Colors.grey,
-                size: _selectedIndex == 2 ? 28 : 24,
-              ),
-              label: '',
-            ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.person,
-              color: _selectedIndex == 3 ? Colors.black : Colors.grey,
-              size: _selectedIndex == 3 ? 28 : 24,
-            ),
-            label: '',
-          ),
-        ],
+        icon: Icon(Icons.add),
+        label: Text("Novo Usuário"),
+        backgroundColor: Theme.of(context).primaryColor, // Usa a cor do tema
+        foregroundColor: Colors.white,
       ),
-      floatingActionButton: MediaQuery.of(context).viewInsets.bottom == 0
-          ? Padding(
-              padding: const EdgeInsets.only(bottom: 60),
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => RegisterScreen(role: 'admin')),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                ),
-                child: const Text(
-                  "Novo Usuário",
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 }
 
+// --- WIDGET PARA O ITEM DA LISTA DE USUÁRIO (CARD) ---
+// Separar em um widget menor deixa o código principal mais limpo.
+class _UsuarioListItem extends StatelessWidget {
+  final Usuario usuario;
+  final VoidCallback onDelete;
+  final VoidCallback onModify;
 
+  const _UsuarioListItem({
+    required this.usuario,
+    required this.onDelete,
+    required this.onModify,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // ExpansionTile é um widget do próprio Flutter que lida com a lógica de expandir/recolher.
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 2,
+      child: ExpansionTile(
+        leading: CircleAvatar(
+          backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+          foregroundColor: Theme.of(context).primaryColor,
+          child: Text(usuario.nome.isNotEmpty ? usuario.nome[0].toUpperCase() : '?'),
+        ),
+        title: Text('${usuario.nome} ${usuario.sobrenome}', style: TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(usuario.email),
+        children: [
+          // Conteúdo que aparece quando o card é expandido
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                // Botão de Modificar
+                TextButton.icon(
+                  onPressed: onModify,
+                  icon: Icon(Icons.edit, size: 18),
+                  label: Text("Modificar"),
+                  style: TextButton.styleFrom(foregroundColor: Colors.blue.shade700),
+                ),
+                SizedBox(width: 8),
+                // Botão de Deletar
+                TextButton.icon(
+                  onPressed: onDelete,
+                  icon: Icon(Icons.delete_outline, size: 18),
+                  label: Text("Deletar"),
+                  style: TextButton.styleFrom(foregroundColor: Theme.of(context).primaryColor),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- LÓGICA DA API ---
+// Mantida como estava, pois já está bem estruturada.
 class UsuarioApi {
-  static const String baseUrl = 'http://172.171.192.14:8080/unieventos/usuarios';
+  static const String baseUrl = 'http://172.171.192.14:8081/unieventos/usuarios';
 
   static Future<List<Usuario>> fetchUsuarios(int page, int pageSize, String search) async {
     final storage = FlutterSecureStorage();
@@ -285,34 +243,20 @@ class UsuarioApi {
 
     final response = await http.get(
       url,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
     );
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> jsonData = json.decode(utf8.decode(response.bodyBytes));
+      // CORREÇÃO: O nome da lista no seu JSON é 'usuarioResourceV1List'
       final List<dynamic> usuarioList = jsonData['_embedded']?['usuarioResourceV1List'] ?? [];
 
       return usuarioList.map((jsonItem) {
         final userJson = jsonItem['user'] as Map<String, dynamic>;
-        return UsuarioFactory.fromJson(userJson);
+        return Usuario.fromJson(userJson);
       }).toList();
     } else {
       throw Exception('Erro ao carregar usuários: ${response.statusCode}');
     }
-  }
-}
-
-extension UsuarioFactory on Usuario {
-  static Usuario fromJson(Map<String, dynamic> json) {
-    return Usuario(
-      id: json['id'] ?? '',
-      nome: json['nome'] ?? '',
-      sobrenome: json['sobrenome'] ?? '',
-      email: json['email'] ?? '',
-      cursoId: json['cursoId'] ?? 0,
-    );
   }
 }

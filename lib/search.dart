@@ -1,271 +1,178 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_application_1/register.dart';
-import 'package:flutter_application_1/UserRegister.dart';
-import 'package:flutter_application_1/eventRegister.dart';
-import 'package:flutter_application_1/login.dart';
+import 'package:intl/intl.dart';
+
+// Importa a classe Evento CORRETA do seu arquivo home.dart
 import 'package:flutter_application_1/home.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-
-import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'dart:convert';
-import 'login.dart'; // importa a sua tela de login
-import 'eventRegister.dart';
-import 'register.dart';
-import 'modifyUser.dart';
-import 'search.dart';
-import 'UserRegister.dart';
-import 'perfil.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:flutter/material.dart';
-import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
-import 'login.dart'; // importa a sua tela de login
-import 'eventRegister.dart';
-import 'register.dart';
-import 'modifyUser.dart';
-import 'home.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'perfil.dart';
-
-void main() {
-  runApp(MaterialApp(
-    home: SearchPage(),
-    debugShowCheckedModeBanner: false,
-  ));
-}
-
-class Evento {
-  final String nome;
-  final String tipo;
-  final String resumo;
-
-  Evento(this.nome, this.tipo, this.resumo);
-}
-
+// --- TELA DE BUSCA DE EVENTOS CORRIGIDA E REATORADA ---
 class SearchPage extends StatefulWidget {
   @override
   _SearchPageState createState() => _SearchPageState();
 }
 
 class _SearchPageState extends State<SearchPage> {
-  final storage = FlutterSecureStorage();
-  String? _role;
-  final bool isAdmin = true; // Altere para false se quiser simular usuário comum
-
-  List<Evento> eventos = [
-    Evento("NOME DO EVENTO", "CURSO", "BREVE RESUMO DO ENVENTO AQUI, SEM SER MUIT DETALHADO, CONTENDO INFO RELEVANTE"),
-    Evento("NOME DO EVENTO", "CURSO", "BREVE RESUMO DO ENVENTO AQUI, SEM SER MUIT DETALHADO, CONTENDO INFO RELEVANTE"),
-    Evento("WORKSHOP DE DESIGN", "WORKSHOP", "APRENDA FUNDAMENTOS DE DESIGN EM UM DIA INTENSIVO DE CONTEÚDO."),
-    Evento("PALESTRA SOBRE IA", "PALESTRA", "DISCUSSÃO SOBRE OS IMPACTOS E FUTURO DA INTELIGÊNCIA ARTIFICIAL."),
-    Evento("MARATONA DE PROGRAMAÇÃO", "COMPETIÇÃO", "EVENTO PARA DESENVOLVEDORES MOSTRAREM SUAS HABILIDADES."),
-    Evento("ENCONTRO DE STARTUPS", "NETWORKING", "OPORTUNIDADE PARA EMPREENDEDORES APRESENTAREM SUAS IDEIAS."),
-    Evento("FESTIVAL DE TECNOLOGIA", "FEIRA", "FEIRA COM STANDS, PALESTRAS E LANÇAMENTOS DE PRODUTOS TECH."),
+  // CORREÇÃO: Usando o modelo de dados 'Evento' consistente com o home.dart
+  final List<Evento> _todosEventos = [
+    Evento(titulo: "Semana da Computação", cursoAutor: "Computação", autor: 'Prof. Ricardo', autorAvatarUrl: '', data: DateTime.now(), imagemUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87', participantes: 250),
+    Evento(titulo: "Workshop de Design UI/UX", cursoAutor: "Design", autor: 'Profa. Ana', autorAvatarUrl: '', data: DateTime.now(), imagemUrl: 'https://images.unsplash.com/photo-1558690623-3923c242a13b', participantes: 80),
+    Evento(titulo: "Palestra sobre IA Generativa", cursoAutor: "Tecnologia", autor: 'Dr. Silva', autorAvatarUrl: '', data: DateTime.now(), imagemUrl: 'https://images.unsplash.com/photo-1677756119517-756a188d2d94', participantes: 150),
+    Evento(titulo: "Maratona de Programação", cursoAutor: "Competição", autor: 'Coordenação', autorAvatarUrl: '', data: DateTime.now(), imagemUrl: 'https://images.unsplash.com/photo-1579820010410-c10411aaaa88', participantes: 120),
   ];
 
-  List<bool> expandido = [];
-  Set<int> selecionados = {};
+  List<Evento> _eventosFiltrados = [];
+  final Set<Evento> _eventosSelecionados = Set<Evento>();
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    expandido = List<bool>.filled(eventos.length, false);
-    _loadRole();
+    _eventosFiltrados = _todosEventos;
+    _searchController.addListener(_filtrarEventos);
   }
 
-  Future<void> _loadRole() async {
-    final storedRole = await storage.read(key: 'role');
+  // Filtra usando os campos corretos do modelo 'Evento'
+  void _filtrarEventos() {
+    final query = _searchController.text.toLowerCase();
     setState(() {
-      _role = storedRole;
+      _eventosFiltrados = _todosEventos.where((evento) {
+        return evento.titulo.toLowerCase().contains(query) || 
+               evento.cursoAutor.toLowerCase().contains(query); // CORREÇÃO: 'tipo' -> 'cursoAutor'
+      }).toList();
     });
+  }
+  
+  void _onEventoSelecionado(Evento evento, bool selecionado) {
+    setState(() {
+      if (selecionado) {
+        _eventosSelecionados.add(evento);
+      } else {
+        _eventosSelecionados.remove(evento);
+      }
+    });
+  }
+  
+  void _mostrarAcoes() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: <Widget>[
+            ListTile(
+              leading: Icon(Icons.download_outlined),
+              title: Text('Baixar Relatório (${_eventosSelecionados.length})'),
+              onTap: () { /* Lógica de download */ Navigator.pop(context); },
+            ),
+            ListTile(
+              leading: Icon(Icons.email_outlined),
+              title: Text('Enviar por E-mail'),
+              onTap: () { /* Lógica de envio */ Navigator.pop(context); },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_role == null) {
-      return Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        title: const Text("Eventos", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            onPressed: () {
-              if (selecionados.isEmpty) return;
-              showModalBottomSheet(
-                context: context,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                ),
-                builder: (context) {
-                  return Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Selecionados: ${selecionados.length}",
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 16),
-                        if (selecionados.length <= 3)
-                          ListTile(
-                            leading: const Icon(Icons.download),
-                            title: const Text("Baixar relatório"),
-                            onTap: () {
-                              Navigator.pop(context);
-                              // lógica de download
-                            },
-                          ),
-                        ListTile(
-                          leading: const Icon(Icons.email),
-                          title: const Text("Enviar por e-mail"),
-                          onTap: () {
-                            Navigator.pop(context);
-                            // lógica de envio por e-mail
-                          },
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              );
-            },
-            icon: const Icon(Icons.send, color: Colors.black),
+        title: TextField(
+          controller: _searchController,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: 'Buscar por título ou curso...',
+            border: InputBorder.none,
+            hintStyle: TextStyle(color: Colors.white70),
           ),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.notifications, color: Colors.black),
-          ),
-        ],
-        leading: IconButton(
-          icon: const Icon(Icons.search, color: Colors.black),
-          onPressed: () {},
+          style: TextStyle(color: Colors.white, fontSize: 18),
         ),
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
+        actions: [
+          if (_eventosSelecionados.isNotEmpty)
+            IconButton(
+              icon: Icon(Icons.send_outlined),
+              tooltip: "Ações",
+              onPressed: _mostrarAcoes,
+            ),
+        ],
       ),
-      body: ListView.builder(
-        itemCount: eventos.length,
-        itemBuilder: (context, index) {
-          final evento = eventos[index];
-          return Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            elevation: 2,
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      body: _eventosFiltrados.isEmpty
+          ? Center(child: Text("Nenhum evento encontrado."))
+          : ListView.builder(
+              padding: EdgeInsets.all(8),
+              itemCount: _eventosFiltrados.length,
+              itemBuilder: (context, index) {
+                final evento = _eventosFiltrados[index];
+                final isSelected = _eventosSelecionados.contains(evento);
+                return _EventListItem(
+                  evento: evento,
+                  isSelected: isSelected,
+                  onSelected: (selected) => _onEventoSelecionado(evento, selected),
+                );
+              },
+            ),
+    );
+  }
+}
+
+class _EventListItem extends StatelessWidget {
+  final Evento evento;
+  final bool isSelected;
+  final ValueChanged<bool> onSelected;
+
+  const _EventListItem({ required this.evento, required this.isSelected, required this.onSelected });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 2,
+      color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : Colors.white,
+      child: ExpansionTile(
+        leading: Checkbox(
+          value: isSelected,
+          onChanged: (value) => onSelected(value!),
+          activeColor: Theme.of(context).primaryColor,
+        ),
+        title: Text(evento.titulo, style: TextStyle(fontWeight: FontWeight.w600)),
+        // CORREÇÃO: 'tipo' -> 'cursoAutor'
+        subtitle: Text(evento.cursoAutor, style: TextStyle(color: Colors.grey[600])),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ListTile(
-                  leading: const Icon(Icons.celebration, color: Colors.deepPurple),
-                  title: Text(evento.nome),
-                  subtitle: Text(evento.tipo),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Checkbox(
-                        value: selecionados.contains(index),
-                        onChanged: (bool? value) {
-                          setState(() {
-                            if (value == true) {
-                              selecionados.add(index);
-                            } else {
-                              selecionados.remove(index);
-                            }
-                          });
-                        },
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          expandido[index] ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            expandido[index] = !expandido[index];
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                if (expandido[index])
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(evento.resumo),
-                        ),
-                        const SizedBox(width: 12),
-                        Container(
-                          width: 80,
-                          height: 80,
-                          color: Colors.red.shade700,
-                        ),
-                      ],
+                // Adicionando informações extras que já temos no modelo
+                Text('Organizado por: ${evento.autor}'),
+                SizedBox(height: 4),
+                Text('Data: ${DateFormat('d MMM, yyyy', 'pt_BR').format(evento.data)}'),
+                SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    evento.imagemUrl,
+                    width: double.infinity,
+                    height: 100,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 100,
+                      color: Colors.grey[200],
+                      child: Icon(Icons.image_not_supported_outlined, color: Colors.grey),
                     ),
                   ),
+                ),
               ],
             ),
-          );
-        },
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        selectedItemColor: Colors.black,
-        unselectedItemColor: Colors.grey,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        type: BottomNavigationBarType.fixed,
-        onTap: (index) {
-
-          if (index == 0) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EventosApp()));
-          } else if (index == 1) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EVRegister()));
-          } else if (index == 2) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => CadastroUsuarioPage()));
-          } else if (index == 3) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => PerfilPage()));
-          }
-
-        },
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.feed,
-              color: Colors.grey,
-              size: 24,
-            ),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.add,
-              color: Colors.grey,
-              size: 24,
-            ),
-            label: '',
-          ),
-          if (isAdmin)
-            BottomNavigationBarItem(
-              icon: Icon(
-                Icons.admin_panel_settings,
-                color: Colors.grey,
-                size: 24,
-              ),
-              label: '',
-            ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.person,
-              color: Colors.grey,
-              size: 24,
-            ),
-            label: '',
           ),
         ],
       ),

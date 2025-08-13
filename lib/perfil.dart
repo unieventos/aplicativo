@@ -1,26 +1,11 @@
-
-
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'dart:convert';
-import 'login.dart'; // importa a sua tela de login
-import 'eventRegister.dart';
-import 'register.dart';
-import 'modifyUser.dart';
-import 'search.dart';
-import 'UserRegister.dart';
-import 'perfil.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:flutter/material.dart';
-import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
-import 'login.dart'; // importa a sua tela de login
-import 'eventRegister.dart';
-import 'register.dart';
-import 'modifyUser.dart';
-import 'home.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'perfil.dart';
+import 'package:flutter_application_1/login.dart';
+
+class PerfilUsuario {
+  final String nome, sobrenome, email, curso, role;
+  PerfilUsuario({ this.nome = '', this.sobrenome = '', this.email = '', this.curso = 'Não informado', this.role = 'user' });
+}
 
 class PerfilPage extends StatefulWidget {
   @override
@@ -28,161 +13,163 @@ class PerfilPage extends StatefulWidget {
 }
 
 class _PerfilPageState extends State<PerfilPage> {
-  final storage = FlutterSecureStorage();
-  String nome = '';
-  String sobrenome = '';
-  String email = '';
-  String curso = '';
-  String role = '';
-  final bool isAdmin = true; // Altere para false se quiser simular usuário comum
-  int _selectedIndex = 3; // índice de Admin alterado para 2
+  final _storage = FlutterSecureStorage();
+  late Future<PerfilUsuario> _perfilUsuarioFuture;
 
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _perfilUsuarioFuture = _loadUserData();
   }
 
-  Future<void> _loadUserData() async {
-    final storedNome = utf8.decode((await storage.read(key: 'nome'))?.codeUnits ?? []);
-    final storedSobrenome = utf8.decode((await storage.read(key: 'sobrenome'))?.codeUnits ?? []);
-    final storedEmail = utf8.decode((await storage.read(key: 'email'))?.codeUnits ?? []);
-    final storedCurso = utf8.decode((await storage.read(key: 'cursoId'))?.codeUnits ?? []);
-    final storedRole = utf8.decode((await storage.read(key: 'role'))?.codeUnits ?? []);
+  Future<PerfilUsuario> _loadUserData() async {
+    final values = await Future.wait([
+      _storage.read(key: 'nome'),
+      _storage.read(key: 'sobrenome'),
+      _storage.read(key: 'email'),
+      _storage.read(key: 'cursoId'),
+      _storage.read(key: 'role'),
+    ]);
+    return PerfilUsuario(
+      nome: values[0] ?? 'Usuário',
+      sobrenome: values[1] ?? '',
+      email: values[2] ?? 'email@nao.informado',
+      curso: 'Curso ID: ${values[3] ?? "N/A"}',
+      role: values[4] ?? 'user',
+    );
+  }
 
-    setState(() {
-      nome = storedNome;
-      sobrenome = storedSobrenome;
-      email = storedEmail;
-      curso = storedCurso;
-      role = storedRole;
-    });
+  Future<void> _logout() async {
+    bool? confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Confirmar Logout"),
+        content: Text("Tem certeza que deseja sair?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text("Cancelar")),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text("Sair", style: TextStyle(color: Theme.of(context).primaryColor)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar == true && mounted) {
+      await _storage.deleteAll();
+      // CORREÇÃO: Navega para a LoginScreen e remove todas as outras telas da pilha.
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => LoginScreen()),
+        (Route<dynamic> route) => false,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Perfil do Usuário'),
-        centerTitle: true,
+        title: Text("Meu Perfil"),
+        automaticallyImplyLeading: false,
+        centerTitle: false,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
+      body: FutureBuilder<PerfilUsuario>(
+        future: _perfilUsuarioFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text("Erro ao carregar dados."));
+          }
+          if (!snapshot.hasData) {
+            return Center(child: Text("Nenhum dado encontrado."));
+          }
+
+          final perfil = snapshot.data!;
+          
+          return RefreshIndicator(
+            onRefresh: () async {
+              setState(() { _perfilUsuarioFuture = _loadUserData(); });
+            },
+            child: ListView(
+              padding: const EdgeInsets.all(16.0),
+              children: [
+                _buildHeader(perfil),
+                SizedBox(height: 24),
+                _buildInfoCard(perfil),
+                SizedBox(height: 24),
+                _buildActionsCard(),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildHeader(PerfilUsuario perfil) {
+    return Column(
+      children: [
+        CircleAvatar(
+          radius: 50,
+          backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+          child: Text(
+            perfil.nome.isNotEmpty ? perfil.nome[0].toUpperCase() : 'U',
+            style: TextStyle(fontSize: 48, color: Theme.of(context).primaryColor),
+          ),
+        ),
+        SizedBox(height: 12),
+        Text('${perfil.nome} ${perfil.sobrenome}', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        SizedBox(height: 4),
+        Text(perfil.email, style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+      ],
+    );
+  }
+
+  Widget _buildInfoCard(PerfilUsuario perfil) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    ListTile(
-                      leading: Icon(Icons.person),
-                      title: Text('$nome $sobrenome', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      subtitle: Text('Nome completo'),
-                    ),
-                    Divider(),
-                    ListTile(
-                      leading: Icon(Icons.email),
-                      title: Text(email, style: TextStyle(fontSize: 18)),
-                      subtitle: Text('Email'),
-                    ),
-                    Divider(),
-                    ListTile(
-                      leading: Icon(Icons.school),
-                      title: Text(curso, style: TextStyle(fontSize: 18)),
-                      subtitle: Text('Curso'),
-                    ),
-                    Divider(),
-                    ListTile(
-                      leading: Icon(Icons.admin_panel_settings),
-                      title: Text(role, style: TextStyle(fontSize: 18)),
-                      subtitle: Text('Perfil'),
-                    ),
-                  ],
-                ),
-              ),
+            ListTile(
+              leading: Icon(Icons.school_outlined, color: Theme.of(context).primaryColor),
+              title: Text("Curso"),
+              subtitle: Text(perfil.curso, style: TextStyle(fontSize: 16, color: Colors.black87)),
             ),
-            SizedBox(height: 30),
-            ElevatedButton.icon(
-              onPressed: () async {
-                await storage.deleteAll();
-                Navigator.of(context).pushReplacementNamed('/login');
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                padding: const EdgeInsets.symmetric(vertical: 15),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              icon: Icon(Icons.logout, color: Colors.white),
-              label: Text('Logout', style: TextStyle(color: Colors.white, fontSize: 16)),
+            Divider(indent: 16, endIndent: 16),
+            ListTile(
+              leading: Icon(Icons.admin_panel_settings_outlined, color: Theme.of(context).primaryColor),
+              title: Text("Nível de Acesso"),
+              subtitle: Text(perfil.role.toUpperCase(), style: TextStyle(fontSize: 16, color: Colors.black87)),
             ),
-            
           ],
         ),
       ),
-       bottomNavigationBar: BottomNavigationBar(
-        selectedItemColor: Colors.black,
-        unselectedItemColor: Colors.grey,
-        currentIndex: _selectedIndex,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        type: BottomNavigationBarType.fixed,
-        onTap: (index) {
-          if (index == _selectedIndex) return;
-
-          if (index == 0) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EventosApp()));
-          } else if (index == 1) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EVRegister()));
-          } else if (index == 2) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => CadastroUsuarioPage()));
-          } else if (index == 3) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => PerfilPage()));
-          }
-
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.feed,
-              color: _selectedIndex == 0 ? Colors.black : Colors.grey,
-              size: _selectedIndex == 0 ? 28 : 24,
+    );
+  }
+  
+  Widget _buildActionsCard() {
+    return Card(
+       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+       child: Column(
+         children: [
+            ListTile(
+              leading: Icon(Icons.edit_outlined, color: Colors.blue.shade700),
+              title: Text("Editar Perfil"),
+              trailing: Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () { /* Navegar para a tela de edição */ },
             ),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.add,
-              color: _selectedIndex == 1 ? Colors.black : Colors.grey,
-              size: _selectedIndex == 1 ? 28 : 24,
+            Divider(indent: 16, endIndent: 16),
+            ListTile(
+              leading: Icon(Icons.logout, color: Theme.of(context).primaryColor),
+              title: Text("Sair", style: TextStyle(color: Theme.of(context).primaryColor)),
+              onTap: _logout,
             ),
-            label: '',
-          ),
-          if (isAdmin)
-            BottomNavigationBarItem(
-              icon: Icon(
-                Icons.admin_panel_settings,
-                color: _selectedIndex == 2 ? Colors.black : Colors.grey,
-                size: _selectedIndex == 2 ? 28 : 24,
-              ),
-              label: '',
-            ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.person,
-              color: _selectedIndex == 3 ? Colors.black : Colors.grey,
-              size: _selectedIndex == 3 ? 28 : 24,
-            ),
-            label: '',
-          ),
-        ],
-      ),
+         ],
+       ),
     );
   }
 }

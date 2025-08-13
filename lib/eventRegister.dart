@@ -1,276 +1,222 @@
-import 'package:flutter_application_1/search.dart';
-import 'package:flutter_application_1/home.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'register.dart';
-import 'UserRegister.dart';
-import 'perfil.dart';
+import 'package:intl/intl.dart'; // Para formatar datas
 
+// --- TELA DE CADASTRO DE EVENTO REATORADA ---
 class EVRegister extends StatefulWidget {
   @override
   _EVRegisterState createState() => _EVRegisterState();
 }
 
 class _EVRegisterState extends State<EVRegister> {
-  String? selectedCourse;
-  bool showDates = false;
-  final bool isAdmin = true; // Altere para false se quiser simular usuário comum
-  int _selectedIndex = 1;
+  final _formKey = GlobalKey<FormState>();
 
-  List<Map<String, DateTime?>> dateRanges = [
-    {"start": null, "end": null},
-    {"start": null, "end": null},
-  ];
+  // Controllers para os campos do formulário
+  final _tituloController = TextEditingController();
+  final _detalhesController = TextEditingController();
+  
+  String? _setorSelecionado;
+  DateTime? _dataInicio;
+  DateTime? _dataFim;
+  // TODO: Adicionar lógica para lidar com a imagem e arquivos selecionados
+  // File? _imagemSelecionada; 
+  
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _tituloController.dispose();
+    _detalhesController.dispose();
+    super.dispose();
+  }
+
+  // Função para lidar com a publicação do evento
+  Future<void> _publicarEvento() async {
+    // Valida o formulário antes de continuar
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    
+    setState(() => _isLoading = true);
+    
+    // --- LÓGICA DE API AQUI ---
+    // Você vai criar um mapa com os dados a serem enviados.
+    final dadosDoEvento = {
+      'titulo': _tituloController.text,
+      'setor': _setorSelecionado,
+      'detalhes': _detalhesController.text,
+      'dataInicio': _dataInicio?.toIso8601String(),
+      'dataFim': _dataFim?.toIso8601String(),
+      // 'imagem': _imagemSelecionada, // Lógica de upload da imagem
+    };
+    
+    print("Publicando evento: $dadosDoEvento");
+    // Simula uma chamada à API.
+    await Future.delayed(Duration(seconds: 2));
+    
+    // Exemplo de como seria a chamada real:
+    // final sucesso = await EventosApi.criarEvento(dadosDoEvento);
+
+    // if (sucesso && mounted) {
+    //   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Evento publicado com sucesso!"), backgroundColor: Colors.green));
+    //   // Limpa o formulário após o sucesso
+    //   _formKey.currentState?.reset();
+    //   setState(() { ... });
+    // } else {
+    //   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro ao publicar evento."), backgroundColor: Colors.red));
+    // }
+
+    setState(() => _isLoading = false);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        title: const Text(
-          'Eventos',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
-        ),
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.search, color: Colors.black),
-          onPressed: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => SearchPage()),
-            );
-          },
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list, color: Colors.black),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.black),
-            onPressed: () {},
-          ),
-        ],
-        elevation: 0,
+        title: Text("Cadastrar Novo Evento"),
+        automaticallyImplyLeading: false, // Remove a seta de voltar
+        centerTitle: false,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        selectedItemColor: Colors.black,
-        unselectedItemColor: Colors.grey,
-        currentIndex: _selectedIndex,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        type: BottomNavigationBarType.fixed,
-        onTap: (index) {
-          if (index == _selectedIndex) return;
-
-          if (index == 0) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EventosApp()));
-          } else if (index == 1) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EVRegister()));
-          } else if (index == 2) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => CadastroUsuarioPage()));
-          } else if (index == 3) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => PerfilPage()));
-          }
-
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.feed,
-              color: _selectedIndex == 0 ? Colors.black : Colors.grey,
-              size: _selectedIndex == 0 ? 28 : 24,
-            ),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.add,
-              color: _selectedIndex == 1 ? Colors.black : Colors.grey,
-              size: _selectedIndex == 1 ? 28 : 24,
-            ),
-            label: '',
-          ),
-          if (isAdmin)
-            BottomNavigationBarItem(
-              icon: Icon(
-                Icons.admin_panel_settings,
-                color: _selectedIndex == 2 ? Colors.black : Colors.grey,
-                size: _selectedIndex == 2 ? 28 : 24,
-              ),
-              label: '',
-            ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.person,
-              color: _selectedIndex == 3 ? Colors.black : Colors.grey,
-              size: _selectedIndex == 3 ? 28 : 24,
-            ),
-            label: '',
-          ),
-        ],
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // --- SELETOR DE IMAGEM ---
+              _buildImagePicker(),
+              SizedBox(height: 24),
+              
+              // --- CAMPOS DO FORMULÁRIO ---
+              TextFormField(
+                controller: _tituloController,
+                decoration: InputDecoration(labelText: 'Título do Evento'),
+                validator: (v) => v!.isEmpty ? 'O título é obrigatório' : null,
+              ),
+              SizedBox(height: 16),
+              
+              DropdownButtonFormField<String>(
+                value: _setorSelecionado,
+                decoration: InputDecoration(labelText: 'Selecione o Setor/Curso'),
+                items: ['Pastoral', 'Odontologia', 'Enfermagem', 'Ciência da Computação']
+                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                    .toList(),
+                onChanged: (value) => setState(() => _setorSelecionado = value),
+                validator: (v) => v == null ? 'Selecione um setor' : null,
+              ),
+              SizedBox(height: 16),
+              
+              TextFormField(
+                controller: _detalhesController,
+                maxLines: 5,
+                decoration: InputDecoration(
+                  labelText: 'Detalhes do Evento',
+                  alignLabelWithHint: true,
+                ),
+                validator: (v) => v!.isEmpty ? 'Os detalhes são obrigatórios' : null,
+              ),
+              SizedBox(height: 24),
+
+              // --- SELETORES DE DATA ---
+              _buildDatePicker(),
+              SizedBox(height: 16),
+              
+              // --- BOTÃO DE UPLOAD ---
+              OutlinedButton.icon(
+                onPressed: () { /* Lógica para upload de arquivos (PDFs, etc.) */ },
+                icon: Icon(Icons.upload_file_outlined),
+                label: Text('Anexar Arquivos (Opcional)'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: Size(double.infinity, 48),
+                ),
+              ),
+              SizedBox(height: 32),
+              
+              // --- BOTÃO DE PUBLICAR ---
+              ElevatedButton(
+                onPressed: _isLoading ? null : _publicarEvento,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                  minimumSize: Size(double.infinity, 50),
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: _isLoading
+                    ? SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
+                    : Text('PUBLICAR EVENTO'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- WIDGETS AUXILIARES PARA ORGANIZAR O CÓDIGO ---
+
+  Widget _buildImagePicker() {
+    return GestureDetector(
+      onTap: () { /* TODO: Lógica para abrir a galeria e selecionar imagem */ },
+      child: Container(
+        height: 200,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade400, width: 1),
+        ),
+        // TODO: Substituir por `_imagemSelecionada != null ? Image.file(_imagemSelecionada!) : ...`
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset(
-              'assets/event.png',
-              height: 200,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              decoration: InputDecoration(
-                labelText: 'Título do evento',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: selectedCourse,
-              decoration: InputDecoration(
-                labelText: 'Selecione o Setor',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              items: ['Pastoral', 'Odontologia', 'Enfermagem', 'Ciência da Computação']
-                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                  .toList(),
-              onChanged: (value) => setState(() => selectedCourse = value),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              maxLines: 4,
-              decoration: InputDecoration(
-                labelText: 'Detalhes do evento',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      DateTime? picked = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now(),
-                        firstDate: DateTime(2023),
-                        lastDate: DateTime(2100),
-                      );
-                      if (picked != null) {
-                        setState(() => dateRanges[0]["start"] = picked);
-                      }
-                    },
-                    icon: const Icon(Icons.calendar_today),
-                    label: Text(dateRanges[0]["start"] == null
-                        ? 'Início'
-                        : DateFormat('dd/MM/yyyy').format(dateRanges[0]["start"]!)),
-                    style: ElevatedButton.styleFrom(
-                      foregroundColor: Colors.black,
-                      backgroundColor: Colors.grey[200],
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: dateRanges[0]["start"] == null
-                        ? null
-                        : () async {
-                      DateTime? picked = await showDatePicker(
-                        context: context,
-                        initialDate: dateRanges[0]["start"]!,
-                        firstDate: dateRanges[0]["start"]!,
-                        lastDate: DateTime(2100),
-                      );
-                      if (picked != null) {
-                        setState(() => dateRanges[0]["end"] = picked);
-                      }
-                    },
-                    icon: const Icon(Icons.calendar_today),
-                    label: Text(dateRanges[0]["end"] == null
-                        ? 'Fim'
-                        : DateFormat('dd/MM/yyyy').format(dateRanges[0]["end"]!)),
-                    style: ElevatedButton.styleFrom(
-                      foregroundColor: Colors.black,
-                      backgroundColor: Colors.grey[200],
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ElevatedButton.icon(
-              onPressed: () {
-                // lógica para upload
-              },
-              icon: const Icon(Icons.upload_file),
-              label: const Text('Upload de arquivos'),
-              style: ElevatedButton.styleFrom(
-                foregroundColor: Colors.black,
-                backgroundColor: Colors.grey[200],
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                minimumSize: const Size(double.infinity, 48),
-              ),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => EventosApp()),
-                  (Route<dynamic> route) => false,
-                );
-              },
-              icon: Icon(Icons.description, color: Colors.white),
-              label: Text('Ir para Home'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                minimumSize: Size(double.infinity, 48),
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                // lógica para publicar evento
-              },
-              child: const Text(
-                'PUBLICAR',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Color.fromRGBO(204, 34, 41, 1),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                minimumSize: const Size(double.infinity, 50),
-              ),
-            ),
+            Icon(Icons.camera_alt_outlined, size: 50, color: Colors.grey[600]),
+            SizedBox(height: 8),
+            Text("Clique para adicionar uma imagem", style: TextStyle(color: Colors.grey[700])),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDatePicker() {
+    return Row(
+      children: [
+        Expanded(
+          child: InkWell(
+            onTap: () async {
+              DateTime? picked = await showDatePicker(
+                context: context,
+                initialDate: DateTime.now(),
+                firstDate: DateTime.now().subtract(Duration(days: 30)),
+                lastDate: DateTime.now().add(Duration(days: 365)),
+              );
+              if (picked != null) setState(() => _dataInicio = picked);
+            },
+            child: InputDecorator(
+              decoration: InputDecoration(labelText: 'Data de Início'),
+              child: Text(_dataInicio == null ? 'Selecionar' : DateFormat('dd/MM/yyyy').format(_dataInicio!)),
+            ),
+          ),
+        ),
+        SizedBox(width: 16),
+        Expanded(
+          child: InkWell(
+            onTap: () async {
+              DateTime? picked = await showDatePicker(
+                context: context,
+                initialDate: _dataInicio ?? DateTime.now(),
+                firstDate: _dataInicio ?? DateTime.now().subtract(Duration(days: 30)),
+                lastDate: DateTime.now().add(Duration(days: 365)),
+              );
+              if (picked != null) setState(() => _dataFim = picked);
+            },
+            child: InputDecorator(
+              decoration: InputDecoration(labelText: 'Data de Fim'),
+              child: Text(_dataFim == null ? 'Selecionar' : DateFormat('dd/MM/yyyy').format(_dataFim!)),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

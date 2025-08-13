@@ -1,56 +1,10 @@
 import 'package:flutter/material.dart';
-import 'UserRegister.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import 'home.dart';
-import 'eventRegister.dart';
+// Este arquivo agora é uma tela simples e não precisa de outros imports de navegação complexa.
 
-void register() {
-  runApp(Register());
-}
-
-class Register extends StatefulWidget {
-  @override
-  _RegisterState createState() => _RegisterState();
-}
-
-class _RegisterState extends State<Register> {
-  final storage = FlutterSecureStorage();
-  String? _role;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadRole();
-  }
-
-  Future<void> _loadRole() async {
-    final storedRole = await storage.read(key: 'role');
-    setState(() {
-      _role = storedRole;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_role == null) {
-      return MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
-      );
-    }
-
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: RegisterScreen(role: _role!),
-    );
-  }
-}
-
+// --- TELA DE CADASTRO DE USUÁRIO REATORADA ---
 class RegisterScreen extends StatefulWidget {
-  final String role;
+  final String role; // Mantendo o parâmetro que você tinha.
   RegisterScreen({required this.role});
 
   @override
@@ -58,16 +12,24 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final TextEditingController _nomeController = TextEditingController();
-  final TextEditingController _sobrenomeController = TextEditingController();
-  final TextEditingController _loginController = TextEditingController();
-  final TextEditingController _roleController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _senhaController = TextEditingController();
-  final TextEditingController _confirmarSenhaController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+
+  // Seus controllers originais
+  final _nomeController = TextEditingController();
+  final _sobrenomeController = TextEditingController();
+  final _loginController = TextEditingController();
+  final _roleController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _senhaController = TextEditingController();
+  final _confirmarSenhaController = TextEditingController();
+  
+  bool _isLoading = false;
+  bool _obscureSenha = true;
+  bool _obscureConfirmarSenha = true;
 
   @override
   void dispose() {
+    // Limpando todos os controllers
     _nomeController.dispose();
     _sobrenomeController.dispose();
     _loginController.dispose();
@@ -78,193 +40,127 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  // Função para lidar com o cadastro do usuário
+  Future<void> _cadastrarUsuario() async {
+    // Valida o formulário antes de continuar.
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    
+    setState(() => _isLoading = true);
+    
+    // --- LÓGICA DE API AQUI ---
+    // Você vai criar um mapa com os dados a serem enviados.
+    final dadosParaCriar = {
+      'nome': _nomeController.text,
+      'sobrenome': _sobrenomeController.text,
+      'login': _loginController.text,
+      'role': _roleController.text,
+      'email': _emailController.text,
+      'password': _senhaController.text,
+      // 'cursoId': _idDoCursoSelecionado,
+    };
+    
+    // Simula uma chamada à API.
+    print("Enviando para API: $dadosParaCriar");
+    await Future.delayed(Duration(seconds: 2));
+    
+    // Exemplo de como seria a chamada real:
+    // final sucesso = await UsuarioApi.criarUsuario(dadosParaCriar);
+
+    // if (sucesso && mounted) {
+    //   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Usuário criado com sucesso!"), backgroundColor: Colors.green));
+    //   Navigator.of(context).pop(true); // Retorna 'true' para a tela anterior para atualizar a lista.
+    // } else {
+    //   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro ao criar usuário."), backgroundColor: Colors.red));
+    // }
+
+    setState(() => _isLoading = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: false,
-      body: Stack(
-        children: [
-          Column(
+      backgroundColor: Color(0xFFF5F5F5),
+      appBar: AppBar(
+        title: Text("Criar Novo Usuário"),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(flex: 3, child: Container(color: Color(0xFFCC2229))),
-              Expanded(flex: 7, child: Container(color: Color(0xFFEFEFEF))),
+              TextFormField(controller: _nomeController, decoration: InputDecoration(labelText: "Nome"), validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null),
+              SizedBox(height: 16),
+              TextFormField(controller: _sobrenomeController, decoration: InputDecoration(labelText: "Sobrenome"), validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null),
+              SizedBox(height: 16),
+              TextFormField(controller: _loginController, decoration: InputDecoration(labelText: "Login (nome de usuário)"), validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null),
+              SizedBox(height: 16),
+              TextFormField(controller: _roleController, decoration: InputDecoration(labelText: "Perfil (ex: admin, user)"), validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null),
+              SizedBox(height: 16),
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(labelText: "E-mail"),
+                validator: (v) {
+                  if (v!.isEmpty) return 'Campo obrigatório';
+                  if (!v.contains('@')) return 'Email inválido';
+                  return null;
+                },
+              ),
+              SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                decoration: InputDecoration(labelText: "Selecione o Curso"),
+                items: ["Ciência da Computação", "Engenharia", "Direito"]
+                    .map((curso) => DropdownMenuItem(value: curso, child: Text(curso)))
+                    .toList(),
+                onChanged: (value) {},
+                validator: (v) => v == null ? 'Selecione um curso' : null,
+              ),
+              SizedBox(height: 16),
+              TextFormField(
+                controller: _senhaController,
+                obscureText: _obscureSenha,
+                decoration: InputDecoration(
+                  labelText: "Senha",
+                  suffixIcon: IconButton(icon: Icon(_obscureSenha ? Icons.visibility_off : Icons.visibility), onPressed: () => setState(() => _obscureSenha = !_obscureSenha)),
+                ),
+                validator: (v) {
+                  if (v!.isEmpty) return 'Campo obrigatório';
+                  if (v.length < 6) return 'A senha deve ter no mínimo 6 caracteres';
+                  return null;
+                },
+              ),
+              SizedBox(height: 16),
+              TextFormField(
+                controller: _confirmarSenhaController,
+                obscureText: _obscureConfirmarSenha,
+                decoration: InputDecoration(
+                  labelText: "Confirmar Senha",
+                  suffixIcon: IconButton(icon: Icon(_obscureConfirmarSenha ? Icons.visibility_off : Icons.visibility), onPressed: () => setState(() => _obscureConfirmarSenha = !_obscureConfirmarSenha)),
+                ),
+                validator: (v) {
+                  if (v != _senhaController.text) return 'As senhas não coincidem';
+                  return null;
+                },
+              ),
+              SizedBox(height: 32),
+              ElevatedButton(
+                onPressed: _isLoading ? null : _cadastrarUsuario,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: _isLoading
+                    ? SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
+                    : Text("CADASTRAR"),
+              ),
             ],
           ),
-
-          // Botão de voltar posicionado no topo esquerdo
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 10, // respeita status bar
-            left: 10,
-            child: IconButton(
-              icon: Icon(Icons.arrow_back, color: Colors.white, size: 30),
-              onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => CadastroUsuarioPage()),
-                );
-              },
-            ),
-          ),
-
-          Positioned(
-            left: 20,
-            right: 20,
-            top: MediaQuery.of(context).size.height * 0.15,
-            child: Container(
-              padding: EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    "Registro Usuário",
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFFCC2229)),
-                  ),
-                  SizedBox(height: 20),
-                  TextField(
-                    controller: _nomeController,
-                    autofillHints: [AutofillHints.name],
-                    decoration: InputDecoration(
-                      labelText: "Nome",
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: 15),
-                  TextField(
-                    controller: _sobrenomeController,
-                    autofillHints: [AutofillHints.familyName],
-                    decoration: InputDecoration(
-                      labelText: "Sobrenome",
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: 15),
-                  TextField(
-                    controller: _loginController,
-                    decoration: InputDecoration(
-                      labelText: "Login",
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: 15),
-                  TextField(
-                    controller: _roleController,
-                    decoration: InputDecoration(
-                      labelText: "Perfil",
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: 15),
-                  TextField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    autofillHints: [AutofillHints.email],
-                    decoration: InputDecoration(
-                      labelText: "E-mail",
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: 15),
-                  DropdownButtonFormField<String>(
-                    decoration: InputDecoration(
-                      labelText: "Selecione o Curso",
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                    items: ["Ciência da Computação", "Engenharia", "Direito"]
-                        .map((curso) => DropdownMenuItem(value: curso, child: Text(curso)))
-                        .toList(),
-                    onChanged: (value) {},
-                  ),
-                  SizedBox(height: 15),
-                  TextField(
-                    controller: _senhaController,
-                    obscureText: true,
-                    autofillHints: [AutofillHints.newPassword],
-                    decoration: InputDecoration(
-                      labelText: "Senha",
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: 15),
-                  TextField(
-                    controller: _confirmarSenhaController,
-                    obscureText: true,
-                    autofillHints: [AutofillHints.newPassword],
-                    decoration: InputDecoration(
-                      labelText: "Confirmar Senha",
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      // Cadastro logic here
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFFCC2229),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      minimumSize: Size(double.infinity, 50),
-                    ),
-                    child: Text(
-                      "CADASTRAR",
-                      style: TextStyle(fontSize: 18, color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 2,
-        selectedItemColor: Colors.black,
-        unselectedItemColor: Colors.grey,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        type: BottomNavigationBarType.fixed,
-        onTap: (index) {
-          if (index == 0) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EventosApp()));
-          } else if (index == 1) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => EVRegister()));
-          } else if (index == 2) {
-            // já está na tela de cadastro
-          } else if (index == 3) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => RegisterScreen(role: widget.role)));
-          }
-        },
-        items: widget.role == 'admin'
-            ? const [
-                BottomNavigationBarItem(icon: Icon(Icons.feed), label: ''),
-                BottomNavigationBarItem(icon: Icon(Icons.add), label: ''),
-                BottomNavigationBarItem(icon: Icon(Icons.admin_panel_settings), label: ''),
-                BottomNavigationBarItem(icon: Icon(Icons.person), label: ''),
-              ]
-            : const [
-                BottomNavigationBarItem(icon: Icon(Icons.feed), label: ''),
-                BottomNavigationBarItem(icon: Icon(Icons.add), label: ''),
-                BottomNavigationBarItem(icon: Icon(Icons.person), label: ''),
-              ],
+        ),
       ),
     );
   }
