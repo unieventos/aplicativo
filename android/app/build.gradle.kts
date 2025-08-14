@@ -5,6 +5,14 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// --- PASSO 1: Adicione este bloco para ler o arquivo de propriedades da chave ---
+def keystorePropertiesFile = rootProject.file("../key.properties") // O arquivo está na raiz do projeto Flutter
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+// --------------------------------------------------------------------------
+
 android {
     namespace = "com.example.flutter_application_1"
     compileSdk = flutter.compileSdkVersion
@@ -18,25 +26,38 @@ android {
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
+    
+    // --- PASSO 2: Adicione esta seção de signingConfigs ---
+    // Ela define as configurações de assinatura que usaremos.
+    signingConfigs {
+        release {
+            if (keystoreProperties.getProperty("storeFile") != null) {
+                storeFile file(keystoreProperties.getProperty("storeFile"))
+                storePassword keystoreProperties.getProperty("storePassword")
+                keyAlias keystoreProperties.getProperty("keyAlias")
+                keyPassword keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+    // -------------------------------------------------------
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.flutter_application_1"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    // --- PASSO 3: Modifique a sua seção buildTypes existente ---
+    // Removemos o "TODO" e dizemos ao Gradle para usar a nossa nova configuração 'release'.
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Signing with our release keys.
+            signingConfig signingConfigs.release
         }
     }
+    // ------------------------------------------------------------
 }
 
 flutter {
