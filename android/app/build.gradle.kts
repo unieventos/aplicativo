@@ -36,16 +36,17 @@ android {
             
             if (keystoreFile.exists()) {
                 storeFile = keystoreFile
-                storePassword = "unieventos"
-                keyAlias = "unieventos"
-                keyPassword = "unieventos"
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
                 enableV1Signing = true
                 enableV2Signing = true
                 enableV3Signing = true
-                println("✅ Keystore encontrado em: ${'$'}{keystoreFile.absolutePath}")
+                println("✅ Keystore configurado com sucesso")
             } else {
                 // Se não encontrar o keystore, desabilita a assinatura
                 println("⚠️  AVISO: Usando configuração de debug para release (não recomendado para produção)")
+                println("⚠️  Caminho do keystore não encontrado: ${keystoreFile.absolutePath}")
                 initWith(signingConfigs.getByName("debug"))
             }
         }
