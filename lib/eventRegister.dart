@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart'; // Para formatar datas
+import 'event_service.dart';
 
 // --- TELA DE CADASTRO DE EVENTO REATORADA ---
 class EVRegister extends StatefulWidget {
@@ -38,34 +39,76 @@ class _EVRegisterState extends State<EVRegister> {
     
     setState(() => _isLoading = true);
     
-    // --- LÓGICA DE API AQUI ---
-    // Você vai criar um mapa com os dados a serem enviados.
-    final dadosDoEvento = {
-      'titulo': _tituloController.text,
-      'setor': _setorSelecionado,
-      'detalhes': _detalhesController.text,
-      'dataInicio': _dataInicio?.toIso8601String(),
-      'dataFim': _dataFim?.toIso8601String(),
-      // 'imagem': _imagemSelecionada, // Lógica de upload da imagem
-    };
-    
-    print("Publicando evento: $dadosDoEvento");
-    // Simula uma chamada à API.
-    await Future.delayed(Duration(seconds: 2));
-    
-    // Exemplo de como seria a chamada real:
-    // final sucesso = await EventosApi.criarEvento(dadosDoEvento);
+    try {
+      // Valida se as datas foram selecionadas
+      if (_dataInicio == null || _dataFim == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Selecione as datas de início e fim do evento"),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
 
-    // if (sucesso && mounted) {
-    //   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Evento publicado com sucesso!"), backgroundColor: Colors.green));
-    //   // Limpa o formulário após o sucesso
-    //   _formKey.currentState?.reset();
-    //   setState(() { ... });
-    // } else {
-    //   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro ao publicar evento."), backgroundColor: Colors.red));
-    // }
+      // Chama o serviço para criar o evento
+      final resultado = await EventService.criarEvento(
+        nomeEvento: _tituloController.text,
+        descricao: _detalhesController.text,
+        dateInicio: DateFormat('yyyy-MM-dd').format(_dataInicio!),
+        dateFim: DateFormat('yyyy-MM-dd').format(_dataFim!),
+        categoria: _setorSelecionado ?? '',
+      );
 
-    setState(() => _isLoading = false);
+      print("Resultado da API: $resultado");
+
+      if (resultado['success'] == true) {
+        // Sucesso na criação do evento
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(resultado['message'] ?? "Evento publicado com sucesso!"),
+              backgroundColor: Colors.green,
+            ),
+          );
+          
+          // Limpa o formulário após o sucesso
+          _formKey.currentState?.reset();
+          _tituloController.clear();
+          _detalhesController.clear();
+          setState(() {
+            _setorSelecionado = null;
+            _dataInicio = null;
+            _dataFim = null;
+          });
+        }
+      } else {
+        // Erro na API
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(resultado['message'] ?? "Erro ao publicar evento"),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print("Erro na requisição: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Erro de conexão: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -90,19 +133,19 @@ class _EVRegisterState extends State<EVRegister> {
               // --- CAMPOS DO FORMULÁRIO ---
               TextFormField(
                 controller: _tituloController,
-                decoration: InputDecoration(labelText: 'Título do Evento'),
-                validator: (v) => v!.isEmpty ? 'O título é obrigatório' : null,
+                decoration: InputDecoration(labelText: 'Nome do Evento'),
+                validator: (v) => v!.isEmpty ? 'O nome do evento é obrigatório' : null,
               ),
               SizedBox(height: 16),
               
               DropdownButtonFormField<String>(
                 value: _setorSelecionado,
-                decoration: InputDecoration(labelText: 'Selecione o Setor/Curso'),
+                decoration: InputDecoration(labelText: 'Categoria'),
                 items: ['Pastoral', 'Odontologia', 'Enfermagem', 'Ciência da Computação']
                     .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                     .toList(),
                 onChanged: (value) => setState(() => _setorSelecionado = value),
-                validator: (v) => v == null ? 'Selecione um setor' : null,
+                validator: (v) => v == null ? 'Selecione uma categoria' : null,
               ),
               SizedBox(height: 16),
               
@@ -110,10 +153,10 @@ class _EVRegisterState extends State<EVRegister> {
                 controller: _detalhesController,
                 maxLines: 5,
                 decoration: InputDecoration(
-                  labelText: 'Detalhes do Evento',
+                  labelText: 'Descrição',
                   alignLabelWithHint: true,
                 ),
-                validator: (v) => v!.isEmpty ? 'Os detalhes são obrigatórios' : null,
+                validator: (v) => v!.isEmpty ? 'A descrição é obrigatória' : null,
               ),
               SizedBox(height: 24),
 
