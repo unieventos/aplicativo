@@ -8,6 +8,232 @@ class UserService {
   // A URL base da API para facilitar futuras manutenções.
   static const String _baseUrl = 'http://172.171.192.14:8081/unieventos';
 
+  // Lista categorias do backend
+  static Future<List<String>> listarCategorias() async {
+    final storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'token');
+
+    if (token == null || token.isEmpty) {
+      throw Exception('Token não encontrado');
+    }
+
+    final url = Uri.parse('$_baseUrl/categorias?page=0&size=100&sortBy=id');
+    try {
+      print('[UserService] GET $url');
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final bodyText = utf8.decode(response.bodyBytes);
+        final data = jsonDecode(bodyText);
+
+        // Suporta dois formatos comuns: lista simples de strings ou lista de objetos com campo nome
+        if (data is List) {
+          return data.map<String>((item) {
+            if (item is String) return item;
+            if (item is Map<String, dynamic>) {
+              return (item['nome'] ?? item['name'] ?? item['categoria'] ?? '').toString();
+            }
+            return item.toString();
+          }).where((e) => e.isNotEmpty).toList();
+        }
+
+        // Caso venha embrulhado em _embedded, conforme Swagger
+        if (data is Map<String, dynamic> && data['_embedded'] != null) {
+          final embedded = data['_embedded'] as Map<String, dynamic>;
+          final rawList = (embedded['categoriaResourceV1List'] ?? embedded['categoriaList'] ?? []) as List;
+          return rawList.map<String>((item) {
+            if (item is Map<String, dynamic>) {
+              final categoriaObj = item['categoria'];
+              if (categoriaObj is Map<String, dynamic>) {
+                // nomeCategoria é o campo do schema enviado
+                final nome = (categoriaObj['nomeCategoria'] ?? categoriaObj['nome'] ?? categoriaObj['name']);
+                if (nome != null) return nome.toString();
+              }
+              // fallback para nomes diretos
+              final nomeAlt = item['nomeCategoria'] ?? item['nome'] ?? item['name'];
+              if (nomeAlt != null) return nomeAlt.toString();
+            }
+            return item.toString();
+          }).where((e) => e.isNotEmpty).toList();
+        }
+
+        throw Exception('Formato inesperado de categorias');
+      } else if (response.statusCode == 404) {
+        // Considera como "sem categorias" e tenta fallback opcional
+        final fallback = Uri.parse('http://172.171.192.14:8080/unieventos/categorias?page=0&size=100&sortBy=id');
+        print('[UserService] 404 em $url, tentando fallback $fallback');
+        final resp2 = await http.get(
+          fallback,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+          },
+        );
+        if (resp2.statusCode == 200) {
+          final bodyText = utf8.decode(resp2.bodyBytes);
+          final data = jsonDecode(bodyText);
+          if (data is List) {
+            return data.map<String>((item) {
+              if (item is String) return item;
+              if (item is Map<String, dynamic>) {
+                return (item['nome'] ?? item['name'] ?? item['categoria'] ?? '').toString();
+              }
+              return item.toString();
+            }).where((e) => e.isNotEmpty).toList();
+          }
+          if (data is Map<String, dynamic> && data['_embedded'] != null) {
+            final list = (data['_embedded']['categoriaList'] ?? []) as List;
+            return list.map<String>((item) {
+              if (item is Map<String, dynamic>) {
+                final obj = (item['categoria'] ?? item);
+                if (obj is Map<String, dynamic>) {
+                  return (obj['nome'] ?? obj['name'] ?? '').toString();
+                }
+              }
+              return item.toString();
+            }).where((e) => e.isNotEmpty).toList();
+          }
+          throw Exception('Formato inesperado de categorias (fallback)');
+        }
+        // Se também deu 404 no fallback, retorna lista vazia para o app lidar graciosamente
+        print('[UserService] Fallback também retornou ${resp2.statusCode}. Retornando lista vazia.');
+        return <String>[];
+      } else {
+        final body = utf8.decode(response.bodyBytes);
+        print('[UserService] Erro categorias ${response.statusCode}: $body');
+        throw Exception('Erro ao listar categorias: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Lista categorias com id e nome
+  static Future<List<Map<String, String>>> listarCategoriasDetalhadas() async {
+    final storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'token');
+    if (token == null || token.isEmpty) throw Exception('Token não encontrado');
+
+    final url = Uri.parse('$_baseUrl/categorias?page=0&size=100&sortBy=id');
+    print('[UserService] GET $url (detalhadas)');
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final text = utf8.decode(response.bodyBytes);
+      final data = jsonDecode(text);
+      final List<Map<String, String>> result = [];
+      if (data is Map<String, dynamic> && data['_embedded'] != null) {
+        final embedded = data['_embedded'] as Map<String, dynamic>;
+        final rawList = (embedded['categoriaResourceV1List'] ?? embedded['categoriaList'] ?? []) as List;
+        for (final item in rawList) {
+          if (item is Map<String, dynamic>) {
+            final categoria = item['categoria'];
+            if (categoria is Map<String, dynamic>) {
+              final id = (categoria['id'] ?? '').toString();
+              final nome = (categoria['nomeCategoria'] ?? categoria['nome'] ?? categoria['name'] ?? '').toString();
+              if (id.isNotEmpty && nome.isNotEmpty) {
+                result.add({'id': id, 'nome': nome});
+              }
+            }
+          }
+        }
+      }
+      return result;
+    }
+
+    // fallback 8080
+    final fb = Uri.parse('http://172.171.192.14:8080/unieventos/categorias?page=0&size=100&sortBy=id');
+    print('[UserService] ${response.statusCode} em $url, tentando $fb (detalhadas)');
+    final r2 = await http.get(
+      fb,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      },
+    );
+    if (r2.statusCode == 200) {
+      final text = utf8.decode(r2.bodyBytes);
+      final data = jsonDecode(text);
+      final List<Map<String, String>> result = [];
+      if (data is Map<String, dynamic> && data['_embedded'] != null) {
+        final embedded = data['_embedded'] as Map<String, dynamic>;
+        final rawList = (embedded['categoriaResourceV1List'] ?? embedded['categoriaList'] ?? []) as List;
+        for (final item in rawList) {
+          if (item is Map<String, dynamic>) {
+            final categoria = item['categoria'];
+            if (categoria is Map<String, dynamic>) {
+              final id = (categoria['id'] ?? '').toString();
+              final nome = (categoria['nomeCategoria'] ?? categoria['nome'] ?? categoria['name'] ?? '').toString();
+              if (id.isNotEmpty && nome.isNotEmpty) {
+                result.add({'id': id, 'nome': nome});
+              }
+            }
+          }
+        }
+      }
+      return result;
+    }
+    print('[UserService] Fallback categorias detalhadas retornou ${r2.statusCode}');
+    return <Map<String, String>>[];
+  }
+
+  // Cria uma categoria
+  static Future<Map<String, String>?> criarCategoria(String nomeCategoria) async {
+    final storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'token');
+    if (token == null || token.isEmpty) throw Exception('Token não encontrado');
+
+    final url = Uri.parse('$_baseUrl/categorias');
+    print('[UserService] POST $url {nomeCategoria: $nomeCategoria}');
+    final response = await http.post(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: jsonEncode({'nomeCategoria': nomeCategoria}),
+    );
+
+    final body = utf8.decode(response.bodyBytes);
+    print('[UserService] Resposta criar categoria ${response.statusCode}: $body');
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      try {
+        final data = jsonDecode(body);
+        // tenta extrair id/nome de diferentes formatos
+        String id = '';
+        String nome = nomeCategoria;
+        if (data is Map<String, dynamic>) {
+          if (data['categoria'] is Map<String, dynamic>) {
+            final c = data['categoria'] as Map<String, dynamic>;
+            id = (c['id'] ?? '').toString();
+            nome = (c['nomeCategoria'] ?? nome).toString();
+          } else {
+            id = (data['id'] ?? '').toString();
+            nome = (data['nomeCategoria'] ?? data['nome'] ?? nome).toString();
+          }
+        }
+        return {'id': id, 'nome': nome};
+      } catch (_) {
+        return {'id': '', 'nome': nomeCategoria};
+      }
+    }
+    print('[UserService] Erro criar categoria ${response.statusCode}: $body');
+    return null;
+  }
+
   // O método agora é mais robusto e lida com mais cenários de erro.
   static Future<String?> buscarUsuario() async {
     final storage = FlutterSecureStorage();

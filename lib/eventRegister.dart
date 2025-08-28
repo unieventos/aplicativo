@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart'; // Para formatar datas
 import 'event_service.dart';
+import 'user_service.dart';
 
 // --- TELA DE CADASTRO DE EVENTO REATORADA ---
 class EVRegister extends StatefulWidget {
@@ -16,6 +17,9 @@ class _EVRegisterState extends State<EVRegister> {
   final _detalhesController = TextEditingController();
   
   String? _setorSelecionado;
+  String? _categoriaIdSelecionada;
+  List<String> _categorias = [];
+  List<Map<String, String>> _categoriasDetalhadas = [];
   DateTime? _dataInicio;
   DateTime? _dataFim;
   // TODO: Adicionar lógica para lidar com a imagem e arquivos selecionados
@@ -28,6 +32,32 @@ class _EVRegisterState extends State<EVRegister> {
     _tituloController.dispose();
     _detalhesController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarCategorias();
+  }
+
+  Future<void> _carregarCategorias() async {
+    try {
+      final lista = await UserService.listarCategorias();
+      final detalhadas = await UserService.listarCategoriasDetalhadas();
+      if (mounted) {
+        setState(() {
+          _categorias = lista;
+          _categoriasDetalhadas = detalhadas;
+        });
+      }
+    } catch (e) {
+      // feedback simples
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Falha ao carregar categorias: $e'), backgroundColor: Colors.orange),
+        );
+      }
+    }
   }
 
   // Função para lidar com a publicação do evento
@@ -59,6 +89,7 @@ class _EVRegisterState extends State<EVRegister> {
         dateInicio: DateFormat('yyyy-MM-dd').format(_dataInicio!),
         dateFim: DateFormat('yyyy-MM-dd').format(_dataFim!),
         categoria: _setorSelecionado ?? '',
+        categoriaId: _categoriaIdSelecionada,
       );
 
       print("Resultado da API: $resultado");
@@ -141,12 +172,57 @@ class _EVRegisterState extends State<EVRegister> {
               DropdownButtonFormField<String>(
                 value: _setorSelecionado,
                 decoration: InputDecoration(labelText: 'Categoria'),
-                items: ['Pastoral', 'Odontologia', 'Enfermagem', 'Ciência da Computação']
+                items: (_categorias.isEmpty ? ['Sem categorias disponíveis'] : _categorias)
                     .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                     .toList(),
-                onChanged: (value) => setState(() => _setorSelecionado = value),
-                validator: (v) => v == null ? 'Selecione uma categoria' : null,
+                onChanged: (value) => setState(() {
+                  _setorSelecionado = value;
+                  // tenta encontrar o id correspondente
+                  final match = _categoriasDetalhadas.firstWhere(
+                    (c) => c['nome'] == value,
+                    orElse: () => {'id': '', 'nome': ''},
+                  );
+                  _categoriaIdSelecionada = match['id'];
+                }),
+                validator: (v) {
+                  if (_categorias.isEmpty) return 'Nenhuma categoria disponível';
+                  return v == null ? 'Selecione uma categoria' : null;
+                },
               ),
+              if (_categorias.isEmpty) ...[
+                SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final controller = TextEditingController();
+                    final nome = await showDialog<String>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: Text('Criar categoria'),
+                        content: TextField(controller: controller, decoration: InputDecoration(labelText: 'Nome da categoria')),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancelar')),
+                          ElevatedButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: Text('Criar')),
+                        ],
+                      ),
+                    );
+                    if (nome != null && nome.isNotEmpty) {
+                      final criado = await UserService.criarCategoria(nome);
+                      if (criado != null) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Categoria criada'), backgroundColor: Colors.green));
+                        await _carregarCategorias();
+                        setState(() {
+                          _setorSelecionado = nome;
+                          _categoriaIdSelecionada = criado['id'];
+                        });
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Falha ao criar categoria'), backgroundColor: Colors.red));
+                      }
+                    }
+                  },
+                  icon: Icon(Icons.add),
+                  label: Text('Criar categoria'),
+                ),
+              ],
               SizedBox(height: 16),
               
               TextFormField(
