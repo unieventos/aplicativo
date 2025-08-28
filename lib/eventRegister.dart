@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart'; // Para formatar datas
 import 'event_service.dart';
 import 'user_service.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 // --- TELA DE CADASTRO DE EVENTO REATORADA ---
 class EVRegister extends StatefulWidget {
@@ -26,6 +27,7 @@ class _EVRegisterState extends State<EVRegister> {
   // File? _imagemSelecionada; 
   
   bool _isLoading = false;
+  String? _userRole;
 
   @override
   void dispose() {
@@ -38,6 +40,7 @@ class _EVRegisterState extends State<EVRegister> {
   void initState() {
     super.initState();
     _carregarCategorias();
+    _carregarRole();
   }
 
   Future<void> _carregarCategorias() async {
@@ -58,6 +61,14 @@ class _EVRegisterState extends State<EVRegister> {
         );
       }
     }
+  }
+
+  Future<void> _carregarRole() async {
+    final storage = FlutterSecureStorage();
+    final role = await storage.read(key: 'role');
+    setState(() {
+      _userRole = role;
+    });
   }
 
   // Função para lidar com a publicação do evento
@@ -189,7 +200,7 @@ class _EVRegisterState extends State<EVRegister> {
                   return v == null ? 'Selecione uma categoria' : null;
                 },
               ),
-              if (_categorias.isEmpty) ...[
+              if (_userRole?.toLowerCase() == 'admin') ...[
                 SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: () async {
