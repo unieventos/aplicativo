@@ -1,0 +1,8 @@
+targets:
+  $default:
+    builders:
+      swagger_dart_code_generator:
+        options:
+          client_class_name: Dio
+          input_folder: "lib/api/swagger"
+          output_folder: "lib/api/generated"
