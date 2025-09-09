@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_application_1/config/api_config.dart';
+import 'package:flutter_application_1/utils/web_checks.dart';
 
 // --- SERVIÇO DE USUÁRIO REATORADO ---
 // Responsável por buscar os dados do usuário logado e salvá-los localmente.
 class UserService {
   // A URL base da API para facilitar futuras manutenções.
-  static const String _baseUrl = 'http://172.171.192.14:8081/unieventos';
+  static const String _baseUrl = ApiConfig.base;
 
   // O método agora é mais robusto e lida com mais cenários de erro.
   static Future<String?> buscarUsuario() async {
@@ -25,15 +27,21 @@ class UserService {
     // 3. BLOCO TRY-CATCH PARA CAPTURAR ERROS DE REDE
     // Captura problemas como falta de internet, DNS, ou servidor offline.
     try {
+      if (WebChecks.isMixedContent(ApiConfig.base)) {
+        throw Exception('Mixed content bloqueado no navegador: app https x API http.');
+      }
+
       final url = Uri.parse('$_baseUrl/usuarios/me');
       
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
+      final response = await http
+          .get(
+            url,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+          )
+          .timeout(const Duration(seconds: 15));
 
       // 4. VERIFICA A RESPOSTA DA API
       if (response.statusCode == 200) {

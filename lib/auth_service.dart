@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter_application_1/config/api_config.dart';
+import 'package:flutter_application_1/utils/web_checks.dart';
+import 'package:flutter/foundation.dart';
 
 // --- SERVIÇO DE AUTENTICAÇÃO REATORADO ---
 // Responsável por lidar com o processo de login na API.
 class AuthService {
-  // A URL base da API para facilitar futuras manutenções.
-  static const String _baseUrl = 'http://172.171.192.14:8081/unieventos';
 
   // O método agora é mais robusto e lida com erros de conexão.
   static Future<String?> fazerLogin(String login, String password, bool stayLogged) async {
@@ -20,18 +21,23 @@ class AuthService {
     // 2. BLOCO TRY-CATCH PARA CAPTURAR ERROS DE REDE
     // Captura problemas como falta de internet, DNS, ou servidor offline.
     try {
-      final url = Uri.parse('$_baseUrl/auth/login');
+      if (WebChecks.isMixedContent(ApiConfig.base)) {
+        throw Exception('Bloqueado pelo navegador: mixed content (app https x API http). Use http na origem ou habilite https na API.');
+      }
+      final url = Uri.parse(ApiConfig.authLogin());
       
       // LOG DE DEBUG: Mostra exatamente o que está sendo enviado.
       // Muito útil para encontrar problemas.
       print('[AuthService] Enviando requisição para: $url');
       print('[AuthService] Body: $body');
 
-      final response = await http.post(
+      final response = await http
+          .post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: body,
-      );
+      )
+          .timeout(const Duration(seconds: 15));
 
       // 3. VERIFICA A RESPOSTA DA API
       if (response.statusCode == 200) {
@@ -55,7 +61,11 @@ class AuthService {
       }
     } catch (e) {
       // Se a chamada de rede falhar completamente (sem conexão, CORS, etc.)
+      final hint = kIsWeb
+          ? 'Possível CORS (verifique Access-Control-Allow-*) ou mixed content; também valide conectividade.'
+          : 'Verifique conectividade e firewall.';
       print('[AuthService] Erro de conexão ao fazer login: $e');
+      print('[AuthService] Dica: $hint');
       return null;
     }
   }

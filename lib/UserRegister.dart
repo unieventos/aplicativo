@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -8,35 +6,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 // Seus imports, garantindo que os nomes das classes estão corretos
 import 'package:flutter_application_1/modifyUser.dart'; // Supõe que a classe seja ModifyUserApp
 import 'package:flutter_application_1/register.dart'; // Supõe que a classe seja RegisterScreen
+import 'package:flutter_application_1/api_service.dart';
+import 'package:flutter_application_1/models/usuario.dart';
 
-// --- MODELO DE DADOS ---
-// Otimizado para não precisar de uma variável de estado 'expandido'
-class Usuario {
-  final String id;
-  final String nome;
-  final String sobrenome;
-  final String email;
-  final int cursoId;
-
-  Usuario({
-    required this.id,
-    required this.nome,
-    required this.sobrenome,
-    required this.email,
-    required this.cursoId,
-  });
-
-  // Factory para criar um Usuário a partir de um JSON
-  factory Usuario.fromJson(Map<String, dynamic> json) {
-    return Usuario(
-      id: json['id'] ?? '',
-      nome: json['nome'] ?? '',
-      sobrenome: json['sobrenome'] ?? '',
-      email: json['email'] ?? '',
-      cursoId: json['cursoId'] ?? 0,
-    );
-  }
-}
+// Modelo Usuario agora em lib/models/usuario.dart
 
 // --- TELA PRINCIPAL DE GERENCIAMENTO DE USUÁRIOS ---
 class CadastroUsuarioPage extends StatefulWidget {
@@ -226,37 +199,4 @@ class _UsuarioListItem extends StatelessWidget {
   }
 }
 
-// --- LÓGICA DA API ---
-// Mantida como estava, pois já está bem estruturada.
-class UsuarioApi {
-  static const String baseUrl = 'http://172.171.192.14:8081/unieventos/usuarios';
-
-  static Future<List<Usuario>> fetchUsuarios(int page, int pageSize, String search) async {
-    final storage = FlutterSecureStorage();
-    final token = await storage.read(key: 'token');
-
-    if (token == null) {
-      throw Exception('Token não encontrado. Usuário não autenticado.');
-    }
-
-    final url = Uri.parse('$baseUrl?page=$page&size=$pageSize&sortBy=nome&name=$search');
-
-    final response = await http.get(
-      url,
-      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
-    );
-
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> jsonData = json.decode(utf8.decode(response.bodyBytes));
-      // CORREÇÃO: O nome da lista no seu JSON é 'usuarioResourceV1List'
-      final List<dynamic> usuarioList = jsonData['_embedded']?['usuarioResourceV1List'] ?? [];
-
-      return usuarioList.map((jsonItem) {
-        final userJson = jsonItem['user'] as Map<String, dynamic>;
-        return Usuario.fromJson(userJson);
-      }).toList();
-    } else {
-      throw Exception('Erro ao carregar usuários: ${response.statusCode}');
-    }
-  }
-}
+// API de usuários centralizada em lib/api_service.dart
