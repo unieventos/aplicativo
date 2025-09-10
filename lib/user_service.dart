@@ -6,7 +6,6 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_application_1/config/api_config.dart';
 import 'package:flutter_application_1/utils/web_checks.dart';
-import 'package:flutter_application_1/config/dev_flags.dart';
 
 // --- SERVIÇO DE USUÁRIO REATORADO ---
 // Responsável por buscar os dados do usuário logado e salvá-los localmente.
@@ -24,17 +23,7 @@ class UserService {
 
     // 2. VALIDAÇÃO DE SEGURANÇA: Se não houver token, interrompe a execução.
     // Isso evita uma chamada desnecessária à API que certamente falharia.
-    if ((token == null || token.isEmpty) && (DevFlags.skipLogin || DevFlags.allowNoAuth)) {
-      // Modo desenvolvimento: preenche dados básicos para navegação/admin.
-      await storage.write(key: 'id', value: 'dev');
-      await storage.write(key: 'nome', value: 'Dev');
-      await storage.write(key: 'sobrenome', value: 'User');
-      await storage.write(key: 'email', value: 'dev@example.com');
-      await storage.write(key: 'cursoId', value: '0');
-      await storage.write(key: 'role', value: 'admin');
-      print('[UserService] Modo dev: usuário fake salvo no storage.');
-      return 'dev';
-    } else if (token == null || token.isEmpty) {
+    if (token == null || token.isEmpty) {
       print('[UserService] Erro: Token de autenticação não encontrado. Impossível buscar usuário.');
       return null;
     }

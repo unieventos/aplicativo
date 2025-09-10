@@ -10,7 +10,6 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_application_1/config/api_config.dart';
 import 'package:flutter_application_1/utils/web_checks.dart';
-import 'package:flutter_application_1/config/dev_flags.dart';
 
 // Modelos centralizados
 import 'package:flutter_application_1/models/usuario.dart';
@@ -40,19 +39,15 @@ class UsuarioApi {
   /// - search: filtro por nome
   static Future<List<Usuario>> fetchUsuarios(int page, int pageSize, String search) async {
     final token = await _storage.read(key: 'token');
-    if (token == null && !(DevFlags.allowNoAuth || DevFlags.skipLogin)) {
-      throw Exception('Token não encontrado.');
-    }
+    if (token == null) throw Exception('Token não encontrado.');
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
       throw Exception('Mixed content bloqueado no navegador: app https x API http.');
     }
 
     final url = Uri.parse('$_baseUrl?page=$page&size=$pageSize&sortBy=nome&name=$search');
-    final headers = <String, String>{};
-    if (token != null) headers['Authorization'] = 'Bearer $token';
     final response = await http
-        .get(url, headers: headers)
+        .get(url, headers: {'Authorization': 'Bearer $token'})
         .timeout(const Duration(seconds: 15));
 
     if (response.statusCode == 200) {
@@ -67,7 +62,7 @@ class UsuarioApi {
   /// POST /usuarios — Cria um novo usuário.
   static Future<bool> criarUsuario(Map<String, dynamic> dadosUsuario) async {
     final token = await _storage.read(key: 'token');
-    if (token == null && !(DevFlags.allowNoAuth || DevFlags.skipLogin)) return false;
+    if (token == null) return false;
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
       throw Exception('Mixed content bloqueado no navegador: app https x API http.');
@@ -75,12 +70,10 @@ class UsuarioApi {
 
     final url = Uri.parse(_baseUrl);
     try {
-      final headers = <String, String>{'Content-Type': 'application/json'};
-      if (token != null) headers['Authorization'] = 'Bearer $token';
       final response = await http
           .post(
             url,
-            headers: headers,
+            headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
             body: jsonEncode(dadosUsuario),
           )
           .timeout(const Duration(seconds: 15));
@@ -95,7 +88,7 @@ class UsuarioApi {
   /// PATCH /usuarios/{id} — Atualiza um usuário existente (parcial).
   static Future<bool> atualizarUsuario(String usuarioId, Map<String, dynamic> dadosUsuario) async {
     final token = await _storage.read(key: 'token');
-    if (token == null && !(DevFlags.allowNoAuth || DevFlags.skipLogin)) return false;
+    if (token == null) return false;
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
       throw Exception('Mixed content bloqueado no navegador: app https x API http.');
@@ -103,12 +96,10 @@ class UsuarioApi {
 
     final url = Uri.parse('$_baseUrl/$usuarioId');
     try {
-      final headers = <String, String>{'Content-Type': 'application/json'};
-      if (token != null) headers['Authorization'] = 'Bearer $token';
       final response = await http
           .patch(
             url,
-            headers: headers,
+            headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
             body: jsonEncode(dadosUsuario),
           )
           .timeout(const Duration(seconds: 15));
@@ -123,7 +114,7 @@ class UsuarioApi {
   /// DELETE /usuarios/{id} — Inativa/Remove um usuário.
   static Future<bool> deletarUsuario(String usuarioId) async {
     final token = await _storage.read(key: 'token');
-    if (token == null && !(DevFlags.allowNoAuth || DevFlags.skipLogin)) return false;
+    if (token == null) return false;
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
       throw Exception('Mixed content bloqueado no navegador: app https x API http.');
@@ -131,12 +122,10 @@ class UsuarioApi {
 
     final url = Uri.parse('$_baseUrl/$usuarioId');
     try {
-      final headers = <String, String>{};
-      if (token != null) headers['Authorization'] = 'Bearer $token';
       final response = await http
           .delete(
             url,
-            headers: headers,
+            headers: {'Authorization': 'Bearer $token'},
           )
           .timeout(const Duration(seconds: 15));
       // Alguns backends retornam 204 (No Content), outros 200 (OK).
@@ -181,19 +170,15 @@ class EventosApi {
   /// Parâmetros de busca podem variar no backend (ex.: name, titulo, etc.).
   static Future<List<Evento>> fetchEventos(int page, int pageSize, {String search = ''}) async {
     final token = await _storage.read(key: 'token');
-    if (token == null && !(DevFlags.allowNoAuth || DevFlags.skipLogin)) {
-      throw Exception('Token não encontrado.');
-    }
+    if (token == null) throw Exception('Token não encontrado.');
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
       throw Exception('Mixed content bloqueado no navegador: app https x API http.');
     }
 
     final url = Uri.parse('$_baseUrl?page=$page&size=$pageSize&sortBy=dateInicio&name=$search');
-    final headersEv = <String, String>{};
-    if (token != null) headersEv['Authorization'] = 'Bearer $token';
     final response = await http
-        .get(url, headers: headersEv)
+        .get(url, headers: {'Authorization': 'Bearer $token'})
         .timeout(const Duration(seconds: 15));
 
     if (response.statusCode == 200) {
@@ -208,7 +193,7 @@ class EventosApi {
   /// POST /eventos — Cria um novo evento.
   static Future<bool> criarEvento(Map<String, dynamic> dadosEvento) async {
     final token = await _storage.read(key: 'token');
-    if (token == null && !(DevFlags.allowNoAuth || DevFlags.skipLogin)) return false;
+    if (token == null) return false;
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
       throw Exception('Mixed content bloqueado no navegador: app https x API http.');
@@ -216,12 +201,10 @@ class EventosApi {
 
     final url = Uri.parse(_baseUrl);
     try {
-      final headersEv = <String, String>{'Content-Type': 'application/json'};
-      if (token != null) headersEv['Authorization'] = 'Bearer $token';
       final response = await http
           .post(
             url,
-            headers: headersEv,
+            headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
             body: jsonEncode(dadosEvento),
           )
           .timeout(const Duration(seconds: 15));
@@ -241,9 +224,7 @@ class CategoriaApi {
   /// GET /categorias — Retorna lista de categorias (paginada ou completa).
   static Future<List<Categoria>> fetchCategorias() async {
     final token = await _storage.read(key: 'token');
-    if (token == null && !(DevFlags.allowNoAuth || DevFlags.skipLogin)) {
-      throw Exception('Token não encontrado.');
-    }
+    if (token == null) throw Exception('Token não encontrado.');
     
     if (WebChecks.isMixedContent(ApiConfig.base)) {
       throw Exception('Mixed content bloqueado no navegador: app https x API http.');
@@ -251,10 +232,8 @@ class CategoriaApi {
 
     // Supondo que queremos todas as categorias, podemos usar um size grande.
     final url = Uri.parse('$_baseUrl?size=100');
-    final headersCat = <String, String>{};
-    if (token != null) headersCat['Authorization'] = 'Bearer $token';
     final response = await http
-        .get(url, headers: headersCat)
+        .get(url, headers: {'Authorization': 'Bearer $token'})
         .timeout(const Duration(seconds: 15));
 
     if (response.statusCode == 200) {
