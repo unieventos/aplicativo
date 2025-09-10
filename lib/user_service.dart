@@ -1,3 +1,6 @@
+/// Serviço para buscar e persistir os dados do usuário logado.
+///
+/// Fluxo: lê o token do storage -> chama /usuarios/me -> salva campos no storage.
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -11,6 +14,7 @@ class UserService {
   static const String _baseUrl = ApiConfig.base;
 
   // O método agora é mais robusto e lida com mais cenários de erro.
+  /// Busca o usuário logado (GET /usuarios/me) e salva no storage.
   static Future<String?> buscarUsuario() async {
     final storage = FlutterSecureStorage();
     

@@ -1,3 +1,4 @@
+/// Modelo de Usuário conforme retorno do backend.
 class Usuario {
   final String id;
   final String nome;
@@ -13,6 +14,7 @@ class Usuario {
     required this.cursoId,
   });
 
+  /// Constrói um Usuário a partir de um JSON de resposta.
   factory Usuario.fromJson(Map<String, dynamic> json) {
     return Usuario(
       id: json['id'] ?? '',
@@ -23,4 +25,3 @@ class Usuario {
     );
   }
 }
-

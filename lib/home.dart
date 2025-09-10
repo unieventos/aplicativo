@@ -82,6 +82,7 @@ class _EventosPageState extends State<EventosPage> {
 }
 
 // --- TELA DO FEED DE EVENTOS, AGORA CONECTADA À API ---
+/// Lista paginada de eventos usando EventosApi + infinite_scroll_pagination.
 class FeedPage extends StatefulWidget {
   @override
   _FeedPageState createState() => _FeedPageState();
@@ -99,6 +100,7 @@ class _FeedPageState extends State<FeedPage> {
     });
   }
 
+  /// Busca uma página de eventos na API e atualiza o PagingController.
   Future<void> _fetchPage(int pageKey) async {
     try {
       final newItems = await EventosApi.fetchEventos(pageKey, _pageSize);

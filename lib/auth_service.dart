@@ -1,3 +1,9 @@
+/// Serviço de autenticação (login) do usuário.
+///
+/// Regras aplicadas:
+/// - URL centralizada via ApiConfig
+/// - Timeout padrão de 15s
+/// - Mensagens de log para facilitar debugging
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_application_1/config/api_config.dart';
@@ -21,6 +27,7 @@ class AuthService {
     // 2. BLOCO TRY-CATCH PARA CAPTURAR ERROS DE REDE
     // Captura problemas como falta de internet, DNS, ou servidor offline.
     try {
+      // Em Web, evita chamadas http quando a página roda em https (mixed content)
       if (WebChecks.isMixedContent(ApiConfig.base)) {
         throw Exception('Bloqueado pelo navegador: mixed content (app https x API http). Use http na origem ou habilite https na API.');
       }
@@ -31,6 +38,7 @@ class AuthService {
       print('[AuthService] Enviando requisição para: $url');
       print('[AuthService] Body: $body');
 
+      // POST com timeout e logs básicos
       final response = await http
           .post(
         url,

@@ -37,6 +37,7 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   // Função que busca os dados da API
+  /// Busca eventos com paginação e termo de busca, atualizando o PagingController.
   Future<void> _fetchPage(int pageKey, String query) async {
     try {
       final newItems = await EventosApi.fetchEventos(pageKey, _pageSize, search: query);

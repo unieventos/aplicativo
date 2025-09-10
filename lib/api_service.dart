@@ -1,3 +1,10 @@
+// Serviço central de acesso à API (Usuários, Eventos, Categorias).
+//
+// Boas práticas aplicadas:
+// - URLs centralizadas via ApiConfig
+// - Timeout padrão de 15s para todas as chamadas
+// - Checagem de mixed content/CORS em ambiente Web
+// - Decodificação usando utf8 para evitar problemas de acentuação
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -8,7 +15,7 @@ import 'package:flutter_application_1/utils/web_checks.dart';
 import 'package:flutter_application_1/models/usuario.dart';
 import 'package:flutter_application_1/models/evento.dart';
 
-// Modelo para Categoria, baseado no Swagger
+/// Modelo para Categoria (baseado no Swagger do backend).
 class Categoria {
   final String id;
   final String nome;
@@ -21,12 +28,15 @@ class Categoria {
   }
 }
 
-// --- CLASSE CENTRALIZADA PARA TODAS AS OPERAÇÕES DE API DE USUÁRIO ---
+/// Operações de API relacionadas a Usuários.
 class UsuarioApi {
   static final String _baseUrl = ApiConfig.usuarios();
   static final _storage = FlutterSecureStorage();
 
-  // GET /usuarios - Busca uma lista paginada de usuários
+  /// GET /usuarios — Retorna lista paginada de usuários.
+  /// - page: índice da página (0-based)
+  /// - pageSize: tamanho da página
+  /// - search: filtro por nome
   static Future<List<Usuario>> fetchUsuarios(int page, int pageSize, String search) async {
     final token = await _storage.read(key: 'token');
     if (token == null) throw Exception('Token não encontrado.');
@@ -49,7 +59,7 @@ class UsuarioApi {
     }
   }
 
-  // POST /usuarios - Cadastra um novo usuário
+  /// POST /usuarios — Cria um novo usuário.
   static Future<bool> criarUsuario(Map<String, dynamic> dadosUsuario) async {
     final token = await _storage.read(key: 'token');
     if (token == null) return false;
@@ -67,6 +77,7 @@ class UsuarioApi {
             body: jsonEncode(dadosUsuario),
           )
           .timeout(const Duration(seconds: 15));
+      // Alguns backends retornam 201 (Created), outros 200.
       return response.statusCode == 201 || response.statusCode == 200;
     } catch (e) {
       print("Erro ao criar usuário: $e");
@@ -74,7 +85,7 @@ class UsuarioApi {
     }
   }
 
-  // PATCH /usuarios/{id} - Atualiza um usuário existente
+  /// PATCH /usuarios/{id} — Atualiza um usuário existente (parcial).
   static Future<bool> atualizarUsuario(String usuarioId, Map<String, dynamic> dadosUsuario) async {
     final token = await _storage.read(key: 'token');
     if (token == null) return false;
@@ -92,6 +103,7 @@ class UsuarioApi {
             body: jsonEncode(dadosUsuario),
           )
           .timeout(const Duration(seconds: 15));
+      // Alguns backends retornam 204 (No Content), outros 200 (OK).
       return response.statusCode == 204 || response.statusCode == 200;
     } catch (e) {
       print("Erro ao atualizar usuário: $e");
@@ -99,7 +111,7 @@ class UsuarioApi {
     }
   }
 
-  // DELETE /usuarios/{id} - Inativa (deleta) um usuário
+  /// DELETE /usuarios/{id} — Inativa/Remove um usuário.
   static Future<bool> deletarUsuario(String usuarioId) async {
     final token = await _storage.read(key: 'token');
     if (token == null) return false;
@@ -116,6 +128,7 @@ class UsuarioApi {
             headers: {'Authorization': 'Bearer $token'},
           )
           .timeout(const Duration(seconds: 15));
+      // Alguns backends retornam 204 (No Content), outros 200 (OK).
       return response.statusCode == 204 || response.statusCode == 200;
     } catch (e) {
       print("Erro ao deletar usuário: $e");
@@ -123,8 +136,7 @@ class UsuarioApi {
     }
   }
 
-  // GET /usuarios/me - Busca os dados do próprio usuário logado
-  // (Esta função pode ficar no seu UserService.dart ou ser movida para cá)
+  /// GET /usuarios/me — Dados do usuário logado (auto-consulta).
   static Future<Map<String, dynamic>?> buscarUsuarioLogado() async {
     final token = await _storage.read(key: 'token');
     if (token == null) return null;
@@ -149,12 +161,13 @@ class UsuarioApi {
   }
 }
 
-// =================== API DE EVENTOS ===================
+/// Operações de API relacionadas a Eventos.
 class EventosApi {
   static final String _baseUrl = ApiConfig.eventos();
   static final _storage = FlutterSecureStorage();
 
-  // GET /eventos - Busca lista paginada de eventos
+  /// GET /eventos — Retorna lista paginada de eventos.
+  /// Parâmetros de busca podem variar no backend (ex.: name, titulo, etc.).
   static Future<List<Evento>> fetchEventos(int page, int pageSize, {String search = ''}) async {
     final token = await _storage.read(key: 'token');
     if (token == null) throw Exception('Token não encontrado.');
@@ -177,7 +190,7 @@ class EventosApi {
     }
   }
   
-  // POST /eventos - Cadastra um novo evento
+  /// POST /eventos — Cria um novo evento.
   static Future<bool> criarEvento(Map<String, dynamic> dadosEvento) async {
     final token = await _storage.read(key: 'token');
     if (token == null) return false;
@@ -203,16 +216,16 @@ class EventosApi {
   }
 }
 
-// =================== API DE CATEGORIAS ===================
+/// Operações de API relacionadas a Categorias.
 class CategoriaApi {
   static final String _baseUrl = ApiConfig.categorias();
   static final _storage = FlutterSecureStorage();
   
-  // GET /categorias - Busca lista de categorias
+  /// GET /categorias — Retorna lista de categorias (paginada ou completa).
   static Future<List<Categoria>> fetchCategorias() async {
     final token = await _storage.read(key: 'token');
     if (token == null) throw Exception('Token não encontrado.');
-
+    
     if (WebChecks.isMixedContent(ApiConfig.base)) {
       throw Exception('Mixed content bloqueado no navegador: app https x API http.');
     }

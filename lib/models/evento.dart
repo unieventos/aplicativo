@@ -1,3 +1,7 @@
+/// Modelo de Evento conforme retorno do backend.
+///
+/// Observação: a API pode variar os nomes de campos de data
+/// (ex.: `data`, `dataInicio`, `dateInicio`). O factory trata esses casos.
 class Evento {
   final String id;
   final String titulo;
@@ -19,6 +23,7 @@ class Evento {
     required this.participantes,
   });
 
+  /// Constrói um Evento a partir de um JSON de resposta.
   factory Evento.fromJson(Map<String, dynamic> json) {
     // Tenta mapear diferentes possíveis nomes de campos vindos da API
     final dynamic dataRaw = json['data'] ?? json['dataInicio'] ?? json['dateInicio'];
