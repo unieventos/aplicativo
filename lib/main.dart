@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/home.dart';
 import 'package:flutter_application_1/login.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_application_1/config/dev_flags.dart';
 
 // Import necessário para a inicialização da formatação de datas.
 import 'package:intl/date_symbol_data_local.dart';
@@ -58,6 +59,10 @@ class _AuthCheckState extends State<AuthCheck> {
 
   @override
   Widget build(BuildContext context) {
+    // Em modo desenvolvimento, pula a tela de login para facilitar testes.
+    if (DevFlags.skipLogin) {
+      return EventosPage();
+    }
     return FutureBuilder<String?>(
       future: _checkToken(),
       builder: (context, snapshot) {
