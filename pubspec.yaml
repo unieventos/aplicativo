@@ -18,10 +18,13 @@ dependencies:
 
   # UI e Utilitários
   cupertino_icons: ^1.0.8
-  intl: ^0.19.0
+  intl: ^0.20.2
   flutter_secure_storage: ^9.0.0
   infinite_scroll_pagination: ^4.0.0
   cached_network_image: ^3.3.1
+  image_picker: ^0.8.7+5
+  file_picker: ^6.1.1
+  mime: ^1.0.5
 
   # Rede e Serialização (Runtime)
   dio: ^5.4.3

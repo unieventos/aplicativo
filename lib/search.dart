@@ -1,8 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-// Importa a classe Evento CORRETA do seu arquivo home.dart
-import 'package:flutter_application_1/home.dart';
+class SearchEvento {
+  SearchEvento({
+    required this.titulo,
+    required this.cursoAutor,
+    required this.autor,
+    required this.autorAvatarUrl,
+    required this.data,
+    required this.imagemUrl,
+    required this.participantes,
+  });
+
+  final String titulo;
+  final String cursoAutor;
+  final String autor;
+  final String autorAvatarUrl;
+  final DateTime data;
+  final String imagemUrl;
+  final int participantes;
+}
 
 // --- TELA DE BUSCA DE EVENTOS CORRIGIDA E REATORADA ---
 class SearchPage extends StatefulWidget {
@@ -12,15 +29,47 @@ class SearchPage extends StatefulWidget {
 
 class _SearchPageState extends State<SearchPage> {
   // CORREÇÃO: Usando o modelo de dados 'Evento' consistente com o home.dart
-  final List<Evento> _todosEventos = [
-    Evento(titulo: "Semana da Computação", cursoAutor: "Computação", autor: 'Prof. Ricardo', autorAvatarUrl: '', data: DateTime.now(), imagemUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87', participantes: 250),
-    Evento(titulo: "Workshop de Design UI/UX", cursoAutor: "Design", autor: 'Profa. Ana', autorAvatarUrl: '', data: DateTime.now(), imagemUrl: 'https://images.unsplash.com/photo-1558690623-3923c242a13b', participantes: 80),
-    Evento(titulo: "Palestra sobre IA Generativa", cursoAutor: "Tecnologia", autor: 'Dr. Silva', autorAvatarUrl: '', data: DateTime.now(), imagemUrl: 'https://images.unsplash.com/photo-1677756119517-756a188d2d94', participantes: 150),
-    Evento(titulo: "Maratona de Programação", cursoAutor: "Competição", autor: 'Coordenação', autorAvatarUrl: '', data: DateTime.now(), imagemUrl: 'https://images.unsplash.com/photo-1579820010410-c10411aaaa88', participantes: 120),
+  final List<SearchEvento> _todosEventos = [
+    SearchEvento(
+      titulo: "Semana da Computação",
+      cursoAutor: "Computação",
+      autor: 'Prof. Ricardo',
+      autorAvatarUrl: '',
+      data: DateTime.now(),
+      imagemUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87',
+      participantes: 250,
+    ),
+    SearchEvento(
+      titulo: "Workshop de Design UI/UX",
+      cursoAutor: "Design",
+      autor: 'Profa. Ana',
+      autorAvatarUrl: '',
+      data: DateTime.now(),
+      imagemUrl: 'https://images.unsplash.com/photo-1558690623-3923c242a13b',
+      participantes: 80,
+    ),
+    SearchEvento(
+      titulo: "Palestra sobre IA Generativa",
+      cursoAutor: "Tecnologia",
+      autor: 'Dr. Silva',
+      autorAvatarUrl: '',
+      data: DateTime.now(),
+      imagemUrl: 'https://images.unsplash.com/photo-1677756119517-756a188d2d94',
+      participantes: 150,
+    ),
+    SearchEvento(
+      titulo: "Maratona de Programação",
+      cursoAutor: "Competição",
+      autor: 'Coordenação',
+      autorAvatarUrl: '',
+      data: DateTime.now(),
+      imagemUrl: 'https://images.unsplash.com/photo-1579820010410-c10411aaaa88',
+      participantes: 120,
+    ),
   ];
 
-  List<Evento> _eventosFiltrados = [];
-  final Set<Evento> _eventosSelecionados = Set<Evento>();
+  List<SearchEvento> _eventosFiltrados = [];
+  final Set<SearchEvento> _eventosSelecionados = <SearchEvento>{};
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -35,13 +84,15 @@ class _SearchPageState extends State<SearchPage> {
     final query = _searchController.text.toLowerCase();
     setState(() {
       _eventosFiltrados = _todosEventos.where((evento) {
-        return evento.titulo.toLowerCase().contains(query) || 
-               evento.cursoAutor.toLowerCase().contains(query); // CORREÇÃO: 'tipo' -> 'cursoAutor'
+        return evento.titulo.toLowerCase().contains(query) ||
+            evento.cursoAutor
+                .toLowerCase()
+                .contains(query); // CORREÇÃO: 'tipo' -> 'cursoAutor'
       }).toList();
     });
   }
-  
-  void _onEventoSelecionado(Evento evento, bool selecionado) {
+
+  void _onEventoSelecionado(SearchEvento evento, bool selecionado) {
     setState(() {
       if (selecionado) {
         _eventosSelecionados.add(evento);
@@ -50,7 +101,7 @@ class _SearchPageState extends State<SearchPage> {
       }
     });
   }
-  
+
   void _mostrarAcoes() {
     showModalBottomSheet(
       context: context,
@@ -60,12 +111,16 @@ class _SearchPageState extends State<SearchPage> {
             ListTile(
               leading: Icon(Icons.download_outlined),
               title: Text('Baixar Relatório (${_eventosSelecionados.length})'),
-              onTap: () { /* Lógica de download */ Navigator.pop(context); },
+              onTap: () {
+                /* Lógica de download */ Navigator.pop(context);
+              },
             ),
             ListTile(
               leading: Icon(Icons.email_outlined),
               title: Text('Enviar por E-mail'),
-              onTap: () { /* Lógica de envio */ Navigator.pop(context); },
+              onTap: () {
+                /* Lógica de envio */ Navigator.pop(context);
+              },
             ),
           ],
         ),
@@ -115,7 +170,8 @@ class _SearchPageState extends State<SearchPage> {
                 return _EventListItem(
                   evento: evento,
                   isSelected: isSelected,
-                  onSelected: (selected) => _onEventoSelecionado(evento, selected),
+                  onSelected: (selected) =>
+                      _onEventoSelecionado(evento, selected),
                 );
               },
             ),
@@ -124,11 +180,14 @@ class _SearchPageState extends State<SearchPage> {
 }
 
 class _EventListItem extends StatelessWidget {
-  final Evento evento;
+  final SearchEvento evento;
   final bool isSelected;
   final ValueChanged<bool> onSelected;
 
-  const _EventListItem({ required this.evento, required this.isSelected, required this.onSelected });
+  const _EventListItem(
+      {required this.evento,
+      required this.isSelected,
+      required this.onSelected});
 
   @override
   Widget build(BuildContext context) {
@@ -136,16 +195,20 @@ class _EventListItem extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 2,
-      color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : Colors.white,
+      color: isSelected
+          ? Theme.of(context).primaryColor.withOpacity(0.1)
+          : Colors.white,
       child: ExpansionTile(
         leading: Checkbox(
           value: isSelected,
           onChanged: (value) => onSelected(value!),
           activeColor: Theme.of(context).primaryColor,
         ),
-        title: Text(evento.titulo, style: TextStyle(fontWeight: FontWeight.w600)),
+        title:
+            Text(evento.titulo, style: TextStyle(fontWeight: FontWeight.w600)),
         // CORREÇÃO: 'tipo' -> 'cursoAutor'
-        subtitle: Text(evento.cursoAutor, style: TextStyle(color: Colors.grey[600])),
+        subtitle:
+            Text(evento.cursoAutor, style: TextStyle(color: Colors.grey[600])),
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
@@ -155,7 +218,8 @@ class _EventListItem extends StatelessWidget {
                 // Adicionando informações extras que já temos no modelo
                 Text('Organizado por: ${evento.autor}'),
                 SizedBox(height: 4),
-                Text('Data: ${DateFormat('d MMM, yyyy', 'pt_BR').format(evento.data)}'),
+                Text(
+                    'Data: ${DateFormat('d MMM, yyyy', 'pt_BR').format(evento.data)}'),
                 SizedBox(height: 12),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
@@ -167,7 +231,8 @@ class _EventListItem extends StatelessWidget {
                     errorBuilder: (context, error, stackTrace) => Container(
                       height: 100,
                       color: Colors.grey[200],
-                      child: Icon(Icons.image_not_supported_outlined, color: Colors.grey),
+                      child: Icon(Icons.image_not_supported_outlined,
+                          color: Colors.grey),
                     ),
                   ),
                 ),

@@ -7,27 +7,10 @@ import 'package:intl/intl.dart';
 
 // Seus imports, todos corretos.
 import 'package:flutter_application_1/eventRegister.dart';
+import 'package:flutter_application_1/event_service.dart';
 import 'package:flutter_application_1/UserRegister.dart';
 import 'package:flutter_application_1/perfil.dart';
 import 'package:flutter_application_1/search.dart';
-import 'package:flutter_application_1/login.dart';
-
-// Modelo de Dados (sem alterações)
-class Evento {
-  final String titulo, autor, cursoAutor, autorAvatarUrl, imagemUrl;
-  final DateTime data;
-  final int participantes;
-
-  Evento({
-    required this.titulo,
-    required this.autor,
-    required this.cursoAutor,
-    required this.autorAvatarUrl,
-    required this.imagemUrl,
-    required this.data,
-    required this.participantes,
-  });
-}
 
 // Classe Principal da Home (com a lógica de permissão correta)
 class EventosPage extends StatefulWidget {
@@ -71,7 +54,10 @@ class _EventosPageState extends State<EventosPage> {
   @override
   Widget build(BuildContext context) {
     if (_role == null || _pages.isEmpty) {
-      return Scaffold(body: Center(child: CircularProgressIndicator(color: Theme.of(context).primaryColor)));
+      return Scaffold(
+          body: Center(
+              child: CircularProgressIndicator(
+                  color: Theme.of(context).primaryColor)));
     }
 
     final bool isAdmin = _role?.toLowerCase() == 'admin';
@@ -91,118 +77,322 @@ class _EventosPageState extends State<EventosPage> {
         showUnselectedLabels: false,
         showSelectedLabels: false,
         items: [
-          BottomNavigationBarItem(icon: Icon(Icons.celebration_outlined), activeIcon: Icon(Icons.celebration), label: 'Eventos'),
-          BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), activeIcon: Icon(Icons.add_circle), label: 'Cadastrar'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.celebration_outlined),
+              activeIcon: Icon(Icons.celebration),
+              label: 'Eventos'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.add_circle_outline),
+              activeIcon: Icon(Icons.add_circle),
+              label: 'Cadastrar'),
           if (isAdmin)
-            BottomNavigationBarItem(icon: Icon(Icons.group_outlined), activeIcon: Icon(Icons.group), label: 'Usuários'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Perfil'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.group_outlined),
+                activeIcon: Icon(Icons.group),
+                label: 'Usuários'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Perfil'),
         ],
       ),
     );
   }
 }
 
-// --- TELA DO FEED DE EVENTOS (com correção nas imagens) ---
-class FeedPage extends StatelessWidget {
-  
-  // --- CORREÇÃO 2: URLs DAS IMAGENS DE EXEMPLO TROCADAS ---
-  // Trocamos 'pravatar.cc' por 'picsum.photos', que funciona melhor na web.
-  final List<Evento> _listaEventos = [
-    Evento(titulo: "Semana da Computação 2024", autor: "Prof. Ricardo Silva", cursoAutor: "Ciência da Computação", autorAvatarUrl: 'https://picsum.photos/id/1005/100/100', imagemUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=2070', data: DateTime(2024, 10, 20), participantes: 250),
-    Evento(titulo: "Palestra: IA no Direito", autor: "Profa. Ana Furtado", cursoAutor: "Direito", autorAvatarUrl: 'https://picsum.photos/id/1027/100/100', imagemUrl: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&q=80&w=2070', data: DateTime(2024, 11, 05), participantes: 120),
-  ];
+// --- TELA DO FEED DE EVENTOS ---
+class FeedPage extends StatefulWidget {
+  @override
+  State<FeedPage> createState() => _FeedPageState();
+}
+
+class _FeedPageState extends State<FeedPage> {
+  final DateFormat _formatter = DateFormat('d MMM, yyyy', 'pt_BR');
+  bool _isLoading = false;
+  String? _erro;
+  List<EventFeedItem> _eventos = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarEventos();
+  }
+
+  Future<void> _carregarEventos({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _isLoading = true;
+        _erro = null;
+      });
+    }
+    try {
+      final eventos = await EventService.listarEventos();
+      if (!mounted) return;
+      setState(() {
+        _eventos = eventos;
+        _erro = null;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _eventos = [];
+        _erro = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _onRefresh() => _carregarEventos(silent: true);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         centerTitle: false,
-        title: Text("Próximos Eventos", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          'Próximos Eventos',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         actions: [
-          IconButton(icon: Icon(Icons.search), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SearchPage()))),
+          IconButton(
+            icon: Icon(Icons.search),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => SearchPage()),
+            ),
+          ),
           IconButton(icon: Icon(Icons.notifications_none), onPressed: () {}),
         ],
       ),
-      body: ListView.builder(
-        padding: EdgeInsets.all(8),
-        itemCount: _listaEventos.length,
-        itemBuilder: (context, index) {
-          return EventoCard(evento: _listaEventos[index]);
-        },
+      body: RefreshIndicator(
+        onRefresh: _onRefresh,
+        child: _buildBody(context),
       ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
+    if (_isLoading && _eventos.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.5,
+            child: Center(
+              child: CircularProgressIndicator(
+                color: Theme.of(context).primaryColor,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_erro != null) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+        children: [
+          Icon(Icons.wifi_off, size: 64, color: Colors.redAccent),
+          SizedBox(height: 16),
+          Text(
+            'Não foi possível carregar os eventos.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 8),
+          Text(
+            _erro!,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[700]),
+          ),
+          SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: _carregarEventos,
+            icon: Icon(Icons.refresh),
+            label: Text('Tentar novamente'),
+            style: ElevatedButton.styleFrom(
+              minimumSize: Size(double.infinity, 48),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_eventos.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+        children: [
+          Icon(
+            Icons.event_available_outlined,
+            size: 64,
+            color: Theme.of(context).primaryColor,
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Nenhum evento cadastrado ainda.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Quando novos eventos forem publicados, eles aparecerão aqui.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[700]),
+          ),
+        ],
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(12),
+      itemBuilder: (context, index) =>
+          EventoCard(evento: _eventos[index], formatter: _formatter),
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemCount: _eventos.length,
     );
   }
 }
 
-// --- CARD DE EVENTO REUTILIZÁVEL (sem alterações) ---
 class EventoCard extends StatelessWidget {
-  final Evento evento;
-  const EventoCard({Key? key, required this.evento}) : super(key: key);
+  const EventoCard({Key? key, required this.evento, required this.formatter})
+      : super(key: key);
+
+  final EventFeedItem evento;
+  final DateFormat formatter;
+
+  String _periodo() {
+    final inicio = evento.inicio;
+    final fim = evento.fim;
+    if (inicio != null && fim != null) {
+      if (inicio.isAtSameMomentAs(fim)) {
+        return formatter.format(inicio);
+      }
+      return '${formatter.format(inicio)} - ${formatter.format(fim)}';
+    }
+    if (inicio != null) return formatter.format(inicio);
+    if (fim != null) return formatter.format(fim);
+    return 'Data a definir';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final imageUrl = evento.imagemUrl;
+    final categoria = evento.categoria;
     return Card(
-      margin: EdgeInsets.symmetric(vertical: 10, horizontal: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 4,
-      shadowColor: Colors.black.withOpacity(0.15),
+      elevation: 3,
+      shadowColor: Colors.black.withOpacity(0.1),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ClipRRect(
             borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-            child: CachedNetworkImage(
-              imageUrl: evento.imagemUrl,
-              height: 200,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => Container(height: 200, color: Colors.grey[200]),
-              errorWidget: (context, url, error) => Container(height: 200, color: Colors.grey[200], child: Icon(Icons.error)),
-            ),
+            child: imageUrl != null
+                ? CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      height: 200,
+                      color: Colors.grey[200],
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      height: 200,
+                      color: Colors.grey[200],
+                      child: Icon(Icons.image_not_supported_outlined,
+                          color: Colors.grey[600]),
+                    ),
+                  )
+                : Container(
+                    height: 200,
+                    width: double.infinity,
+                    color: Colors.grey[200],
+                    child: Icon(Icons.event_outlined,
+                        size: 48, color: Colors.grey[600]),
+                  ),
           ),
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(evento.titulo, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87), maxLines: 2, overflow: TextOverflow.ellipsis),
+                Text(
+                  evento.nome,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey[700]),
+                    Icon(Icons.calendar_today_outlined,
+                        size: 16, color: Colors.grey[700]),
                     SizedBox(width: 6),
-                    Text(DateFormat('d MMM, yyyy', 'pt_BR').format(evento.data), style: TextStyle(fontSize: 14, color: Colors.grey[800])),
-                    SizedBox(width: 20),
-                    Icon(Icons.group_outlined, size: 16, color: Colors.grey[700]),
-                    SizedBox(width: 6),
-                    Text("${evento.participantes} participantes", style: TextStyle(fontSize: 14, color: Colors.grey[800])),
+                    Text(
+                      _periodo(),
+                      style: TextStyle(fontSize: 14, color: Colors.grey[800]),
+                    ),
                   ],
                 ),
-                Divider(height: 24),
+                SizedBox(height: 8),
                 Row(
                   children: [
-                    CircleAvatar(
-                      backgroundImage: NetworkImage(evento.autorAvatarUrl),
-                      radius: 20,
+                    Icon(Icons.group_outlined,
+                        size: 16, color: Colors.grey[700]),
+                    SizedBox(width: 6),
+                    Text(
+                      evento.participantes > 0
+                          ? '${evento.participantes} participantes'
+                          : 'Seja o primeiro a confirmar presença',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[800]),
                     ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(evento.autor, style: TextStyle(fontWeight: FontWeight.bold)),
-                          Text(evento.cursoAutor, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                    if (true) 
-                      IconButton(
-                        icon: Icon(Icons.assessment_outlined, color: Theme.of(context).primaryColor),
-                        tooltip: "Ver Relatório do Evento",
-                        onPressed: () {},
-                      ),
                   ],
                 ),
+                if (categoria != null && categoria.isNotEmpty) ...[
+                  SizedBox(height: 12),
+                  Chip(
+                    label: Text(categoria),
+                    backgroundColor:
+                        Theme.of(context).primaryColor.withOpacity(0.1),
+                    labelStyle: TextStyle(
+                      color: Theme.of(context).primaryColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+                SizedBox(height: 12),
+                Text(
+                  evento.descricao,
+                  style: TextStyle(fontSize: 14, color: Colors.grey[800]),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (evento.criador != null && evento.criador!.isNotEmpty) ...[
+                  SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Icon(Icons.person_outline,
+                          size: 16, color: Colors.grey[600]),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Criado por ${evento.criador}',
+                          style: TextStyle(color: Colors.grey[600]),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

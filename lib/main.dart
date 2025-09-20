@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/home.dart';
 import 'package:flutter_application_1/login.dart';
+import 'package:flutter_application_1/user_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 // Import necessário para a inicialização da formatação de datas.
@@ -52,8 +53,35 @@ class AuthCheck extends StatefulWidget {
 class _AuthCheckState extends State<AuthCheck> {
   final _storage = FlutterSecureStorage();
   
+  Future<void> _clearSession() async {
+    await _storage.delete(key: 'token');
+    await _storage.delete(key: 'permanecerLogado');
+    await _storage.delete(key: 'role');
+  }
+
   Future<String?> _checkToken() async {
-    return await _storage.read(key: 'token');
+    final token = await _storage.read(key: 'token');
+    final keepLoggedRaw = await _storage.read(key: 'permanecerLogado');
+
+    final keepLogged = keepLoggedRaw != null &&
+        keepLoggedRaw.toLowerCase() == 'true';
+
+    if (token == null || token.isEmpty || !keepLogged) {
+      await _clearSession();
+      return null;
+    }
+
+    try {
+      final userId = await UserService.buscarUsuario();
+      if (userId == null) {
+        await _clearSession();
+        return null;
+      }
+      return token;
+    } catch (_) {
+      await _clearSession();
+      return null;
+    }
   }
 
   @override
