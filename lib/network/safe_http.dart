@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
 class SafeHttpResponse {
@@ -35,6 +37,23 @@ class SafeHttp {
     );
   }
 
+  static Future<SafeHttpResponse> put(
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+    Encoding? encoding,
+    Duration? timeout,
+  }) {
+    return _run(
+      method: 'PUT',
+      uri: uri,
+      headers: headers,
+      body: body,
+      encoding: encoding,
+      timeout: timeout,
+    );
+  }
+
   static Future<SafeHttpResponse> post(
     Uri uri, {
     Map<String, String>? headers,
@@ -60,10 +79,22 @@ class SafeHttp {
     Encoding? encoding,
     Duration? timeout,
   }) async {
-    final effectiveHeaders = <String, String>{};
-    if (headers != null && headers.isNotEmpty) {
-      effectiveHeaders.addAll(headers);
+    debugPrint('🚀 $method $uri');
+    if (body != null) {
+      debugPrint('📦 Request body: $body');
     }
+    
+    // Get base headers including auth token
+    final effectiveHeaders = await getHeaders();
+    
+    // Add any additional headers provided in the method call
+    if (headers != null && headers.isNotEmpty) {
+      headers.forEach((key, value) {
+        effectiveHeaders[key] = value;
+      });
+    }
+    
+    debugPrint('🔑 Request headers: $effectiveHeaders');
 
     Encoding sendEncoding = encoding ?? utf8;
     List<int>? bodyBytes;
@@ -102,14 +133,36 @@ class SafeHttp {
               encoding: bodyFields != null ? sendEncoding : null,
             )
             .timeout(duration);
+      } else if (method == 'PUT') {
+        response = await client
+            .put(
+              uri,
+              headers: effectiveHeaders,
+              body: bodyFields ?? bodyBytes,
+              encoding: bodyFields != null ? sendEncoding : null,
+            )
+            .timeout(duration);
       } else {
         throw ArgumentError('Unsupported method: $method');
       }
 
+      final responseBody = response.bodyBytes;
+      final responseHeaders = Map<String, String>.from(response.headers);
+      
+      debugPrint('✅ ${response.statusCode} ${response.reasonPhrase}');
+      debugPrint('📥 Response headers: $responseHeaders');
+      
+      // Only log response body if it's not too large
+      if (responseBody.length < 1024) { // 1KB
+        debugPrint('📥 Response body: ${utf8.decode(responseBody)}');
+      } else {
+        debugPrint('📥 Response body: [${responseBody.length} bytes]');
+      }
+      
       return SafeHttpResponse(
         statusCode: response.statusCode,
-        bodyBytes: response.bodyBytes,
-        headers: Map<String, String>.from(response.headers),
+        bodyBytes: responseBody,
+        headers: responseHeaders,
       );
     } on http.ClientException {
       return _fallbackWithHttpClient(
@@ -124,7 +177,42 @@ class SafeHttp {
     } on TimeoutException {
       rethrow;
     } finally {
-        client.close();
+      client.close();
+    }
+  }
+
+  static const _storage = FlutterSecureStorage();
+  static String? _cachedToken;
+
+  /// Gets the authentication headers including the JWT token
+  static Future<Map<String, String>> getHeaders() async {
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+
+    try {
+      // Get token from cache or storage
+      final token = _cachedToken ?? await _storage.read(key: 'token');
+      
+      if (token != null && token.isNotEmpty) {
+        _cachedToken = token; // Cache the token
+        headers['Authorization'] = 'Bearer $token';
+      }
+    } catch (e) {
+      print('Error getting auth token: $e');
+    }
+
+    return headers;
+  }
+
+  /// Updates the cached token
+  static Future<void> updateToken(String? token) async {
+    _cachedToken = token;
+    if (token != null) {
+      await _storage.write(key: 'token', value: token);
+    } else {
+      await _storage.delete(key: 'token');
     }
   }
 
@@ -190,6 +278,8 @@ class SafeHttp {
         return client.getUrl(uri);
       case 'POST':
         return client.postUrl(uri);
+      case 'PUT':
+        return client.putUrl(uri);
       default:
         return client.openUrl(method.toUpperCase(), uri);
     }

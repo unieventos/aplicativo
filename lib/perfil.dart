@@ -27,7 +27,7 @@ class _PerfilPageState extends State<PerfilPage> {
   @override
   void initState() {
     super.initState();
-    _usuarioService = UsuarioService(SafeHttp());
+    _usuarioService = UsuarioService();
     _perfilUsuarioFuture = _loadUserData();
   }
 
@@ -96,7 +96,13 @@ class _PerfilPageState extends State<PerfilPage> {
         _errorMessage = null;
       });
 
-      await _usuarioService.uploadProfilePhoto(File(image.path));
+      // Get the current user data to get the user ID
+      final currentUser = await _perfilUsuarioFuture;
+      if (currentUser.id == null) {
+        throw Exception('ID do usuário não encontrado');
+      }
+
+      await _usuarioService.uploadProfilePhoto(File(image.path), currentUser.id!);
       
       // Reload profile data to get updated photo
       setState(() {
@@ -162,7 +168,41 @@ class _PerfilPageState extends State<PerfilPage> {
             return Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text("Erro ao carregar dados: ${snapshot.error}"));
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, color: Colors.red, size: 64),
+                    const SizedBox(height: 16),
+                    const Text(
+                      "Não foi possível carregar o perfil",
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "${snapshot.error}".contains('500') 
+                          ? "Ocorreu um erro no servidor. Por favor, tente novamente mais tarde."
+                          : "Por favor, verifique sua conexão e tente novamente.",
+                      style: const TextStyle(color: Colors.grey, fontSize: 14),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.refresh),
+                      label: const Text("Tentar Novamente"),
+                      onPressed: () {
+                        setState(() {
+                          _perfilUsuarioFuture = _loadUserData();
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
           }
           if (!snapshot.hasData) {
             return Center(child: Text("Nenhum dado encontrado."));
