@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 
-// Importe o modelo de dados 'Usuario' do seu arquivo UserRegister.dart
-// Isso garante que estamos trabalhando com o mesmo tipo de objeto.
-import 'package:flutter_application_1/UserRegister.dart'; 
+import 'package:flutter_application_1/models/course_option.dart';
+import 'package:flutter_application_1/models/managed_user.dart';
+import 'package:flutter_application_1/services/user_management_api.dart';
 
 // --- TELA DE MODIFICAÇÃO DE USUÁRIO REATORADA ---
 class ModifyUserApp extends StatefulWidget {
-  // A tela agora recebe o objeto 'Usuario' inteiro, o que é mais limpo.
-  final Usuario usuario;
+  final ManagedUser usuario;
 
   const ModifyUserApp({Key? key, required this.usuario}) : super(key: key);
 
@@ -23,7 +22,9 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
   late TextEditingController _sobrenomeController; // Adicionado para consistência
   late TextEditingController _emailController;
   late TextEditingController _senhaController;
-  String? _cursoSelecionado;
+  bool _isLoadingCursos = false;
+  List<CourseOption> _cursos = const [];
+  String? _cursoSelecionadoId;
   
   bool _isLoading = false;
 
@@ -35,11 +36,10 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     _sobrenomeController = TextEditingController(text: widget.usuario.sobrenome);
     _emailController = TextEditingController(text: widget.usuario.email);
     _senhaController = TextEditingController();
-    
-    // TODO: A lógica do curso precisa ser ajustada.
-    // O ideal é ter uma lista de cursos (com ID e Nome) vinda da API.
-    // Por enquanto, usaremos uma lista estática.
-    _cursoSelecionado = "Engenharia"; // Exemplo
+    _cursoSelecionadoId = widget.usuario.cursoId.isNotEmpty
+        ? widget.usuario.cursoId
+        : null;
+    _carregarCursos();
   }
 
   @override
@@ -52,6 +52,49 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     super.dispose();
   }
   
+  Future<void> _carregarCursos() async {
+    setState(() => _isLoadingCursos = true);
+    try {
+      final cursos = await UsuarioApi.listarCursos();
+      if (!mounted) return;
+      setState(() {
+        _cursos = cursos;
+        if (_cursos.isEmpty) {
+          _cursoSelecionadoId = null;
+        } else if (_cursoSelecionadoId != null &&
+            !_cursos.any((c) => c.id == _cursoSelecionadoId)) {
+          _cursoSelecionadoId = null;
+        }
+
+        if ((_cursoSelecionadoId == null || _cursoSelecionadoId!.isEmpty) &&
+            widget.usuario.cursoNome.isNotEmpty) {
+          final match = _cursos.firstWhere(
+            (curso) =>
+                curso.nome.toLowerCase() ==
+                widget.usuario.cursoNome.toLowerCase(),
+            orElse: () =>
+                CourseOption(id: '', nome: ''),
+          );
+          if (match.id.isNotEmpty) {
+            _cursoSelecionadoId = match.id;
+          }
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Falha ao carregar cursos: $e'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingCursos = false);
+      }
+    }
+  }
+
   // Função para lidar com o salvamento das alterações.
   Future<void> _salvarAlteracoes() async {
     // Valida o formulário antes de continuar.
@@ -59,33 +102,60 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
       return;
     }
     
+    if (_cursoSelecionadoId == null || _cursoSelecionadoId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Selecione um curso'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
-    
-    // --- LÓGICA DE API AQUI ---
-    // Você vai criar um mapa com os dados a serem enviados.
-    final dadosParaAtualizar = {
-      'nome': _nomeController.text,
-      'sobrenome': _sobrenomeController.text,
-      'email': _emailController.text,
-      // Envie a senha apenas se o campo não estiver vazio.
-      if (_senhaController.text.isNotEmpty) 'password': _senhaController.text,
-      // 'cursoId': _idDoCursoSelecionado, // Você precisará do ID do curso
+
+    final payload = {
+      'nome': _nomeController.text.trim(),
+      'sobrenome': _sobrenomeController.text.trim(),
+      'email': _emailController.text.trim(),
+      'curso': _cursoSelecionadoId!,
+      if (_senhaController.text.isNotEmpty) 'senha': _senhaController.text,
     };
-    
-    // Simula uma chamada à API.
-    await Future.delayed(Duration(seconds: 2));
-    
-    // Exemplo de como seria a chamada real:
-    // final sucesso = await UsuarioApi.atualizarUsuario(widget.usuario.id, dadosParaAtualizar);
 
-    // if (sucesso && mounted) {
-    //   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Usuário atualizado com sucesso!"), backgroundColor: Colors.green));
-    //   Navigator.of(context).pop(true); // Retorna 'true' para indicar que a lista deve ser atualizada.
-    // } else {
-    //   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro ao atualizar usuário."), backgroundColor: Colors.red));
-    // }
+    try {
+      final sucesso =
+          await UsuarioApi.atualizarUsuario(widget.usuario.id, payload);
+      if (!mounted) return;
 
-    setState(() => _isLoading = false);
+      if (sucesso) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Usuário atualizado com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pop(true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao atualizar usuário.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro inesperado: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -109,17 +179,22 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
                   children: [
                     CircleAvatar(
                       radius: 40,
-                      backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                      backgroundColor:
+                          Theme.of(context).primaryColor.withOpacity(0.1),
                       child: Text(
-                        widget.usuario.nome.isNotEmpty ? widget.usuario.nome[0].toUpperCase() : 'U',
-                        style: TextStyle(fontSize: 32, color: Theme.of(context).primaryColor),
+                        widget.usuario.initials,
+                        style: TextStyle(
+                            fontSize: 32,
+                            color: Theme.of(context).primaryColor),
                       ),
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Editando perfil de ${widget.usuario.nome}',
+                      'Editando perfil de ${widget.usuario.displayName}',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
+                    SizedBox(height: 4),
+                    Text('Login: ${widget.usuario.login}'),
                   ],
                 ),
               ),
@@ -154,19 +229,7 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
               ),
               SizedBox(height: 16),
               
-              // Campo Curso
-              DropdownButtonFormField<String>(
-                value: _cursoSelecionado,
-                decoration: InputDecoration(labelText: "Selecione o Curso"),
-                items: ["Ciência da Computação", "Engenharia", "Direito"]
-                    .map((curso) => DropdownMenuItem(value: curso, child: Text(curso)))
-                    .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _cursoSelecionado = value;
-                  });
-                },
-              ),
+              _buildCursoDropdown(),
               SizedBox(height: 16),
               
               // Campo Nova Senha
@@ -196,6 +259,65 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildCursoDropdown() {
+    if (_isLoadingCursos) {
+      return InputDecorator(
+        decoration: InputDecoration(labelText: 'Curso'),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: 12),
+              Text('Carregando cursos...'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_cursos.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InputDecorator(
+            decoration: InputDecoration(labelText: 'Curso'),
+            child: Text('Nenhum curso disponível.'),
+          ),
+          SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _carregarCursos,
+            icon: Icon(Icons.refresh),
+            label: Text('Tentar novamente'),
+          ),
+        ],
+      );
+    }
+
+    return DropdownButtonFormField<String>(
+      value: _cursoSelecionadoId,
+      decoration: InputDecoration(labelText: 'Curso'),
+      items: _cursos
+          .map((curso) => DropdownMenuItem(
+                value: curso.id,
+                child: Text(curso.nome),
+              ))
+          .toList(),
+      onChanged: (value) {
+        setState(() {
+          _cursoSelecionadoId = value;
+        });
+      },
+      validator: (value) =>
+          (value == null || value.isEmpty) ? 'Informe o curso' : null,
     );
   }
 }

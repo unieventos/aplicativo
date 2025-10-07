@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_application_1/login.dart';
-
-class PerfilUsuario {
-  final String nome, sobrenome, email, curso, role;
-  PerfilUsuario({ this.nome = '', this.sobrenome = '', this.email = '', this.curso = 'Não informado', this.role = 'user' });
-}
+import 'package:flutter_application_1/models/user_profile.dart';
+import 'package:flutter_application_1/user_service.dart';
 
 class PerfilPage extends StatefulWidget {
   @override
@@ -14,7 +11,7 @@ class PerfilPage extends StatefulWidget {
 
 class _PerfilPageState extends State<PerfilPage> {
   final _storage = FlutterSecureStorage();
-  late Future<PerfilUsuario> _perfilUsuarioFuture;
+  late Future<UserProfile> _perfilUsuarioFuture;
 
   @override
   void initState() {
@@ -22,20 +19,41 @@ class _PerfilPageState extends State<PerfilPage> {
     _perfilUsuarioFuture = _loadUserData();
   }
 
-  Future<PerfilUsuario> _loadUserData() async {
+  Future<UserProfile> _loadUserData() async {
+    final profile = await UserService.obterPerfil(persistLocally: true);
+    if (profile != null) {
+      return profile;
+    }
+
+    final cached = await _loadCachedProfile();
+    if (cached != null) {
+      return cached;
+    }
+
+    return const UserProfile(nome: 'Usuário');
+  }
+
+  Future<UserProfile?> _loadCachedProfile() async {
     final values = await Future.wait([
+      _storage.read(key: 'id'),
       _storage.read(key: 'nome'),
       _storage.read(key: 'sobrenome'),
       _storage.read(key: 'email'),
       _storage.read(key: 'cursoId'),
       _storage.read(key: 'role'),
     ]);
-    return PerfilUsuario(
-      nome: values[0] ?? 'Usuário',
-      sobrenome: values[1] ?? '',
-      email: values[2] ?? 'email@nao.informado',
-      curso: 'Curso ID: ${values[3] ?? "N/A"}',
-      role: values[4] ?? 'user',
+
+    if (values.every((value) => value == null || value.isEmpty)) {
+      return null;
+    }
+
+    return UserProfile(
+      id: values[0] ?? '',
+      nome: values[1] ?? '',
+      sobrenome: values[2] ?? '',
+      email: values[3] ?? '',
+      cursoId: values[4] ?? '',
+      role: values[5] ?? 'user',
     );
   }
 
@@ -73,7 +91,7 @@ class _PerfilPageState extends State<PerfilPage> {
         automaticallyImplyLeading: false,
         centerTitle: false,
       ),
-      body: FutureBuilder<PerfilUsuario>(
+      body: FutureBuilder<UserProfile>(
         future: _perfilUsuarioFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -90,7 +108,9 @@ class _PerfilPageState extends State<PerfilPage> {
           
           return RefreshIndicator(
             onRefresh: () async {
-              setState(() { _perfilUsuarioFuture = _loadUserData(); });
+              final future = _loadUserData();
+              setState(() { _perfilUsuarioFuture = future; });
+              await future;
             },
             child: ListView(
               padding: const EdgeInsets.all(16.0),
@@ -108,26 +128,32 @@ class _PerfilPageState extends State<PerfilPage> {
     );
   }
 
-  Widget _buildHeader(PerfilUsuario perfil) {
+  Widget _buildHeader(UserProfile perfil) {
     return Column(
       children: [
         CircleAvatar(
           radius: 50,
           backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
           child: Text(
-            perfil.nome.isNotEmpty ? perfil.nome[0].toUpperCase() : 'U',
+            perfil.initials,
             style: TextStyle(fontSize: 48, color: Theme.of(context).primaryColor),
           ),
         ),
         SizedBox(height: 12),
-        Text('${perfil.nome} ${perfil.sobrenome}', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        Text(
+          perfil.fullName.isNotEmpty ? perfil.fullName : 'Usuário',
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+        ),
         SizedBox(height: 4),
-        Text(perfil.email, style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+        Text(
+          perfil.email.isNotEmpty ? perfil.email : 'email@nao.informado',
+          style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+        ),
       ],
     );
   }
 
-  Widget _buildInfoCard(PerfilUsuario perfil) {
+  Widget _buildInfoCard(UserProfile perfil) {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
@@ -137,13 +163,19 @@ class _PerfilPageState extends State<PerfilPage> {
             ListTile(
               leading: Icon(Icons.school_outlined, color: Theme.of(context).primaryColor),
               title: Text("Curso"),
-              subtitle: Text(perfil.curso, style: TextStyle(fontSize: 16, color: Colors.black87)),
+              subtitle: Text(
+                perfil.cursoId.isNotEmpty ? 'Curso ID: ${perfil.cursoId}' : 'Não informado',
+                style: TextStyle(fontSize: 16, color: Colors.black87),
+              ),
             ),
             Divider(indent: 16, endIndent: 16),
             ListTile(
               leading: Icon(Icons.admin_panel_settings_outlined, color: Theme.of(context).primaryColor),
               title: Text("Nível de Acesso"),
-              subtitle: Text(perfil.role.toUpperCase(), style: TextStyle(fontSize: 16, color: Colors.black87)),
+              subtitle: Text(
+                perfil.role.isNotEmpty ? perfil.role.toUpperCase() : 'USER',
+                style: TextStyle(fontSize: 16, color: Colors.black87),
+              ),
             ),
           ],
         ),

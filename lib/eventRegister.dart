@@ -8,13 +8,7 @@ import 'package:intl/intl.dart';
 
 import 'event_service.dart';
 import 'user_service.dart';
-
-class _CursoOption {
-  const _CursoOption({required this.id, required this.nome});
-
-  final String id;
-  final String nome;
-}
+import 'models/course_option.dart';
 
 // --- TELA DE CADASTRO DE EVENTO REATORADA ---
 class EVRegister extends StatefulWidget {
@@ -29,7 +23,7 @@ class _EVRegisterState extends State<EVRegister> {
   final _tituloController = TextEditingController();
 
   String? _cursoSelecionadoId;
-  List<_CursoOption> _cursos = [];
+  List<CourseOption> _cursos = [];
   DateTime? _dataInicio;
   DateTime? _dataFim;
   final ImagePicker _imagePicker = ImagePicker();
@@ -55,15 +49,10 @@ class _EVRegisterState extends State<EVRegister> {
 
   Future<void> _carregarCursos() async {
     try {
-      final detalhadas = await UserService.listarCategoriasDetalhadas();
+      final detalhadas = await UserService.listarCursos();
       if (mounted) {
         setState(() {
-          _cursos = detalhadas
-              .where((item) =>
-                  (item['id'] ?? '').isNotEmpty &&
-                  (item['nome'] ?? '').isNotEmpty)
-              .map((item) => _CursoOption(id: item['id']!, nome: item['nome']!))
-              .toList();
+          _cursos = detalhadas;
           if (_cursos.isEmpty) {
             _cursoSelecionadoId = null;
           } else if (_cursoSelecionadoId != null &&
@@ -155,7 +144,7 @@ class _EVRegisterState extends State<EVRegister> {
 
       final cursoSelecionado = _cursos.firstWhere(
           (c) => c.id == _cursoSelecionadoId,
-          orElse: () => _CursoOption(id: _cursoSelecionadoId!, nome: ''));
+          orElse: () => CourseOption(id: _cursoSelecionadoId!, nome: ''));
 
       // Chama o serviço para criar o evento
       final resultado = await EventService.criarEvento(

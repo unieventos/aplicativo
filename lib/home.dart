@@ -87,9 +87,9 @@ class _EventosPageState extends State<EventosPage> {
               label: 'Cadastrar'),
           if (isAdmin)
             BottomNavigationBarItem(
-                icon: Icon(Icons.group_outlined),
-                activeIcon: Icon(Icons.group),
-                label: 'Usuários'),
+                icon: Icon(Icons.school_outlined),
+                activeIcon: Icon(Icons.school),
+                label: 'Cursos'),
           BottomNavigationBarItem(
               icon: Icon(Icons.person_outline),
               activeIcon: Icon(Icons.person),

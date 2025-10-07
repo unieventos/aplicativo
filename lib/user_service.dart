@@ -1,5 +1,8 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_application_1/models/course_option.dart';
+import 'package:flutter_application_1/models/managed_user.dart';
+import 'package:flutter_application_1/models/user_profile.dart';
 import 'package:flutter_application_1/network/safe_http.dart';
 
 // --- SERVIÇO DE USUÁRIO REATORADO ---
@@ -7,6 +10,8 @@ import 'package:flutter_application_1/network/safe_http.dart';
 class UserService {
   // A URL base da API para facilitar futuras manutenções.
   static const String _baseUrl = 'http://172.171.192.14:8081/unieventos';
+
+  static const String _usuariosPath = '/usuarios';
 
   // Lista categorias do backend
   static Future<List<String>> listarCategorias() async {
@@ -255,6 +260,76 @@ class UserService {
     return <Map<String, String>>[];
   }
 
+  static Future<List<CourseOption>> listarCursos() async {
+    final detalhadas = await listarCategoriasDetalhadas();
+    return detalhadas
+        .where((item) =>
+            (item['id'] ?? '').isNotEmpty && (item['nome'] ?? '').isNotEmpty)
+        .map((item) => CourseOption(id: item['id']!, nome: item['nome']!))
+        .toList();
+  }
+
+  static Future<CourseOption?> criarCurso(String nome) async {
+    final created = await criarCategoria(nome);
+    if (created == null) return null;
+    final id = created['id'] ?? '';
+    final nomeFinal = created['nome'] ?? nome;
+    if (id.isEmpty) return null;
+    return CourseOption(id: id, nome: nomeFinal);
+  }
+
+  static Future<bool> atualizarCurso(String id, String nome) async {
+    final storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'token');
+    if (token == null || token.isEmpty) throw Exception('Token não encontrado');
+
+    final uri = Uri.parse('$_baseUrl/categorias/$id');
+    final response = await SafeHttp.patch(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: jsonEncode({'nomeCategoria': nome}),
+    );
+
+    if (response.statusCode == 200 ||
+        response.statusCode == 204 ||
+        response.statusCode == 202) {
+      return true;
+    }
+
+    final body = utf8.decode(response.bodyBytes);
+    print('[UserService] Erro ao atualizar curso (${response.statusCode}): $body');
+    return false;
+  }
+
+  static Future<bool> deletarCurso(String id) async {
+    final storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'token');
+    if (token == null || token.isEmpty) throw Exception('Token não encontrado');
+
+    final uri = Uri.parse('$_baseUrl/categorias/$id');
+    final response = await SafeHttp.delete(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200 ||
+        response.statusCode == 204 ||
+        response.statusCode == 202) {
+      return true;
+    }
+
+    final body = utf8.decode(response.bodyBytes);
+    print('[UserService] Erro ao deletar curso (${response.statusCode}): $body');
+    return false;
+  }
+
   // Cria uma categoria
   static Future<Map<String, String>?> criarCategoria(
       String nomeCategoria) async {
@@ -321,72 +396,269 @@ class UserService {
 
   // O método agora é mais robusto e lida com mais cenários de erro.
   static Future<String?> buscarUsuario() async {
+    final perfil = await obterPerfil(persistLocally: true);
+    return perfil?.id;
+  }
+
+  static Future<UserProfile?> obterPerfil({bool persistLocally = false}) async {
     final storage = FlutterSecureStorage();
 
-    // 1. LÊ O TOKEN ARMAZENADO
     final token = await storage.read(key: 'token');
-
-    // 2. VALIDAÇÃO DE SEGURANÇA: Se não houver token, interrompe a execução.
-    // Isso evita uma chamada desnecessária à API que certamente falharia.
     if (token == null || token.isEmpty) {
       print(
-          '[UserService] Erro: Token de autenticação não encontrado. Impossível buscar usuário.');
+          '[UserService] Erro: Token de autenticação não encontrado. Impossível buscar perfil.');
       return null;
     }
 
-    // 3. BLOCO TRY-CATCH PARA CAPTURAR ERROS DE REDE
-    // Captura problemas como falta de internet, DNS, ou servidor offline.
+    final url = Uri.parse('$_baseUrl/usuarios/me');
     try {
-      final url = Uri.parse('$_baseUrl/usuarios/me');
-
       final response = await SafeHttp.get(
         url,
         headers: {
           'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
       );
 
-      // 4. VERIFICA A RESPOSTA DA API
       if (response.statusCode == 200) {
-        // Sucesso! Decodifica a resposta.
-        final body = jsonDecode(utf8.decode(response.bodyBytes));
+        final body = utf8.decode(response.bodyBytes);
+        final decoded = jsonDecode(body);
+        if (decoded is Map<String, dynamic> &&
+            decoded['user'] is Map<String, dynamic>) {
+          final profile =
+              UserProfile.fromMap(decoded['user'] as Map<String, dynamic>);
 
-        // VALIDAÇÃO: Verifica se o corpo da resposta e o objeto 'user' existem.
-        if (body != null && body['user'] is Map<String, dynamic>) {
-          final userData = body['user'];
+          if (persistLocally) {
+            await _persistProfile(storage, profile);
+          }
 
-          // 5. SALVA OS DADOS DO USUÁRIO NO STORAGE DE FORMA SEGURA
-          // O '.toString()' garante que mesmo valores nulos ou de outros tipos sejam convertidos para string.
-          await storage.write(key: 'id', value: userData['id']?.toString());
-          await storage.write(key: 'nome', value: userData['nome']?.toString());
-          await storage.write(
-              key: 'sobrenome', value: userData['sobrenome']?.toString());
-          await storage.write(
-              key: 'email', value: userData['email']?.toString());
-          await storage.write(
-              key: 'cursoId', value: userData['cursoId']?.toString());
-          await storage.write(key: 'role', value: userData['role']?.toString());
-
-          print('[UserService] Dados do usuário salvos com sucesso.');
-          return userData['id']?.toString();
-        } else {
-          // Se a resposta for 200, mas o JSON não tiver o formato esperado.
-          print(
-              '[UserService] Erro: Resposta da API inválida. Formato JSON inesperado.');
-          return null;
+          return profile;
         }
-      } else {
-        // Se a API retornar um código de erro (401, 403, 500, etc.)
+
         print(
-            '[UserService] Erro ao buscar usuário. Status: ${response.statusCode}');
-        print('[UserService] Mensagem: ${utf8.decode(response.bodyBytes)}');
+            '[UserService] Erro: Resposta da API inválida. Formato JSON inesperado.');
         return null;
       }
+
+      print(
+          '[UserService] Erro ao buscar perfil. Status: ${response.statusCode}');
+      print('[UserService] Mensagem: ${utf8.decode(response.bodyBytes)}');
+      return null;
     } catch (e) {
-      // Se a chamada de rede falhar completamente (sem conexão, CORS, etc.)
-      print('[UserService] Erro de conexão ao buscar usuário: $e');
+      print('[UserService] Erro de conexão ao buscar perfil: $e');
       return null;
     }
+  }
+
+  static Future<void> _persistProfile(
+    FlutterSecureStorage storage,
+    UserProfile profile,
+  ) async {
+    await storage.write(key: 'id', value: profile.id);
+    await storage.write(key: 'nome', value: profile.nome);
+    await storage.write(key: 'sobrenome', value: profile.sobrenome);
+    await storage.write(key: 'email', value: profile.email);
+    await storage.write(key: 'cursoId', value: profile.cursoId);
+    await storage.write(key: 'role', value: profile.role);
+    print('[UserService] Dados do usuário salvos com sucesso.');
+  }
+
+  static Future<List<ManagedUser>> listarUsuarios({
+    int page = 0,
+    int size = 10,
+    String sortBy = 'nome',
+    String search = '',
+  }) async {
+    final storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'token');
+    if (token == null || token.isEmpty) {
+      throw Exception('Token não encontrado');
+    }
+
+    final uri = Uri.parse('$_baseUrl$_usuariosPath').replace(
+      queryParameters: {
+        'page': '$page',
+        'size': '$size',
+        'sortBy': sortBy,
+        if (search.isNotEmpty) 'name': search,
+      },
+    );
+
+    final response = await SafeHttp.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final bodyText = utf8.decode(response.bodyBytes);
+      final data = jsonDecode(bodyText);
+      if (data is Map<String, dynamic>) {
+        final embedded = data['_embedded'];
+        final list = embedded is Map<String, dynamic>
+            ? embedded['usuarioResourceV1List']
+            : null;
+        if (list is List) {
+          return list
+              .map((item) => item is Map<String, dynamic>
+                  ? item['user'] ?? item['usuario'] ?? item
+                  : null)
+              .whereType<Map<String, dynamic>>()
+              .map(ManagedUser.fromApi)
+              .toList();
+        }
+      }
+      return <ManagedUser>[];
+    }
+
+    if (response.statusCode == 204) {
+      return <ManagedUser>[];
+    }
+
+    final body = utf8.decode(response.bodyBytes);
+    print(
+        '[UserService] Erro ao listar usuários (${response.statusCode}): $body');
+    throw Exception('Erro ao listar usuários');
+  }
+
+  static Future<String?> criarUsuario({
+    required String login,
+    required String curso,
+    required String nome,
+    required String sobrenome,
+    required String senha,
+    String? email,
+    String? role,
+  }) async {
+    final storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'token');
+    if (token == null || token.isEmpty) {
+      throw Exception('Token não encontrado');
+    }
+
+    final uri = Uri.parse('$_baseUrl$_usuariosPath');
+    final payload = {
+      'login': login,
+      'curso': curso,
+      'email': email,
+      'senha': senha,
+      'nome': nome,
+      'sobrenome': sobrenome,
+      'role': role,
+    }..removeWhere((key, value) => value == null || value == '');
+
+    final response = await SafeHttp.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: jsonEncode(payload),
+    );
+
+    final responseBody = utf8.decode(response.bodyBytes);
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      try {
+        if (responseBody.isNotEmpty) {
+          final decoded = jsonDecode(responseBody);
+          if (decoded is Map<String, dynamic>) {
+            final user = decoded['user'] ?? decoded['usuario'] ?? decoded;
+            if (user is Map<String, dynamic> && user['id'] != null) {
+              return user['id'].toString();
+            }
+            if (decoded['id'] != null) {
+              return decoded['id'].toString();
+            }
+          }
+        }
+      } catch (_) {
+        // fallback para Location header
+      }
+
+      final location =
+          response.headers['location'] ?? response.headers['Location'];
+      if (location != null && location.isNotEmpty) {
+        return location
+            .split('/')
+            .lastWhere((segment) => segment.isNotEmpty, orElse: () => '');
+      }
+      return null;
+    }
+
+    print(
+        '[UserService] Erro ao criar usuário (${response.statusCode}): $responseBody');
+    return null;
+  }
+
+  static Future<bool> atualizarUsuario(
+    String userId,
+    Map<String, dynamic> payload,
+  ) async {
+    final storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'token');
+    if (token == null || token.isEmpty) {
+      throw Exception('Token não encontrado');
+    }
+
+    final filteredPayload = Map<String, dynamic>.from(payload)
+      ..removeWhere((key, value) => value == null || (value is String && value.isEmpty));
+
+    if (filteredPayload.isEmpty) {
+      print('[UserService] Nenhum dado para atualizar. Ignorando chamada.');
+      return true;
+    }
+
+    final uri = Uri.parse('$_baseUrl$_usuariosPath/$userId');
+    final response = await SafeHttp.patch(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: jsonEncode(filteredPayload),
+    );
+
+    if (response.statusCode == 200 ||
+        response.statusCode == 204 ||
+        response.statusCode == 202) {
+      return true;
+    }
+
+    final body = utf8.decode(response.bodyBytes);
+    print(
+        '[UserService] Erro ao atualizar usuário (${response.statusCode}): $body');
+    return false;
+  }
+
+  static Future<bool> deletarUsuario(String userId) async {
+    final storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'token');
+    if (token == null || token.isEmpty) {
+      throw Exception('Token não encontrado');
+    }
+
+    final uri = Uri.parse('$_baseUrl$_usuariosPath/$userId');
+    final response = await SafeHttp.delete(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200 ||
+        response.statusCode == 202 ||
+        response.statusCode == 204) {
+      return true;
+    }
+
+    final body = utf8.decode(response.bodyBytes);
+    print(
+        '[UserService] Erro ao deletar usuário (${response.statusCode}): $body');
+    return false;
   }
 }
