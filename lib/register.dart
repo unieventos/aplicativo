@@ -29,23 +29,56 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _senhaController = TextEditingController();
   final _confirmarSenhaController = TextEditingController();
   
-  // Lista de cursos estática para preencher o dropdown.
-  // No futuro, você pode buscar esta lista da sua API no initState.
+  // Lista COMPLETA dos 38 cursos pré-cadastrados no banco de dados
+  // Nomes EXATOS conforme cadastrados na API
   final List<Curso> _listaDeCursos = [
-    Curso(id: 1, nome: "Ciência da Computação"),
-    Curso(id: 2, nome: "Engenharia"),
-    Curso(id: 3, nome: "Direito"),
-    Curso(id: 4, nome: "Odontologia"),
-    Curso(id: 5, nome: "Enfermagem"),
-    Curso(id: 6, nome: "Pastoral"),
+    Curso(id: 1, nome: "Administração"),
+    Curso(id: 2, nome: "Arquitetura e Urbanismo"),
+    Curso(id: 3, nome: "Artes"),
+    Curso(id: 4, nome: "Biomedicina"),
+    Curso(id: 5, nome: "Celulose e Papel"),
+    Curso(id: 6, nome: "Ciência da Computação"),
+    Curso(id: 7, nome: "Ciências Biológicas Bacharelado"),
+    Curso(id: 8, nome: "Ciências Biológicas Licenciatura"),
+    Curso(id: 9, nome: "Ciências Contábeis"),
+    Curso(id: 10, nome: "Design"),
+    Curso(id: 11, nome: "Design de Moda"),
+    Curso(id: 12, nome: "Educação Física - Bacharelado"),
+    Curso(id: 13, nome: "Educação Física - Licenciatura"),
+    Curso(id: 14, nome: "Enfermagem"),
+    Curso(id: 15, nome: "Engenharia Agronômica"),
+    Curso(id: 16, nome: "Engenharia Civil"),
+    Curso(id: 17, nome: "Engenharia de Computação"),
+    Curso(id: 18, nome: "Engenharia de Produção"),
+    Curso(id: 19, nome: "Engenharia Elétrica"),
+    Curso(id: 20, nome: "Engenharia Mecânica"),
+    Curso(id: 21, nome: "Engenharia Química"),
+    Curso(id: 22, nome: "Estética e Cosmética"),
+    Curso(id: 23, nome: "Farmácia"),
+    Curso(id: 24, nome: "Fisioterapia"),
+    Curso(id: 25, nome: "Gastronomia"),
+    Curso(id: 26, nome: "História"),
+    Curso(id: 27, nome: "Jogos Digitais"),
+    Curso(id: 28, nome: "Jornalismo"),
+    Curso(id: 29, nome: "Letras - Português e Inglês - Licenciatura"),
+    Curso(id: 30, nome: "Letras - Tradutor - Bacharelado"),
+    Curso(id: 31, nome: "Matemática"),
+    Curso(id: 32, nome: "Nutrição"),
+    Curso(id: 33, nome: "Odontologia"),
+    Curso(id: 34, nome: "Pedagogia"),
+    Curso(id: 35, nome: "Psicologia"),
+    Curso(id: 36, nome: "Publicidade e Propaganda"),
+    Curso(id: 37, nome: "Relações Internacionais"),
+    Curso(id: 38, nome: "Teatro"),
   ];
   
   // Variável para armazenar o ID do curso selecionado.
-  int? _cursoSelecionadoId;
+  int? _cursoSelecionadoId = 1; // Valor padrão: Administração
   
   bool _isLoading = false;
   bool _obscureSenha = true;
   bool _obscureConfirmarSenha = true;
+  
 
   @override
   void dispose() {
@@ -76,6 +109,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       // Monta o mapa de dados para enviar à API no formato correto
       final cursoSelecionado = _listaDeCursos.firstWhere((curso) => curso.id == _cursoSelecionadoId);
+      
       final dadosParaCriar = {
         "login": _loginController.text.trim(),
         "curso": cursoSelecionado.nome, // API espera nome do curso, não ID
@@ -85,8 +119,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         "sobrenome": _sobrenomeController.text.trim(),
         "role": _roleController.text.trim() // API espera exatamente "admin" ou "usuario"
       };
-
-      print('[RegisterScreen] Tentando criar usuário com dados: $dadosParaCriar');
 
       final sucesso = await UsuarioApi.criarUsuario(dadosParaCriar);
 
@@ -111,7 +143,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         }
       }
     } catch (e) {
-      print('[RegisterScreen] Erro: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -242,6 +273,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Text("Testar Conectividade"),
               ),
               SizedBox(height: 16),
+              
+              
               ElevatedButton(
                 onPressed: _isLoading ? null : _cadastrarUsuario,
                 style: ElevatedButton.styleFrom(

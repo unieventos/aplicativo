@@ -52,41 +52,33 @@ class UsuarioApi {
   // POST /usuarios - Cadastra um novo usuário
   static Future<bool> criarUsuario(Map<String, dynamic> dadosUsuario) async {
     final token = await _storage.read(key: 'token');
-    if (token == null) {
-      print('[UsuarioApi] Erro: Token não encontrado');
-      return false;
-    }
+    if (token == null) return false;
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
-      print('[UsuarioApi] Erro: Mixed content bloqueado');
       throw Exception('Mixed content bloqueado no navegador: app https x API http.');
     }
 
     final url = Uri.parse(_baseUrl);
-    print('[UsuarioApi] Enviando requisição para: $url');
-    print('[UsuarioApi] Dados: $dadosUsuario');
     
     try {
       final response = await http
           .post(
             url,
-            headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+            headers: {
+              'Authorization': 'Bearer $token', 
+              'Content-Type': 'application/json; charset=utf-8',
+              'Accept': 'application/json',
+            },
             body: jsonEncode(dadosUsuario),
           )
           .timeout(const Duration(seconds: 15));
       
-      print('[UsuarioApi] Status Code: ${response.statusCode}');
-      print('[UsuarioApi] Response Body: ${response.body}');
-      
       if (response.statusCode == 201 || response.statusCode == 200) {
-        print('[UsuarioApi] Usuário criado com sucesso');
         return true;
       } else {
-        print('[UsuarioApi] Erro na API: ${response.statusCode} - ${response.body}');
         return false;
       }
     } catch (e) {
-      print("[UsuarioApi] Erro de conexão: $e");
       return false;
     }
   }
@@ -282,6 +274,46 @@ class CategoriaApi {
       return list.map((item) => Categoria.fromJson(item['categoria'])).toList();
     } else {
       throw Exception('Falha ao carregar categorias: ${response.statusCode}');
+    }
+  }
+}
+
+// =================== API DE CURSOS ===================
+class CursoApi {
+  static const String _baseUrl = '${ApiConfig.base}/cursos';
+  static final _storage = FlutterSecureStorage();
+  
+  // GET /cursos - Lista todos os cursos disponíveis
+  static Future<List<Map<String, dynamic>>> listarCursos() async {
+    final token = await _storage.read(key: 'token');
+    if (token == null) {
+      print('[CursoApi] Erro: Token não encontrado');
+      return [];
+    }
+
+    if (WebChecks.isMixedContent(ApiConfig.base)) {
+      print('[CursoApi] Erro: Mixed content bloqueado');
+      return [];
+    }
+
+    try {
+      final response = await http
+          .get(
+            Uri.parse(_baseUrl),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> cursos = jsonDecode(response.body);
+        return cursos.cast<Map<String, dynamic>>();
+      } else {
+        print('[CursoApi] Erro: ${response.statusCode} - ${response.body}');
+        return [];
+      }
+    } catch (e) {
+      print("[CursoApi] Erro de conexão: $e");
+      return [];
     }
   }
 }
