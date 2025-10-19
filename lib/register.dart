@@ -64,29 +64,100 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
     
-    // Monta o mapa de dados para enviar à API, conforme o Swagger.
-    final dadosParaCriar = {
-      "login": _loginController.text.trim(),
-      "cursoId": _cursoSelecionadoId, // CORREÇÃO: Enviando o ID do curso.
-      "email": _emailController.text.trim(),
-      "senha": _senhaController.text,
-      "nome": _nomeController.text.trim(),
-      "sobrenome": _sobrenomeController.text.trim(),
-      "role": _roleController.text.trim()
-    };
-    // Atenção: O Swagger de criação não mostra 'cursoId', mas o de atualização sim.
-    // Estou assumindo que o de criação também aceita. Se não, a chave pode ser 'curso' com o nome.
-
-    final sucesso = await UsuarioApi.criarUsuario(dadosParaCriar);
-
-    if (mounted) {
-      if (sucesso) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Usuário criado com sucesso!"), backgroundColor: Colors.green));
-        Navigator.of(context).pop(true);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro ao criar usuário."), backgroundColor: Colors.red));
+    try {
+      // Valida se o curso foi selecionado
+      if (_cursoSelecionadoId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Selecione um curso"), backgroundColor: Colors.orange)
+        );
+        setState(() => _isLoading = false);
+        return;
       }
-      setState(() => _isLoading = false);
+
+      // Monta o mapa de dados para enviar à API no formato correto
+      final cursoSelecionado = _listaDeCursos.firstWhere((curso) => curso.id == _cursoSelecionadoId);
+      final dadosParaCriar = {
+        "login": _loginController.text.trim(),
+        "curso": cursoSelecionado.nome, // API espera nome do curso, não ID
+        "email": _emailController.text.trim(),
+        "senha": _senhaController.text,
+        "nome": _nomeController.text.trim(),
+        "sobrenome": _sobrenomeController.text.trim(),
+        "role": _roleController.text.trim() // API espera exatamente "admin" ou "usuario"
+      };
+
+      print('[RegisterScreen] Tentando criar usuário com dados: $dadosParaCriar');
+
+      final sucesso = await UsuarioApi.criarUsuario(dadosParaCriar);
+
+      if (mounted) {
+        if (sucesso) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Usuário criado com sucesso!"), 
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            )
+          );
+          Navigator.of(context).pop(true);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Erro ao criar usuário. Verifique os dados e tente novamente."), 
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 4),
+            )
+          );
+        }
+      }
+    } catch (e) {
+      print('[RegisterScreen] Erro: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Erro de conexão: $e"), 
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          )
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  // Método para testar conectividade com a API
+  Future<void> _testarConectividade() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      final conectado = await UsuarioApi.testarConectividade();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(conectado ? "Conectividade OK!" : "Erro de conectividade"),
+            backgroundColor: conectado ? Colors.green : Colors.red,
+            duration: Duration(seconds: 3),
+          )
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Erro no teste: $e"),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          )
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -110,7 +181,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
               SizedBox(height: 16),
               TextFormField(controller: _loginController, decoration: InputDecoration(labelText: "Login (nome de usuário)"), validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null),
               SizedBox(height: 16),
-              TextFormField(controller: _roleController, decoration: InputDecoration(labelText: "Perfil (ex: ADMIN, USER)"), validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null),
+              DropdownButtonFormField<String>(
+                decoration: InputDecoration(labelText: "Perfil"),
+                value: _roleController.text.isNotEmpty ? _roleController.text : null,
+                items: [
+                  DropdownMenuItem(value: 'ADMIN', child: Text('Administrador')),
+                  DropdownMenuItem(value: 'GESTOR', child: Text('Gestor')),
+                  DropdownMenuItem(value: 'COLABORADOR', child: Text('Colaborador')),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    _roleController.text = value;
+                  }
+                },
+                validator: (v) => v == null || v.isEmpty ? 'Selecione um perfil' : null,
+              ),
               SizedBox(height: 16),
               TextFormField(controller: _emailController, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: "E-mail"), validator: (v) => (v!.isEmpty || !v.contains('@')) ? 'Email inválido' : null),
               SizedBox(height: 16),
@@ -150,7 +235,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 validator: (v) => (v != _senhaController.text) ? 'As senhas não coincidem' : null,
               ),
-              SizedBox(height: 32),
+              SizedBox(height: 16),
+              // Botão de teste de conectividade
+              OutlinedButton(
+                onPressed: _isLoading ? null : _testarConectividade,
+                child: Text("Testar Conectividade"),
+              ),
+              SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _isLoading ? null : _cadastrarUsuario,
                 style: ElevatedButton.styleFrom(

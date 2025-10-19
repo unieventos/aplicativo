@@ -52,13 +52,20 @@ class UsuarioApi {
   // POST /usuarios - Cadastra um novo usuário
   static Future<bool> criarUsuario(Map<String, dynamic> dadosUsuario) async {
     final token = await _storage.read(key: 'token');
-    if (token == null) return false;
+    if (token == null) {
+      print('[UsuarioApi] Erro: Token não encontrado');
+      return false;
+    }
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
+      print('[UsuarioApi] Erro: Mixed content bloqueado');
       throw Exception('Mixed content bloqueado no navegador: app https x API http.');
     }
 
     final url = Uri.parse(_baseUrl);
+    print('[UsuarioApi] Enviando requisição para: $url');
+    print('[UsuarioApi] Dados: $dadosUsuario');
+    
     try {
       final response = await http
           .post(
@@ -67,9 +74,19 @@ class UsuarioApi {
             body: jsonEncode(dadosUsuario),
           )
           .timeout(const Duration(seconds: 15));
-      return response.statusCode == 201 || response.statusCode == 200;
+      
+      print('[UsuarioApi] Status Code: ${response.statusCode}');
+      print('[UsuarioApi] Response Body: ${response.body}');
+      
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        print('[UsuarioApi] Usuário criado com sucesso');
+        return true;
+      } else {
+        print('[UsuarioApi] Erro na API: ${response.statusCode} - ${response.body}');
+        return false;
+      }
     } catch (e) {
-      print("Erro ao criar usuário: $e");
+      print("[UsuarioApi] Erro de conexão: $e");
       return false;
     }
   }
@@ -145,6 +162,42 @@ class UsuarioApi {
     } catch (e) {
         print("Erro ao buscar usuário logado: $e");
         return null;
+    }
+  }
+
+  // Método de teste para verificar conectividade com a API
+  static Future<bool> testarConectividade() async {
+    final token = await _storage.read(key: 'token');
+    if (token == null) {
+      print('[UsuarioApi] Teste de conectividade: Token não encontrado');
+      return false;
+    }
+
+    if (WebChecks.isMixedContent(ApiConfig.base)) {
+      print('[UsuarioApi] Teste de conectividade: Mixed content bloqueado');
+      return false;
+    }
+
+    try {
+      final url = Uri.parse('$_baseUrl/me');
+      print('[UsuarioApi] Testando conectividade com: $url');
+      
+      final response = await http
+          .get(url, headers: {'Authorization': 'Bearer $token'})
+          .timeout(const Duration(seconds: 10));
+      
+      print('[UsuarioApi] Teste de conectividade - Status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        print('[UsuarioApi] Teste de conectividade: SUCESSO');
+        return true;
+      } else {
+        print('[UsuarioApi] Teste de conectividade: FALHOU - ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      print('[UsuarioApi] Teste de conectividade: ERRO - $e');
+      return false;
     }
   }
 }

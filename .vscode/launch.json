@@ -1,0 +1,26 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "Launch Chrome against localhost",
+            "url": "http://localhost:8080",
+            // Set the browser executable to use when launching. On Linux common values are:
+            //  - "chromium"
+            //  - "google-chrome"
+            // You can also provide an absolute path (for example "/usr/bin/google-chrome-stable")
+            // or set an env var and use "${env:CHROME_PATH}".
+            "runtimeExecutable": "chromium",
+            // Useful flags for remote debugging and isolated profile
+            "runtimeArgs": [
+                "--remote-debugging-port=9222",
+                "--user-data-dir=${workspaceFolder}/.vscode/chrome-profile"
+            ],
+            "webRoot": "${workspaceFolder}"
+        }
+    ]
+}

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_application_1/api_service.dart';
+import 'package:flutter_application_1/event_service.dart';
 
 // --- TELA DE CADASTRO DE EVENTO FINALIZADA ---
 class EVRegister extends StatefulWidget {
@@ -35,41 +35,6 @@ class _EVRegisterState extends State<EVRegister> {
     
     setState(() => _isLoading = true);
     
-<<<<<<< HEAD
-    // Monta o mapa de dados para enviar à API.
-    // Os nomes das chaves ('titulo', 'setor', etc.) devem corresponder ao que a API espera.
-    final dadosDoEvento = {
-      'titulo': _tituloController.text,
-      'setor': _setorSelecionado,
-      'detalhes': _detalhesController.text,
-      'dataInicio': _dataInicio?.toIso8601String(),
-      'dataFim': _dataFim?.toIso8601String(),
-      // 'imagem': ..., // A lógica de upload de imagem é mais complexa e geralmente feita em uma requisição separada.
-    };
-    
-    final sucesso = await EventosApi.criarEvento(dadosDoEvento);
-
-    if (mounted) {
-      if (sucesso) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Evento publicado com sucesso!"), backgroundColor: Colors.green)
-        );
-        // Limpa o formulário para o próximo cadastro.
-        _formKey.currentState?.reset();
-        setState(() {
-          _tituloController.clear();
-          _detalhesController.clear();
-          _setorSelecionado = null;
-          _dataInicio = null;
-          _dataFim = null;
-        });
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Erro ao publicar evento. Tente novamente."), backgroundColor: Colors.red)
-        );
-      }
-      setState(() => _isLoading = false);
-=======
     try {
       // Valida se as datas foram selecionadas
       if (_dataInicio == null || _dataFim == null) {
@@ -139,7 +104,6 @@ class _EVRegisterState extends State<EVRegister> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
->>>>>>> 0445c9640363df7c73503eeac57db2e994563511
     }
   }
 
@@ -161,37 +125,25 @@ class _EVRegisterState extends State<EVRegister> {
               _buildImagePicker(),
               SizedBox(height: 24),
               
-<<<<<<< HEAD
-              TextFormField(controller: _tituloController, decoration: InputDecoration(labelText: 'Título do Evento'), validator: (v) => v!.isEmpty ? 'O título é obrigatório' : null),
-=======
               // --- CAMPOS DO FORMULÁRIO ---
               TextFormField(
                 controller: _tituloController,
                 decoration: InputDecoration(labelText: 'Nome do Evento'),
                 validator: (v) => v!.isEmpty ? 'O nome do evento é obrigatório' : null,
               ),
->>>>>>> 0445c9640363df7c73503eeac57db2e994563511
               SizedBox(height: 16),
               
               DropdownButtonFormField<String>(
                 value: _setorSelecionado,
-<<<<<<< HEAD
-                decoration: InputDecoration(labelText: 'Selecione o Setor/Curso'),
-                items: ['Pastoral', 'Odontologia', 'Enfermagem', 'Ciência da Computação'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-=======
                 decoration: InputDecoration(labelText: 'Categoria'),
                 items: ['Pastoral', 'Odontologia', 'Enfermagem', 'Ciência da Computação']
                     .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                     .toList(),
->>>>>>> 0445c9640363df7c73503eeac57db2e994563511
                 onChanged: (value) => setState(() => _setorSelecionado = value),
                 validator: (v) => v == null ? 'Selecione uma categoria' : null,
               ),
               SizedBox(height: 16),
               
-<<<<<<< HEAD
-              TextFormField(controller: _detalhesController, maxLines: 5, decoration: InputDecoration(labelText: 'Detalhes do Evento', alignLabelWithHint: true), validator: (v) => v!.isEmpty ? 'Os detalhes são obrigatórios' : null),
-=======
               TextFormField(
                 controller: _detalhesController,
                 maxLines: 5,
@@ -201,7 +153,6 @@ class _EVRegisterState extends State<EVRegister> {
                 ),
                 validator: (v) => v!.isEmpty ? 'A descrição é obrigatória' : null,
               ),
->>>>>>> 0445c9640363df7c73503eeac57db2e994563511
               SizedBox(height: 24),
 
               _buildDatePicker(),
