@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api_service.dart'; // Importa a sua classe de API
+import 'package:flutter_application_1/models/course_option.dart';
+import 'package:flutter_application_1/services/user_management_api.dart';
 
 // --- MODELO DE DADOS PARA CURSO (Exemplo) ---
 // O ideal é que este modelo e a lista abaixo venham da sua API.
@@ -73,12 +75,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
   ];
   
   // Variável para armazenar o ID do curso selecionado.
-  int? _cursoSelecionadoId = 1; // Valor padrão: Administração
+  String? _cursoSelecionadoId; // Usando String para consistência com CourseOption
   
   bool _isLoading = false;
   bool _obscureSenha = true;
   bool _obscureConfirmarSenha = true;
-  
+  bool _isLoadingCursos = false;
+  List<CourseOption> _cursos = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _roleController.text = widget.role;
+    _carregarCursos();
+  }
 
   @override
   void dispose() {
@@ -92,6 +102,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+<<<<<<< HEAD
   // Função de cadastro conectada à API.
   Future<void> _cadastrarUsuario() async {
     if (!_formKey.currentState!.validate()) return;
@@ -189,6 +200,99 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+=======
+  Future<void> _carregarCursos() async {
+    setState(() => _isLoadingCursos = true);
+    try {
+      final cursos = await UsuarioApi.listarCursos();
+      if (!mounted) return;
+      setState(() {
+        _cursos = cursos;
+        if (_cursos.isEmpty) {
+          _cursoSelecionadoId = null;
+        } else if (_cursoSelecionadoId != null &&
+            !_cursos.any((c) => c.id == _cursoSelecionadoId)) {
+          _cursoSelecionadoId = null;
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Falha ao carregar cursos: $e'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingCursos = false);
+      }
+    }
+  }
+
+  // Função para lidar com o cadastro do usuário
+  Future<void> _cadastrarUsuario() async {
+    // Valida o formulário antes de continuar.
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    
+    if (_cursoSelecionadoId == null || _cursoSelecionadoId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Selecione um curso'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    
+    // --- LÓGICA DE API AQUI ---
+    // Você vai criar um mapa com os dados a serem enviados.
+    FocusScope.of(context).unfocus();
+
+    try {
+      final createdId = await UsuarioApi.criarUsuario(
+        login: _loginController.text.trim(),
+        curso: _cursoSelecionadoId!,
+        nome: _nomeController.text.trim(),
+        sobrenome: _sobrenomeController.text.trim(),
+        senha: _senhaController.text,
+        email: _emailController.text.trim(),
+        role: _roleController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      if (createdId != null && createdId.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Usuário criado com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pop(true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao criar usuário.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro inesperado: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+>>>>>>> 61c5ee6444703dbf3c5f37cd6b3fa763c09ac204
     }
   }
 
@@ -228,6 +332,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 validator: (v) => v == null || v.isEmpty ? 'Selecione um perfil' : null,
               ),
               SizedBox(height: 16),
+<<<<<<< HEAD
               TextFormField(controller: _emailController, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: "E-mail"), validator: (v) => (v!.isEmpty || !v.contains('@')) ? 'Email inválido' : null),
               SizedBox(height: 16),
               
@@ -246,6 +351,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 },
                 validator: (v) => v == null ? 'Selecione um curso' : null,
               ),
+=======
+              _buildCursoDropdown(),
+>>>>>>> 61c5ee6444703dbf3c5f37cd6b3fa763c09ac204
               SizedBox(height: 16),
               TextFormField(
                 controller: _senhaController,
@@ -290,6 +398,65 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildCursoDropdown() {
+    if (_isLoadingCursos) {
+      return InputDecorator(
+        decoration: InputDecoration(labelText: 'Curso'),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: 12),
+              Text('Carregando cursos...'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_cursos.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InputDecorator(
+            decoration: InputDecoration(labelText: 'Curso'),
+            child: Text('Nenhum curso disponível.'),
+          ),
+          SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _carregarCursos,
+            icon: Icon(Icons.refresh),
+            label: Text('Tentar novamente'),
+          ),
+        ],
+      );
+    }
+
+    return DropdownButtonFormField<String>(
+      value: _cursoSelecionadoId,
+      decoration: InputDecoration(labelText: 'Curso'),
+      items: _cursos
+          .map((curso) => DropdownMenuItem(
+                value: curso.id,
+                child: Text(curso.nome),
+              ))
+          .toList(),
+      onChanged: (value) {
+        setState(() {
+          _cursoSelecionadoId = value;
+        });
+      },
+      validator: (value) =>
+          (value == null || value.isEmpty) ? 'Selecione um curso' : null,
     );
   }
 }

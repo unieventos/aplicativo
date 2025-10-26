@@ -52,6 +52,40 @@ class SafeHttp {
     );
   }
 
+  static Future<SafeHttpResponse> patch(
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+    Encoding? encoding,
+    Duration? timeout,
+  }) {
+    return _run(
+      method: 'PATCH',
+      uri: uri,
+      headers: headers,
+      body: body,
+      encoding: encoding,
+      timeout: timeout,
+    );
+  }
+
+  static Future<SafeHttpResponse> delete(
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+    Encoding? encoding,
+    Duration? timeout,
+  }) {
+    return _run(
+      method: 'DELETE',
+      uri: uri,
+      headers: headers,
+      body: body,
+      encoding: encoding,
+      timeout: timeout,
+    );
+  }
+
   static Future<SafeHttpResponse> _run({
     required String method,
     required Uri uri,
@@ -96,6 +130,24 @@ class SafeHttp {
       } else if (method == 'POST') {
         response = await client
             .post(
+              uri,
+              headers: effectiveHeaders,
+              body: bodyFields ?? bodyBytes,
+              encoding: bodyFields != null ? sendEncoding : null,
+            )
+            .timeout(duration);
+      } else if (method == 'PATCH') {
+        response = await client
+            .patch(
+              uri,
+              headers: effectiveHeaders,
+              body: bodyFields ?? bodyBytes,
+              encoding: bodyFields != null ? sendEncoding : null,
+            )
+            .timeout(duration);
+      } else if (method == 'DELETE') {
+        response = await client
+            .delete(
               uri,
               headers: effectiveHeaders,
               body: bodyFields ?? bodyBytes,
@@ -190,6 +242,10 @@ class SafeHttp {
         return client.getUrl(uri);
       case 'POST':
         return client.postUrl(uri);
+      case 'PATCH':
+        return client.openUrl('PATCH', uri);
+      case 'DELETE':
+        return client.deleteUrl(uri);
       default:
         return client.openUrl(method.toUpperCase(), uri);
     }

@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/models/usuario.dart'; // Modelo Usuario centralizado
 import 'package:flutter_application_1/api_service.dart'; // Importa a sua classe de API
-
-// Modelo de Curso (exemplo, para lidar com ID e Nome)
-class Curso {
-  final int id;
-  final String nome;
-  Curso({required this.id, required this.nome});
-}
+import 'package:flutter_application_1/models/course_option.dart';
+import 'package:flutter_application_1/models/managed_user.dart';
+import 'package:flutter_application_1/services/user_management_api.dart';
 
 class ModifyUserApp extends StatefulWidget {
   final Usuario usuario;
+
   const ModifyUserApp({Key? key, required this.usuario}) : super(key: key);
 
   @override
@@ -19,22 +16,17 @@ class ModifyUserApp extends StatefulWidget {
 
 class _ModifyUserAppState extends State<ModifyUserApp> {
   final _formKey = GlobalKey<FormState>();
-  
+
+  // Controllers para os campos do formulário.
   late TextEditingController _nomeController;
   late TextEditingController _sobrenomeController;
   late TextEditingController _emailController;
-  final _senhaController = TextEditingController();
-  
-  int? _cursoSelecionadoId;
+  late TextEditingController _senhaController;
+  bool _isLoadingCursos = false;
+  List<CourseOption> _cursos = const [];
+  String? _cursoSelecionadoId;
   bool _isLoading = false;
   bool _obscureText = true;
-  
-  // Lista de cursos de exemplo. No mundo real, esta lista viria da API.
-  final List<Curso> _listaDeCursos = [
-    Curso(id: 1, nome: "Ciência da Computação"),
-    Curso(id: 2, nome: "Engenharia"),
-    Curso(id: 3, nome: "Direito"),
-  ];
 
   @override
   void initState() {
@@ -42,7 +34,11 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     _nomeController = TextEditingController(text: widget.usuario.nome);
     _sobrenomeController = TextEditingController(text: widget.usuario.sobrenome);
     _emailController = TextEditingController(text: widget.usuario.email);
-    _cursoSelecionadoId = widget.usuario.cursoId;
+    _senhaController = TextEditingController();
+    _cursoSelecionadoId = widget.usuario.cursoId.isNotEmpty
+        ? widget.usuario.cursoId
+        : null;
+    _carregarCursos();
   }
 
   @override
@@ -54,6 +50,7 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     super.dispose();
   }
   
+<<<<<<< HEAD
   // Função para salvar as alterações, agora conectada à API.
   Future<void> _salvarAlteracoes() async {
     if (!_formKey.currentState!.validate()) return;
@@ -80,6 +77,111 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro ao atualizar usuário."), backgroundColor: Colors.red));
       }
       setState(() => _isLoading = false);
+=======
+  Future<void> _carregarCursos() async {
+    setState(() => _isLoadingCursos = true);
+    try {
+      final cursos = await UsuarioApi.listarCursos();
+      if (!mounted) return;
+      setState(() {
+        _cursos = cursos;
+        if (_cursos.isEmpty) {
+          _cursoSelecionadoId = null;
+        } else if (_cursoSelecionadoId != null &&
+            !_cursos.any((c) => c.id == _cursoSelecionadoId)) {
+          _cursoSelecionadoId = null;
+        }
+
+        if ((_cursoSelecionadoId == null || _cursoSelecionadoId!.isEmpty) &&
+            widget.usuario.cursoNome.isNotEmpty) {
+          final match = _cursos.firstWhere(
+            (curso) =>
+                curso.nome.toLowerCase() ==
+                widget.usuario.cursoNome.toLowerCase(),
+            orElse: () =>
+                CourseOption(id: '', nome: ''),
+          );
+          if (match.id.isNotEmpty) {
+            _cursoSelecionadoId = match.id;
+          }
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Falha ao carregar cursos: $e'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingCursos = false);
+      }
+    }
+  }
+
+  // Função para lidar com o salvamento das alterações.
+  Future<void> _salvarAlteracoes() async {
+    // Valida o formulário antes de continuar.
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    
+    if (_cursoSelecionadoId == null || _cursoSelecionadoId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Selecione um curso'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    final payload = {
+      'nome': _nomeController.text.trim(),
+      'sobrenome': _sobrenomeController.text.trim(),
+      'email': _emailController.text.trim(),
+      'curso': _cursoSelecionadoId!,
+      if (_senhaController.text.isNotEmpty) 'senha': _senhaController.text,
+    };
+
+    try {
+      final sucesso =
+          await UsuarioApi.atualizarUsuario(widget.usuario.id, payload);
+      if (!mounted) return;
+
+      if (sucesso) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Usuário atualizado com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pop(true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao atualizar usuário.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro inesperado: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+>>>>>>> 61c5ee6444703dbf3c5f37cd6b3fa763c09ac204
     }
   }
 
@@ -101,14 +203,26 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
                   children: [
                     CircleAvatar(
                       radius: 40,
-                      backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                      backgroundColor:
+                          Theme.of(context).primaryColor.withOpacity(0.1),
                       child: Text(
-                        widget.usuario.nome.isNotEmpty ? widget.usuario.nome[0].toUpperCase() : 'U',
-                        style: TextStyle(fontSize: 32, color: Theme.of(context).primaryColor),
+                        widget.usuario.initials,
+                        style: TextStyle(
+                            fontSize: 32,
+                            color: Theme.of(context).primaryColor),
                       ),
                     ),
                     SizedBox(height: 8),
+<<<<<<< HEAD
                     Text('Editando perfil de ${widget.usuario.nome}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+=======
+                    Text(
+                      'Editando perfil de ${widget.usuario.displayName}',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 4),
+                    Text('Login: ${widget.usuario.login}'),
+>>>>>>> 61c5ee6444703dbf3c5f37cd6b3fa763c09ac204
                   ],
                 ),
               ),
@@ -128,6 +242,7 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
               ),
               SizedBox(height: 16),
               
+<<<<<<< HEAD
               DropdownButtonFormField<int>(
                 value: _cursoSelecionadoId,
                 decoration: InputDecoration(labelText: "Selecione o Curso"),
@@ -135,6 +250,9 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
                 onChanged: (value) => setState(() => _cursoSelecionadoId = value),
                 validator: (v) => v == null ? 'Selecione um curso' : null,
               ),
+=======
+              _buildCursoDropdown(),
+>>>>>>> 61c5ee6444703dbf3c5f37cd6b3fa763c09ac204
               SizedBox(height: 16),
               
               TextFormField(
@@ -168,4 +286,66 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
       ),
     );
   }
+<<<<<<< HEAD
+=======
+
+  Widget _buildCursoDropdown() {
+    if (_isLoadingCursos) {
+      return InputDecorator(
+        decoration: InputDecoration(labelText: 'Curso'),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: 12),
+              Text('Carregando cursos...'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_cursos.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InputDecorator(
+            decoration: InputDecoration(labelText: 'Curso'),
+            child: Text('Nenhum curso disponível.'),
+          ),
+          SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _carregarCursos,
+            icon: Icon(Icons.refresh),
+            label: Text('Tentar novamente'),
+          ),
+        ],
+      );
+    }
+
+    return DropdownButtonFormField<String>(
+      value: _cursoSelecionadoId,
+      decoration: InputDecoration(labelText: 'Curso'),
+      items: _cursos
+          .map((curso) => DropdownMenuItem(
+                value: curso.id,
+                child: Text(curso.nome),
+              ))
+          .toList(),
+      onChanged: (value) {
+        setState(() {
+          _cursoSelecionadoId = value;
+        });
+      },
+      validator: (value) =>
+          (value == null || value.isEmpty) ? 'Informe o curso' : null,
+    );
+  }
+>>>>>>> 61c5ee6444703dbf3c5f37cd6b3fa763c09ac204
 }
