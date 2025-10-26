@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/models/usuario.dart'; // Modelo Usuario centralizado
+import 'package:flutter_application_1/api_service.dart'; // Importa a sua classe de API
 
-// Importe o modelo de dados 'Usuario' do seu arquivo UserRegister.dart
-// Isso garante que estamos trabalhando com o mesmo tipo de objeto.
-import 'package:flutter_application_1/UserRegister.dart'; 
+// Modelo de Curso (exemplo, para lidar com ID e Nome)
+class Curso {
+  final int id;
+  final String nome;
+  Curso({required this.id, required this.nome});
+}
 
-// --- TELA DE MODIFICAÇÃO DE USUÁRIO REATORADA ---
 class ModifyUserApp extends StatefulWidget {
-  // A tela agora recebe o objeto 'Usuario' inteiro, o que é mais limpo.
   final Usuario usuario;
-
   const ModifyUserApp({Key? key, required this.usuario}) : super(key: key);
 
   @override
@@ -17,34 +19,34 @@ class ModifyUserApp extends StatefulWidget {
 
 class _ModifyUserAppState extends State<ModifyUserApp> {
   final _formKey = GlobalKey<FormState>();
-
-  // Controllers para os campos do formulário.
-  late TextEditingController _nomeController;
-  late TextEditingController _sobrenomeController; // Adicionado para consistência
-  late TextEditingController _emailController;
-  late TextEditingController _senhaController;
-  String? _cursoSelecionado;
   
+  late TextEditingController _nomeController;
+  late TextEditingController _sobrenomeController;
+  late TextEditingController _emailController;
+  final _senhaController = TextEditingController();
+  
+  int? _cursoSelecionadoId;
   bool _isLoading = false;
+  bool _obscureText = true;
+  
+  // Lista de cursos de exemplo. No mundo real, esta lista viria da API.
+  final List<Curso> _listaDeCursos = [
+    Curso(id: 1, nome: "Ciência da Computação"),
+    Curso(id: 2, nome: "Engenharia"),
+    Curso(id: 3, nome: "Direito"),
+  ];
 
   @override
   void initState() {
     super.initState();
-    // Inicializa os controllers com os dados do usuário recebido.
     _nomeController = TextEditingController(text: widget.usuario.nome);
     _sobrenomeController = TextEditingController(text: widget.usuario.sobrenome);
     _emailController = TextEditingController(text: widget.usuario.email);
-    _senhaController = TextEditingController();
-    
-    // TODO: A lógica do curso precisa ser ajustada.
-    // O ideal é ter uma lista de cursos (com ID e Nome) vinda da API.
-    // Por enquanto, usaremos uma lista estática.
-    _cursoSelecionado = "Engenharia"; // Exemplo
+    _cursoSelecionadoId = widget.usuario.cursoId;
   }
 
   @override
   void dispose() {
-    // Limpando todos os controllers para evitar vazamento de memória.
     _nomeController.dispose();
     _sobrenomeController.dispose();
     _emailController.dispose();
@@ -52,49 +54,40 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     super.dispose();
   }
   
-  // Função para lidar com o salvamento das alterações.
+  // Função para salvar as alterações, agora conectada à API.
   Future<void> _salvarAlteracoes() async {
-    // Valida o formulário antes de continuar.
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-    
+    if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
     
-    // --- LÓGICA DE API AQUI ---
-    // Você vai criar um mapa com os dados a serem enviados.
+    // Monta o mapa de dados para enviar à API, conforme o Swagger (usando PATCH).
     final dadosParaAtualizar = {
-      'nome': _nomeController.text,
-      'sobrenome': _sobrenomeController.text,
-      'email': _emailController.text,
-      // Envie a senha apenas se o campo não estiver vazio.
-      if (_senhaController.text.isNotEmpty) 'password': _senhaController.text,
-      // 'cursoId': _idDoCursoSelecionado, // Você precisará do ID do curso
+      "nome": _nomeController.text.trim(),
+      "sobrenome": _sobrenomeController.text.trim(),
+      "email": _emailController.text.trim(),
+      "cursoId": _cursoSelecionadoId,
+      // Envia a senha apenas se o campo não estiver vazio.
+      if (_senhaController.text.isNotEmpty) "senha": _senhaController.text,
     };
     
-    // Simula uma chamada à API.
-    await Future.delayed(Duration(seconds: 2));
-    
-    // Exemplo de como seria a chamada real:
-    // final sucesso = await UsuarioApi.atualizarUsuario(widget.usuario.id, dadosParaAtualizar);
+    // Chama o método da API para atualizar o usuário.
+    final sucesso = await UsuarioApi.atualizarUsuario(widget.usuario.id, dadosParaAtualizar);
 
-    // if (sucesso && mounted) {
-    //   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Usuário atualizado com sucesso!"), backgroundColor: Colors.green));
-    //   Navigator.of(context).pop(true); // Retorna 'true' para indicar que a lista deve ser atualizada.
-    // } else {
-    //   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro ao atualizar usuário."), backgroundColor: Colors.red));
-    // }
-
-    setState(() => _isLoading = false);
+    if (mounted) {
+      if (sucesso) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Usuário atualizado com sucesso!"), backgroundColor: Colors.green));
+        Navigator.of(context).pop(true); // Retorna 'true' para atualizar a lista anterior.
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro ao atualizar usuário."), backgroundColor: Colors.red));
+      }
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // A tela agora usa um Scaffold padrão, o que simplifica o código.
     return Scaffold(
       appBar: AppBar(
         title: Text("Modificar Usuário"),
-        // A cor é herdada do tema global definido no main.dart
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -103,7 +96,6 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Avatar e nome do usuário no topo para uma melhor UX.
               Center(
                 child: Column(
                   children: [
@@ -116,71 +108,49 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
                       ),
                     ),
                     SizedBox(height: 8),
-                    Text(
-                      'Editando perfil de ${widget.usuario.nome}',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
+                    Text('Editando perfil de ${widget.usuario.nome}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
               SizedBox(height: 32),
               
-              // Campo Nome
-              TextFormField(
-                controller: _nomeController,
-                decoration: InputDecoration(labelText: "Nome"),
-                validator: (value) => (value == null || value.isEmpty) ? 'O nome não pode ser vazio' : null,
-              ),
+              TextFormField(controller: _nomeController, decoration: InputDecoration(labelText: "Nome"), validator: (v) => v!.isEmpty ? 'O nome não pode ser vazio' : null),
               SizedBox(height: 16),
               
-              // Campo Sobrenome
-              TextFormField(
-                controller: _sobrenomeController,
-                decoration: InputDecoration(labelText: "Sobrenome"),
-                validator: (value) => (value == null || value.isEmpty) ? 'O sobrenome não pode ser vazio' : null,
-              ),
+              TextFormField(controller: _sobrenomeController, decoration: InputDecoration(labelText: "Sobrenome"), validator: (v) => v!.isEmpty ? 'O sobrenome não pode ser vazio' : null),
               SizedBox(height: 16),
               
-              // Campo E-mail
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(labelText: "E-mail"),
-                validator: (value) {
-                  if (value == null || value.isEmpty) return 'O email não pode ser vazio';
-                  if (!value.contains('@')) return 'Email inválido';
-                  return null;
-                },
+                validator: (v) => (v!.isEmpty || !v.contains('@')) ? 'Email inválido' : null,
               ),
               SizedBox(height: 16),
               
-              // Campo Curso
-              DropdownButtonFormField<String>(
-                value: _cursoSelecionado,
+              DropdownButtonFormField<int>(
+                value: _cursoSelecionadoId,
                 decoration: InputDecoration(labelText: "Selecione o Curso"),
-                items: ["Ciência da Computação", "Engenharia", "Direito"]
-                    .map((curso) => DropdownMenuItem(value: curso, child: Text(curso)))
-                    .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _cursoSelecionado = value;
-                  });
-                },
+                items: _listaDeCursos.map((curso) => DropdownMenuItem(value: curso.id, child: Text(curso.nome))).toList(),
+                onChanged: (value) => setState(() => _cursoSelecionadoId = value),
+                validator: (v) => v == null ? 'Selecione um curso' : null,
               ),
               SizedBox(height: 16),
               
-              // Campo Nova Senha
               TextFormField(
                 controller: _senhaController,
-                obscureText: true,
+                obscureText: _obscureText,
                 decoration: InputDecoration(
                   labelText: "Nova Senha (opcional)",
                   helperText: "Deixe em branco para não alterar a senha",
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscureText ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () => setState(() => _obscureText = !_obscureText),
+                  )
                 ),
               ),
               SizedBox(height: 32),
               
-              // Botão Salvar com indicador de carregamento
               ElevatedButton(
                 onPressed: _isLoading ? null : _salvarAlteracoes,
                 style: ElevatedButton.styleFrom(

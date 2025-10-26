@@ -44,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (token != null && mounted) {
         await _storage.write(key: 'token', value: token);
         await _storage.write(key: 'permanecerLogado', value: _permanecerLogado.toString());
-        await _storage.write(key: 'role', value: 'admin'); // Mantendo sua lógica original
+        // O role será definido pelo UserService.buscarUsuario() após login
         
         await UserService.buscarUsuario();
         

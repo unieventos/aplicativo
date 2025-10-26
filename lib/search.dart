@@ -1,136 +1,62 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:intl/intl.dart';
 
-class SearchEvento {
-  SearchEvento({
-    required this.titulo,
-    required this.cursoAutor,
-    required this.autor,
-    required this.autorAvatarUrl,
-    required this.data,
-    required this.imagemUrl,
-    required this.participantes,
-  });
+// Imports necessários
+import 'package:flutter_application_1/models/evento.dart'; // Modelo Evento centralizado
+import 'package:flutter_application_1/api_service.dart'; // Para a classe EventosApi
 
-  final String titulo;
-  final String cursoAutor;
-  final String autor;
-  final String autorAvatarUrl;
-  final DateTime data;
-  final String imagemUrl;
-  final int participantes;
-}
-
-// --- TELA DE BUSCA DE EVENTOS CORRIGIDA E REATORADA ---
+// --- TELA DE BUSCA DE EVENTOS FINALIZADA E CONECTADA À API ---
 class SearchPage extends StatefulWidget {
   @override
   _SearchPageState createState() => _SearchPageState();
 }
 
 class _SearchPageState extends State<SearchPage> {
-  // CORREÇÃO: Usando o modelo de dados 'Evento' consistente com o home.dart
-  final List<SearchEvento> _todosEventos = [
-    SearchEvento(
-      titulo: "Semana da Computação",
-      cursoAutor: "Computação",
-      autor: 'Prof. Ricardo',
-      autorAvatarUrl: '',
-      data: DateTime.now(),
-      imagemUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87',
-      participantes: 250,
-    ),
-    SearchEvento(
-      titulo: "Workshop de Design UI/UX",
-      cursoAutor: "Design",
-      autor: 'Profa. Ana',
-      autorAvatarUrl: '',
-      data: DateTime.now(),
-      imagemUrl: 'https://images.unsplash.com/photo-1558690623-3923c242a13b',
-      participantes: 80,
-    ),
-    SearchEvento(
-      titulo: "Palestra sobre IA Generativa",
-      cursoAutor: "Tecnologia",
-      autor: 'Dr. Silva',
-      autorAvatarUrl: '',
-      data: DateTime.now(),
-      imagemUrl: 'https://images.unsplash.com/photo-1677756119517-756a188d2d94',
-      participantes: 150,
-    ),
-    SearchEvento(
-      titulo: "Maratona de Programação",
-      cursoAutor: "Competição",
-      autor: 'Coordenação',
-      autorAvatarUrl: '',
-      data: DateTime.now(),
-      imagemUrl: 'https://images.unsplash.com/photo-1579820010410-c10411aaaa88',
-      participantes: 120,
-    ),
-  ];
-
-  List<SearchEvento> _eventosFiltrados = [];
-  final Set<SearchEvento> _eventosSelecionados = <SearchEvento>{};
+  static const _pageSize = 10;
+  final PagingController<int, Evento> _pagingController = PagingController(firstPageKey: 0);
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
-    _eventosFiltrados = _todosEventos;
-    _searchController.addListener(_filtrarEventos);
-  }
+    // Adiciona o listener para o PagingController, que chama a API
+    _pagingController.addPageRequestListener((pageKey) {
+      _fetchPage(pageKey, _searchController.text);
+    });
 
-  // Filtra usando os campos corretos do modelo 'Evento'
-  void _filtrarEventos() {
-    final query = _searchController.text.toLowerCase();
-    setState(() {
-      _eventosFiltrados = _todosEventos.where((evento) {
-        return evento.titulo.toLowerCase().contains(query) ||
-            evento.cursoAutor
-                .toLowerCase()
-                .contains(query); // CORREÇÃO: 'tipo' -> 'cursoAutor'
-      }).toList();
+    // Adiciona o listener para o campo de busca com debounce
+    _searchController.addListener(() {
+      if (_debounce?.isActive ?? false) _debounce!.cancel();
+      _debounce = Timer(const Duration(milliseconds: 500), () {
+        _pagingController.refresh();
+      });
     });
   }
 
-  void _onEventoSelecionado(SearchEvento evento, bool selecionado) {
-    setState(() {
-      if (selecionado) {
-        _eventosSelecionados.add(evento);
+  // Função que busca os dados da API
+  Future<void> _fetchPage(int pageKey, String query) async {
+    try {
+      final newItems = await EventosApi.fetchEventos(pageKey, _pageSize, search: query);
+      final isLastPage = newItems.length < _pageSize;
+      if (isLastPage) {
+        _pagingController.appendLastPage(newItems);
       } else {
-        _eventosSelecionados.remove(evento);
+        final nextPageKey = pageKey + 1;
+        _pagingController.appendPage(newItems, nextPageKey);
       }
-    });
-  }
-
-  void _mostrarAcoes() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Wrap(
-          children: <Widget>[
-            ListTile(
-              leading: Icon(Icons.download_outlined),
-              title: Text('Baixar Relatório (${_eventosSelecionados.length})'),
-              onTap: () {
-                /* Lógica de download */ Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.email_outlined),
-              title: Text('Enviar por E-mail'),
-              onTap: () {
-                /* Lógica de envio */ Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
+    } catch (error) {
+      _pagingController.error = error;
+    }
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _pagingController.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
@@ -140,106 +66,134 @@ class _SearchPageState extends State<SearchPage> {
       appBar: AppBar(
         title: TextField(
           controller: _searchController,
-          autofocus: true,
           decoration: InputDecoration(
-            hintText: 'Buscar por título ou curso...',
+            hintText: 'Buscar eventos...',
             border: InputBorder.none,
             hintStyle: TextStyle(color: Colors.white70),
           ),
-          style: TextStyle(color: Colors.white, fontSize: 18),
+          style: TextStyle(color: Colors.white),
         ),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
         actions: [
-          if (_eventosSelecionados.isNotEmpty)
-            IconButton(
-              icon: Icon(Icons.send_outlined),
-              tooltip: "Ações",
-              onPressed: _mostrarAcoes,
-            ),
+          IconButton(
+            icon: Icon(Icons.search),
+            onPressed: () {
+              _pagingController.refresh();
+            },
+          ),
         ],
       ),
-      body: _eventosFiltrados.isEmpty
-          ? Center(child: Text("Nenhum evento encontrado."))
-          : ListView.builder(
-              padding: EdgeInsets.all(8),
-              itemCount: _eventosFiltrados.length,
-              itemBuilder: (context, index) {
-                final evento = _eventosFiltrados[index];
-                final isSelected = _eventosSelecionados.contains(evento);
-                return _EventListItem(
-                  evento: evento,
-                  isSelected: isSelected,
-                  onSelected: (selected) =>
-                      _onEventoSelecionado(evento, selected),
-                );
-              },
-            ),
-    );
-  }
-}
-
-class _EventListItem extends StatelessWidget {
-  final SearchEvento evento;
-  final bool isSelected;
-  final ValueChanged<bool> onSelected;
-
-  const _EventListItem(
-      {required this.evento,
-      required this.isSelected,
-      required this.onSelected});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 2,
-      color: isSelected
-          ? Theme.of(context).primaryColor.withOpacity(0.1)
-          : Colors.white,
-      child: ExpansionTile(
-        leading: Checkbox(
-          value: isSelected,
-          onChanged: (value) => onSelected(value!),
-          activeColor: Theme.of(context).primaryColor,
-        ),
-        title:
-            Text(evento.titulo, style: TextStyle(fontWeight: FontWeight.w600)),
-        // CORREÇÃO: 'tipo' -> 'cursoAutor'
-        subtitle:
-            Text(evento.cursoAutor, style: TextStyle(color: Colors.grey[600])),
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+      body: PagedListView<int, Evento>(
+        pagingController: _pagingController,
+        padding: EdgeInsets.all(8),
+        builderDelegate: PagedChildBuilderDelegate<Evento>(
+          itemBuilder: (context, evento, index) => EventoCard(evento: evento),
+          firstPageProgressIndicatorBuilder: (_) => Center(child: CircularProgressIndicator()),
+          newPageProgressIndicatorBuilder: (_) => Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          noItemsFoundIndicatorBuilder: (_) => Center(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Adicionando informações extras que já temos no modelo
-                Text('Organizado por: ${evento.autor}'),
-                SizedBox(height: 4),
+                Icon(Icons.search_off, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
                 Text(
-                    'Data: ${DateFormat('d MMM, yyyy', 'pt_BR').format(evento.data)}'),
-                SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    evento.imagemUrl,
-                    width: double.infinity,
-                    height: 100,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      height: 100,
-                      color: Colors.grey[200],
-                      child: Icon(Icons.image_not_supported_outlined,
-                          color: Colors.grey),
-                    ),
-                  ),
+                  "Nenhum evento encontrado.",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  "Tente ajustar sua busca.",
+                  style: TextStyle(color: Colors.grey[600]),
                 ),
               ],
             ),
           ),
-        ],
+          firstPageErrorIndicatorBuilder: (_) => Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 64, color: Colors.red),
+                SizedBox(height: 16),
+                Text(
+                  "Erro ao carregar eventos.",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: () => _pagingController.refresh(),
+                  child: Text('Tentar novamente'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// --- CARD DE EVENTO PARA BUSCA ---
+class EventoCard extends StatelessWidget {
+  const EventoCard({Key? key, required this.evento}) : super(key: key);
+
+  final Evento evento;
+
+  String _periodo() {
+    final formatter = DateFormat('d MMM, yyyy', 'pt_BR');
+    final inicio = evento.inicio;
+    final fim = evento.fim;
+    if (inicio != null && fim != null) {
+      if (inicio.isAtSameMomentAs(fim)) {
+        return formatter.format(inicio);
+      }
+      return '${formatter.format(inicio)} - ${formatter.format(fim)}';
+    }
+    if (inicio != null) return formatter.format(inicio);
+    if (fim != null) return formatter.format(fim);
+    return 'Data a definir';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.symmetric(vertical: 4),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: Theme.of(context).primaryColor,
+          child: Icon(Icons.event, color: Colors.white),
+        ),
+        title: Text(
+          evento.nome,
+          style: TextStyle(fontWeight: FontWeight.bold),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _periodo(),
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+            if (evento.categoria != null && evento.categoria!.isNotEmpty)
+              Text(
+                evento.categoria!,
+                style: TextStyle(fontSize: 12, color: Theme.of(context).primaryColor),
+              ),
+          ],
+        ),
+        trailing: Text(
+          '${evento.participantes} participantes',
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        ),
+        onTap: () {
+          // Aqui você pode navegar para uma tela de detalhes do evento
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Detalhes do evento: ${evento.nome}')),
+          );
+        },
       ),
     );
   }

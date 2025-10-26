@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-// --- CORREÇÃO 1: IMPORTS CORRIGIDOS ---
-// Os caminhos dos pacotes foram corrigidos para o formato padrão 'package:...'.
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:intl/intl.dart';
 
 // Seus imports, todos corretos.
@@ -11,14 +10,20 @@ import 'package:flutter_application_1/event_service.dart';
 import 'package:flutter_application_1/UserRegister.dart';
 import 'package:flutter_application_1/perfil.dart';
 import 'package:flutter_application_1/search.dart';
+import 'package:flutter_application_1/login.dart';
+import 'package:flutter_application_1/api_service.dart';
+import 'package:flutter_application_1/models/evento.dart';
 
-// Classe Principal da Home (com a lógica de permissão correta)
+// Modelo Evento agora em lib/models/evento.dart
+
+// Classe Principal da Home (sem alterações)
 class EventosPage extends StatefulWidget {
   @override
   _EventosPageState createState() => _EventosPageState();
 }
 
 class _EventosPageState extends State<EventosPage> {
+  // ... (todo o código de _EventosPageState permanece o mesmo)
   final _storage = FlutterSecureStorage();
   int _selectedIndex = 0;
   String? _role;
@@ -38,17 +43,15 @@ class _EventosPageState extends State<EventosPage> {
 
       _pages = [
         FeedPage(),
-        EVRegister(), // Visível para todos
-        if (isAdmin) CadastroUsuarioPage(), // Apenas para admin
+        EVRegister(),
+        if (isAdmin) CadastroUsuarioPage(),
         PerfilPage(),
       ];
     });
   }
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    setState(() { _selectedIndex = index; });
   }
 
   @override
@@ -59,14 +62,9 @@ class _EventosPageState extends State<EventosPage> {
               child: CircularProgressIndicator(
                   color: Theme.of(context).primaryColor)));
     }
-
     final bool isAdmin = _role?.toLowerCase() == 'admin';
-
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _pages,
-      ),
+      body: IndexedStack(index: _selectedIndex, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
@@ -100,50 +98,44 @@ class _EventosPageState extends State<EventosPage> {
   }
 }
 
-// --- TELA DO FEED DE EVENTOS ---
+// --- TELA DO FEED DE EVENTOS, AGORA CONECTADA À API ---
 class FeedPage extends StatefulWidget {
   @override
-  State<FeedPage> createState() => _FeedPageState();
+  _FeedPageState createState() => _FeedPageState();
 }
 
 class _FeedPageState extends State<FeedPage> {
-  final DateFormat _formatter = DateFormat('d MMM, yyyy', 'pt_BR');
-  bool _isLoading = false;
-  String? _erro;
-  List<EventFeedItem> _eventos = [];
+  static const _pageSize = 10;
+  final PagingController<int, Evento> _pagingController = PagingController(firstPageKey: 0);
 
   @override
   void initState() {
     super.initState();
-    _carregarEventos();
+    _pagingController.addPageRequestListener((pageKey) {
+      _fetchPage(pageKey);
+    });
   }
 
-  Future<void> _carregarEventos({bool silent = false}) async {
-    if (!silent) {
-      setState(() {
-        _isLoading = true;
-        _erro = null;
-      });
-    }
+  Future<void> _fetchPage(int pageKey) async {
     try {
-      final eventos = await EventService.listarEventos();
-      if (!mounted) return;
-      setState(() {
-        _eventos = eventos;
-        _erro = null;
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _eventos = [];
-        _erro = e.toString();
-        _isLoading = false;
-      });
+      final newItems = await EventosApi.fetchEventos(pageKey, _pageSize);
+      final isLastPage = newItems.length < _pageSize;
+      if (isLastPage) {
+        _pagingController.appendLastPage(newItems);
+      } else {
+        final nextPageKey = pageKey + 1;
+        _pagingController.appendPage(newItems, nextPageKey);
+      }
+    } catch (error) {
+      _pagingController.error = error;
     }
   }
 
-  Future<void> _onRefresh() => _carregarEventos(silent: true);
+  @override
+  void dispose() {
+    _pagingController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -166,104 +158,32 @@ class _FeedPageState extends State<FeedPage> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _onRefresh,
-        child: _buildBody(context),
+        onRefresh: () => Future.sync(() => _pagingController.refresh()),
+        child: PagedListView<int, Evento>(
+          pagingController: _pagingController,
+          padding: EdgeInsets.all(8),
+          builderDelegate: PagedChildBuilderDelegate<Evento>(
+            itemBuilder: (context, evento, index) => EventoCard(evento: evento),
+            firstPageProgressIndicatorBuilder: (_) => Center(child: CircularProgressIndicator()),
+            newPageProgressIndicatorBuilder: (_) => Padding(padding: const EdgeInsets.all(16.0), child: Center(child: CircularProgressIndicator())),
+            noItemsFoundIndicatorBuilder: (_) => Center(child: Text("Nenhum evento encontrado.")),
+            firstPageErrorIndicatorBuilder: (_) => Center(child: Text("Erro ao carregar eventos.")),
+          ),
+        ),
       ),
-    );
-  }
-
-  Widget _buildBody(BuildContext context) {
-    if (_isLoading && _eventos.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          SizedBox(
-            height: MediaQuery.of(context).size.height * 0.5,
-            child: Center(
-              child: CircularProgressIndicator(
-                color: Theme.of(context).primaryColor,
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    if (_erro != null) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
-        children: [
-          Icon(Icons.wifi_off, size: 64, color: Colors.redAccent),
-          SizedBox(height: 16),
-          Text(
-            'Não foi possível carregar os eventos.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 8),
-          Text(
-            _erro!,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey[700]),
-          ),
-          SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: _carregarEventos,
-            icon: Icon(Icons.refresh),
-            label: Text('Tentar novamente'),
-            style: ElevatedButton.styleFrom(
-              minimumSize: Size(double.infinity, 48),
-            ),
-          ),
-        ],
-      );
-    }
-
-    if (_eventos.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
-        children: [
-          Icon(
-            Icons.event_available_outlined,
-            size: 64,
-            color: Theme.of(context).primaryColor,
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Nenhum evento cadastrado ainda.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Quando novos eventos forem publicados, eles aparecerão aqui.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey[700]),
-          ),
-        ],
-      );
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.all(12),
-      itemBuilder: (context, index) =>
-          EventoCard(evento: _eventos[index], formatter: _formatter),
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemCount: _eventos.length,
     );
   }
 }
 
+// --- CARD DE EVENTO (sem alterações) ---
 class EventoCard extends StatelessWidget {
-  const EventoCard({Key? key, required this.evento, required this.formatter})
+  const EventoCard({Key? key, required this.evento})
       : super(key: key);
 
-  final EventFeedItem evento;
-  final DateFormat formatter;
+  final Evento evento;
 
   String _periodo() {
+    final formatter = DateFormat('d MMM, yyyy', 'pt_BR');
     final inicio = evento.inicio;
     final fim = evento.fim;
     if (inicio != null && fim != null) {

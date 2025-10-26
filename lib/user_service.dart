@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:flutter_application_1/network/safe_http.dart';
+import 'package:flutter_application_1/config/api_config.dart';
+import 'package:flutter_application_1/utils/web_checks.dart';
+import 'package:http/http.dart' as http;
 
 // --- SERVIÇO DE USUÁRIO REATORADO ---
 // Responsável por buscar os dados do usuário logado e salvá-los localmente.
 class UserService {
   // A URL base da API para facilitar futuras manutenções.
-  static const String _baseUrl = 'http://172.171.192.14:8081/unieventos';
+  static const String _baseUrl = ApiConfig.base;
 
   // Lista categorias do backend
   static Future<List<String>> listarCategorias() async {
@@ -20,7 +22,7 @@ class UserService {
     final url = Uri.parse('$_baseUrl/categorias?page=0&size=100&sortBy=id');
     try {
       print('[UserService] GET $url');
-      final response = await SafeHttp.get(
+      final response = await http.get(
         url,
         headers: {
           'Authorization': 'Bearer $token',
@@ -84,7 +86,7 @@ class UserService {
         final fallback = Uri.parse(
             'http://172.171.192.14:8080/unieventos/categorias?page=0&size=100&sortBy=id');
         print('[UserService] 404 em $url, tentando fallback $fallback');
-        final resp2 = await SafeHttp.get(
+        final resp2 = await http.get(
           fallback,
           headers: {
             'Authorization': 'Bearer $token',
@@ -149,7 +151,7 @@ class UserService {
 
     final url = Uri.parse('$_baseUrl/categorias?page=0&size=100&sortBy=id');
     print('[UserService] GET $url (detalhadas)');
-    final response = await SafeHttp.get(
+    final response = await http.get(
       url,
       headers: {
         'Authorization': 'Bearer $token',
@@ -203,7 +205,7 @@ class UserService {
         'http://172.171.192.14:8080/unieventos/categorias?page=0&size=100&sortBy=id');
     print(
         '[UserService] ${response.statusCode} em $url, tentando $fb (detalhadas)');
-    final r2 = await SafeHttp.get(
+    final r2 = await http.get(
       fb,
       headers: {
         'Authorization': 'Bearer $token',
@@ -264,7 +266,7 @@ class UserService {
 
     final url = Uri.parse('$_baseUrl/categorias');
     print('[UserService] POST $url {nomeCategoria: $nomeCategoria}');
-    final response = await SafeHttp.post(
+    final response = await http.post(
       url,
       headers: {
         'Authorization': 'Bearer $token',
@@ -337,15 +339,21 @@ class UserService {
     // 3. BLOCO TRY-CATCH PARA CAPTURAR ERROS DE REDE
     // Captura problemas como falta de internet, DNS, ou servidor offline.
     try {
-      final url = Uri.parse('$_baseUrl/usuarios/me');
+      if (WebChecks.isMixedContent(ApiConfig.base)) {
+        throw Exception('Mixed content bloqueado no navegador: app https x API http.');
+      }
 
-      final response = await SafeHttp.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
+      final url = Uri.parse('$_baseUrl/usuarios/me');
+      
+      final response = await http
+          .get(
+            url,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+          )
+          .timeout(const Duration(seconds: 15));
 
       // 4. VERIFICA A RESPOSTA DA API
       if (response.statusCode == 200) {

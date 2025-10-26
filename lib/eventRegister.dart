@@ -16,7 +16,7 @@ class _CursoOption {
   final String nome;
 }
 
-// --- TELA DE CADASTRO DE EVENTO REATORADA ---
+// --- TELA DE CADASTRO DE EVENTO FINALIZADA ---
 class EVRegister extends StatefulWidget {
   @override
   _EVRegisterState createState() => _EVRegisterState();
@@ -25,7 +25,6 @@ class EVRegister extends StatefulWidget {
 class _EVRegisterState extends State<EVRegister> {
   final _formKey = GlobalKey<FormState>();
 
-  // Controllers para os campos do formulário
   final _tituloController = TextEditingController();
 
   String? _cursoSelecionadoId;
@@ -35,7 +34,6 @@ class _EVRegisterState extends State<EVRegister> {
   final ImagePicker _imagePicker = ImagePicker();
   XFile? _imagemSelecionada;
   final TextEditingController _descricaoController = TextEditingController();
-
   bool _isLoading = false;
   String? _userRole;
 
@@ -46,6 +44,7 @@ class _EVRegisterState extends State<EVRegister> {
     super.dispose();
   }
 
+<<<<<<< HEAD
   @override
   void initState() {
     super.initState();
@@ -105,8 +104,10 @@ class _EVRegisterState extends State<EVRegister> {
   }
 
   // Função para lidar com a publicação do evento
+=======
+  // Função para lidar com a publicação do evento, agora conectada à API.
+>>>>>>> origin/main
   Future<void> _publicarEvento() async {
-    // Valida o formulário antes de continuar
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -249,6 +250,7 @@ class _EVRegisterState extends State<EVRegister> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+<<<<<<< HEAD
         title: const Text('Cadastrar Novo Evento'),
         automaticallyImplyLeading: false,
         centerTitle: false,
@@ -304,6 +306,70 @@ class _EVRegisterState extends State<EVRegister> {
                         ? 'Selecione um curso'
                         : null;
                   },
+=======
+        title: Text("Cadastrar Novo Evento"),
+        automaticallyImplyLeading: false,
+        centerTitle: false,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildImagePicker(),
+              SizedBox(height: 24),
+              
+              // --- CAMPOS DO FORMULÁRIO ---
+              TextFormField(
+                controller: _tituloController,
+                decoration: InputDecoration(labelText: 'Nome do Evento'),
+                validator: (v) => v!.isEmpty ? 'O nome do evento é obrigatório' : null,
+              ),
+              SizedBox(height: 16),
+              
+              DropdownButtonFormField<String>(
+                value: _setorSelecionado,
+                decoration: InputDecoration(labelText: 'Categoria'),
+                items: ['Pastoral', 'Odontologia', 'Enfermagem', 'Ciência da Computação']
+                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                    .toList(),
+                onChanged: (value) => setState(() => _setorSelecionado = value),
+                validator: (v) => v == null ? 'Selecione uma categoria' : null,
+              ),
+              SizedBox(height: 16),
+              
+              TextFormField(
+                controller: _detalhesController,
+                maxLines: 5,
+                decoration: InputDecoration(
+                  labelText: 'Descrição',
+                  alignLabelWithHint: true,
+                ),
+                validator: (v) => v!.isEmpty ? 'A descrição é obrigatória' : null,
+              ),
+              SizedBox(height: 24),
+
+              _buildDatePicker(),
+              SizedBox(height: 16),
+              
+              OutlinedButton.icon(
+                onPressed: () { /* Lógica para upload de arquivos (PDFs, etc.) */ },
+                icon: Icon(Icons.upload_file_outlined),
+                label: Text('Anexar Arquivos (Opcional)'),
+                style: OutlinedButton.styleFrom(minimumSize: Size(double.infinity, 48)),
+              ),
+              SizedBox(height: 32),
+              
+              ElevatedButton(
+                onPressed: _isLoading ? null : _publicarEvento,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                  minimumSize: Size(double.infinity, 50),
+                  padding: EdgeInsets.symmetric(vertical: 16),
+>>>>>>> origin/main
                 ),
                 if (_userRole?.toLowerCase() == 'admin') ...[
                   const SizedBox(height: 8),
@@ -353,6 +419,7 @@ class _EVRegisterState extends State<EVRegister> {
     );
   }
 
+<<<<<<< HEAD
   Future<void> _onCadastrarCurso() async {
     final controller = TextEditingController();
     final nome = await showDialog<String>(
@@ -439,6 +506,8 @@ class _EVRegisterState extends State<EVRegister> {
     );
   }
 
+=======
+>>>>>>> origin/main
   Widget _buildImagePicker() {
     final selected = _imagemSelecionada;
     return GestureDetector(
@@ -446,6 +515,7 @@ class _EVRegisterState extends State<EVRegister> {
       child: Container(
         height: 200,
         width: double.infinity,
+<<<<<<< HEAD
         decoration: BoxDecoration(
           color: Colors.grey[200],
           borderRadius: BorderRadius.circular(12),
@@ -510,6 +580,9 @@ class _EVRegisterState extends State<EVRegister> {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       builder: (context) => SafeArea(
+=======
+        decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade400)),
+>>>>>>> origin/main
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -560,6 +633,7 @@ class _EVRegisterState extends State<EVRegister> {
   }
 
   Widget _buildDatePicker() {
+<<<<<<< HEAD
     return Row(
       children: [
         Expanded(
@@ -606,3 +680,58 @@ class _EVRegisterState extends State<EVRegister> {
     );
   }
 }
+=======
+    return FormField<DateTime>(
+      validator: (value) {
+        if (_dataInicio == null) {
+          return 'A data de início é obrigatória.';
+        }
+        return null;
+      },
+      builder: (FormFieldState<DateTime> state) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () async {
+                      DateTime? picked = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime.now().subtract(Duration(days: 30)), lastDate: DateTime.now().add(Duration(days: 365)));
+                      if (picked != null) setState(() => _dataInicio = picked);
+                    },
+                    child: InputDecorator(
+                      decoration: InputDecoration(labelText: 'Data de Início', errorText: state.errorText),
+                      child: Text(_dataInicio == null ? 'Selecionar' : DateFormat('dd/MM/yyyy').format(_dataInicio!)),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 16),
+                Expanded(
+                  child: InkWell(
+                    onTap: () async {
+                      DateTime? picked = await showDatePicker(context: context, initialDate: _dataInicio ?? DateTime.now(), firstDate: _dataInicio ?? DateTime.now().subtract(Duration(days: 30)), lastDate: DateTime.now().add(Duration(days: 365)));
+                      if (picked != null) setState(() => _dataFim = picked);
+                    },
+                    child: InputDecorator(
+                      decoration: InputDecoration(labelText: 'Data de Fim (Opcional)'),
+                      child: Text(_dataFim == null ? 'Selecionar' : DateFormat('dd/MM/yyyy').format(_dataFim!)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (state.hasError)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0, left: 12.0),
+                child: Text(state.errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// API de eventos centralizada em lib/api_service.dart
+>>>>>>> origin/main
