@@ -32,7 +32,9 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
   void initState() {
     super.initState();
     _nomeController = TextEditingController(text: widget.usuario.nome);
-    _sobrenomeController = TextEditingController(text: widget.usuario.sobrenome);
+    _sobrenomeController = TextEditingController(
+      text: widget.usuario.sobrenome,
+    );
     _emailController = TextEditingController(text: widget.usuario.email);
     _senhaController = TextEditingController();
     _cursoSelecionadoId = widget.usuario.curso.isNotEmpty
@@ -68,10 +70,8 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
             widget.usuario.curso.isNotEmpty) {
           final match = _cursos.firstWhere(
             (curso) =>
-                curso.nome.toLowerCase() ==
-                widget.usuario.curso.toLowerCase(),
-            orElse: () =>
-                CourseOption(id: '', nome: ''),
+                curso.nome.toLowerCase() == widget.usuario.curso.toLowerCase(),
+            orElse: () => CourseOption(id: '', nome: ''),
           );
           if (match.id.isNotEmpty) {
             _cursoSelecionadoId = match.id;
@@ -80,12 +80,9 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Falha ao carregar cursos: $e'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Falha ao carregar cursos: $e')));
     } finally {
       if (mounted) {
         setState(() => _isLoadingCursos = false);
@@ -99,14 +96,11 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    
+
     if (_cursoSelecionadoId == null || _cursoSelecionadoId!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Selecione um curso'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Selecione um curso')));
       return;
     }
 
@@ -121,34 +115,27 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     };
 
     try {
-      final sucesso =
-          await api_service.UsuarioApi.atualizarUsuario(widget.usuario.id, payload);
+      final sucesso = await api_service.UsuarioApi.atualizarUsuario(
+        widget.usuario.id,
+        payload,
+      );
       if (!mounted) return;
 
       if (sucesso) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Usuário atualizado com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
+          const SnackBar(content: Text('Usuário atualizado com sucesso!')),
         );
         Navigator.of(context).pop(true);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao atualizar usuário.'),
-            backgroundColor: Colors.red,
-          ),
+          const SnackBar(content: Text('Erro ao atualizar usuário.')),
         );
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro inesperado: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro inesperado: $e')));
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -159,130 +146,155 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Modificar Usuário"),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Avatar do usuário
-              Center(
-                child: CircleAvatar(
-                  radius: 50,
-                  backgroundColor: Theme.of(context).primaryColor,
-                  child: Text(
-                    widget.usuario.nome.isNotEmpty 
-                        ? widget.usuario.nome[0].toUpperCase()
-                        : 'U',
-                    style: TextStyle(fontSize: 32, color: Colors.white),
-                  ),
+      appBar: AppBar(title: const Text('Modificar usuário')),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          child: Form(
+            key: _formKey,
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 40,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
+                          child: Text(
+                            widget.usuario.nome.isNotEmpty
+                                ? widget.usuario.nome[0].toUpperCase()
+                                : 'U',
+                            style: const TextStyle(
+                              fontSize: 28,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Editando ${widget.usuario.displayName}',
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Login: ${widget.usuario.login}',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    TextFormField(
+                      controller: _nomeController,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(
+                        labelText: 'Nome',
+                        prefixIcon: Icon(Icons.person_outline),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Nome é obrigatório';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _sobrenomeController,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(
+                        labelText: 'Sobrenome',
+                        prefixIcon: Icon(Icons.person_2_outlined),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Sobrenome é obrigatório';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'E-mail',
+                        prefixIcon: Icon(Icons.alternate_email),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'E-mail é obrigatório';
+                        }
+                        if (!value.contains('@')) {
+                          return 'E-mail inválido';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    _buildCursoDropdown(),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _senhaController,
+                      obscureText: _obscureText,
+                      decoration: InputDecoration(
+                        labelText: 'Nova senha (opcional)',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscureText
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                          onPressed: () =>
+                              setState(() => _obscureText = !_obscureText),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value != null &&
+                            value.isNotEmpty &&
+                            value.length < 6) {
+                          return 'Senha deve ter pelo menos 6 caracteres';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: _isLoading ? null : _salvarAlteracoes,
+                      icon: _isLoading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                          : const Icon(Icons.save_outlined),
+                      label: Text(
+                        _isLoading ? 'Salvando...' : 'Salvar alterações',
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              SizedBox(height: 24),
-              
-              // Informações do usuário
-              Text('Editando perfil de ${widget.usuario.nome}', 
-                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              SizedBox(height: 8),
-              Text('Login: ${widget.usuario.email}'),
-              SizedBox(height: 24),
-
-              // Campo Nome
-              TextFormField(
-                controller: _nomeController,
-                decoration: InputDecoration(
-                  labelText: "Nome",
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return "Nome é obrigatório";
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 16),
-
-              // Campo Sobrenome
-              TextFormField(
-                controller: _sobrenomeController,
-                decoration: InputDecoration(
-                  labelText: "Sobrenome",
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return "Sobrenome é obrigatório";
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 16),
-
-              // Campo Email
-              TextFormField(
-                controller: _emailController,
-                decoration: InputDecoration(
-                  labelText: "E-mail",
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.emailAddress,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return "E-mail é obrigatório";
-                  }
-                  if (!value.contains('@')) {
-                    return "E-mail inválido";
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 16),
-
-              // Dropdown de Curso
-              _buildCursoDropdown(),
-              SizedBox(height: 16),
-
-              // Campo Senha
-              TextFormField(
-                controller: _senhaController,
-                decoration: InputDecoration(
-                  labelText: "Nova Senha (opcional)",
-                  border: OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscureText ? Icons.visibility : Icons.visibility_off),
-                    onPressed: () {
-                      setState(() {
-                        _obscureText = !_obscureText;
-                      });
-                    },
-                  ),
-                ),
-                obscureText: _obscureText,
-                validator: (value) {
-                  if (value != null && value.isNotEmpty && value.length < 6) {
-                    return "Senha deve ter pelo menos 6 caracteres";
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 24),
-
-              // Botão Salvar
-              ElevatedButton(
-                onPressed: _isLoading ? null : _salvarAlteracoes,
-                style: ElevatedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: _isLoading
-                    ? CircularProgressIndicator(color: Colors.white)
-                    : Text("Salvar Alterações", style: TextStyle(fontSize: 16)),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -292,19 +304,20 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
   Widget _buildCursoDropdown() {
     if (_isLoadingCursos) {
       return Container(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey),
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+          color: Colors.grey.shade50,
         ),
         child: Row(
-          children: [
+          children: const [
             SizedBox(
-              width: 20,
-              height: 20,
+              width: 18,
+              height: 18,
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
-            SizedBox(width: 16),
+            SizedBox(width: 12),
             Text('Carregando cursos...'),
           ],
         ),
@@ -313,18 +326,20 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
 
     return DropdownButtonFormField<String>(
       value: _cursoSelecionadoId,
-      decoration: InputDecoration(
-        labelText: "Curso",
-        border: OutlineInputBorder(),
+      decoration: const InputDecoration(
+        labelText: 'Curso',
+        prefixIcon: Icon(Icons.school_outlined),
       ),
-      items: _cursos.map((curso) => DropdownMenuItem(
-        value: curso.id,
-        child: Text(curso.nome),
-      )).toList(),
+      items: _cursos
+          .map(
+            (curso) =>
+                DropdownMenuItem(value: curso.id, child: Text(curso.nome)),
+          )
+          .toList(),
       onChanged: (value) => setState(() => _cursoSelecionadoId = value),
       validator: (value) {
         if (value == null || value.isEmpty) {
-          return "Selecione um curso";
+          return 'Selecione um curso';
         }
         return null;
       },

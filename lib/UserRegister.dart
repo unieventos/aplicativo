@@ -12,13 +12,15 @@ import 'package:flutter_application_1/api_service.dart';
 
 // --- TELA DE GERENCIAMENTO (CURSOS & USUÁRIOS) ---
 class CadastroUsuarioPage extends StatefulWidget {
+  const CadastroUsuarioPage({super.key});
+
   @override
   _CadastroUsuarioPageState createState() => _CadastroUsuarioPageState();
 }
 
 class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
     with SingleTickerProviderStateMixin {
-  final _storage = FlutterSecureStorage();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
   late final TabController _tabController;
 
   bool _isAdmin = false;
@@ -33,9 +35,11 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
   Timer? _cursoDebounce;
 
   // --- ESTADO DE USUÁRIOS ---
-  final TextEditingController _buscaUsuariosController = TextEditingController();
-  final PagingController<int, Usuario> _pagingController =
-      PagingController(firstPageKey: 0);
+  final TextEditingController _buscaUsuariosController =
+      TextEditingController();
+  final PagingController<int, Usuario> _pagingController = PagingController(
+    firstPageKey: 0,
+  );
   String _usuarioBuscaAtual = '';
   Timer? _usuarioDebounce;
 
@@ -99,12 +103,9 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Falha ao carregar cursos: $e'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Falha ao carregar cursos: $e')));
     } finally {
       if (mounted && mostrarLoader) {
         setState(() => _isLoadingCursos = false);
@@ -117,8 +118,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
     _cursoDebounce = Timer(const Duration(milliseconds: 300), () {
       if (!mounted) return;
       setState(() {
-        _cursosFiltrados =
-            _filtrarCursos(_cursos, _buscaCursosController.text);
+        _cursosFiltrados = _filtrarCursos(_cursos, _buscaCursosController.text);
       });
     });
   }
@@ -127,9 +127,11 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
     final termo = query.trim().toLowerCase();
     if (termo.isEmpty) return List<CourseOption>.from(origem);
     return origem
-        .where((curso) =>
-            curso.nome.toLowerCase().contains(termo) ||
-            curso.id.toLowerCase().contains(termo))
+        .where(
+          (curso) =>
+              curso.nome.toLowerCase().contains(termo) ||
+              curso.id.toLowerCase().contains(termo),
+        )
         .toList();
   }
 
@@ -199,28 +201,20 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
 
     if (sucesso) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Usuário removido com sucesso'),
-          backgroundColor: Colors.green,
-        ),
+        const SnackBar(content: Text('Usuário removido com sucesso')),
       );
       _pagingController.refresh();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Falha ao remover usuário'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Falha ao remover usuário')));
     }
   }
 
   void _abrirCadastroUsuario() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => RegisterScreen(role: 'admin'),
-      ),
+      MaterialPageRoute(builder: (context) => RegisterScreen(role: 'admin')),
     ).then((shouldRefresh) {
       if (shouldRefresh == true) {
         _pagingController.refresh();
@@ -231,9 +225,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
   void _abrirEdicaoUsuario(Usuario usuario) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => ModifyUserApp(usuario: usuario),
-      ),
+      MaterialPageRoute(builder: (context) => ModifyUserApp(usuario: usuario)),
     ).then((shouldRefresh) {
       if (shouldRefresh == true) {
         _pagingController.refresh();
@@ -259,7 +251,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
               )
             : null,
       ),
-      body: _buildBody(),
+      body: SafeArea(child: _buildBody()),
       floatingActionButton: _buildFloatingActionButton(),
     );
   }
@@ -306,10 +298,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
 
     return TabBarView(
       controller: _tabController,
-      children: [
-        _buildCursosTab(),
-        _buildUsuariosTab(),
-      ],
+      children: [_buildCursosTab(), _buildUsuariosTab()],
     );
   }
 
@@ -328,7 +317,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
                 borderSide: BorderSide.none,
               ),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: Theme.of(context).colorScheme.surface,
             ),
           ),
         ),
@@ -346,27 +335,27 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
                     ],
                   )
                 : _cursosFiltrados.isEmpty
-                    ? ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        children: const [
-                          SizedBox(
-                            height: 200,
-                            child: Center(child: Text('Nenhum curso encontrado.')),
-                          ),
-                        ],
-                      )
-                    : ListView.builder(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 8),
-                        itemCount: _cursosFiltrados.length,
-                        itemBuilder: (context, index) {
-                          final curso = _cursosFiltrados[index];
-                          return _CursoListItem(
-                            curso: curso,
-                          );
-                        },
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: const [
+                      SizedBox(
+                        height: 200,
+                        child: Center(child: Text('Nenhum curso encontrado.')),
                       ),
+                    ],
+                  )
+                : ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 8,
+                    ),
+                    itemCount: _cursosFiltrados.length,
+                    itemBuilder: (context, index) {
+                      final curso = _cursosFiltrados[index];
+                      return _CursoListItem(curso: curso);
+                    },
+                  ),
           ),
         ),
       ],
@@ -388,7 +377,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
                 borderSide: BorderSide.none,
               ),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: Theme.of(context).colorScheme.surface,
             ),
           ),
         ),
@@ -421,9 +410,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
 }
 
 class _CursoListItem extends StatelessWidget {
-  const _CursoListItem({
-    required this.curso,
-  });
+  const _CursoListItem({required this.curso});
 
   final CourseOption curso;
 
@@ -449,10 +436,7 @@ class _CursoListItem extends StatelessWidget {
           foregroundColor: Theme.of(context).primaryColor,
           child: Text(_initials),
         ),
-        title: Text(
-          curso.nome,
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
+        title: Text(curso.nome, style: TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text('ID: ${curso.id}'),
       ),
     );

@@ -1,21 +1,26 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
-import 'package:intl/intl.dart';
 
 // Imports necessários
 import 'package:flutter_application_1/models/evento.dart'; // Modelo Evento centralizado
 import 'package:flutter_application_1/api_service.dart'; // Para a classe EventosApi
+import 'package:flutter_application_1/widgets/event_card.dart';
 
 // --- TELA DE BUSCA DE EVENTOS FINALIZADA E CONECTADA À API ---
 class SearchPage extends StatefulWidget {
+  const SearchPage({super.key});
+
   @override
   _SearchPageState createState() => _SearchPageState();
 }
 
 class _SearchPageState extends State<SearchPage> {
-  static const _pageSize = 10;
-  final PagingController<int, Evento> _pagingController = PagingController(firstPageKey: 0);
+  static const int _pageSize = 10;
+  final PagingController<int, Evento> _pagingController = PagingController(
+    firstPageKey: 0,
+  );
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
 
@@ -29,6 +34,8 @@ class _SearchPageState extends State<SearchPage> {
 
     // Adiciona o listener para o campo de busca com debounce
     _searchController.addListener(() {
+      if (!mounted) return;
+      setState(() {});
       if (_debounce?.isActive ?? false) _debounce!.cancel();
       _debounce = Timer(const Duration(milliseconds: 500), () {
         _pagingController.refresh();
@@ -39,7 +46,11 @@ class _SearchPageState extends State<SearchPage> {
   // Função que busca os dados da API
   Future<void> _fetchPage(int pageKey, String query) async {
     try {
-      final newItems = await EventosApi.fetchEventos(pageKey, _pageSize, search: query);
+      final newItems = await EventosApi.fetchEventos(
+        pageKey,
+        _pageSize,
+        search: query,
+      );
       final isLastPage = newItems.length < _pageSize;
       if (isLastPage) {
         _pagingController.appendLastPage(newItems);
@@ -64,69 +75,58 @@ class _SearchPageState extends State<SearchPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: TextField(
-          controller: _searchController,
-          decoration: InputDecoration(
-            hintText: 'Buscar eventos...',
-            border: InputBorder.none,
-            hintStyle: TextStyle(color: Colors.white70),
+        title: const Text('Buscar eventos'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(76),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: TextField(
+              controller: _searchController,
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                hintText: 'Digite o nome do evento ou categoria',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchController.text.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Limpar busca',
+                        icon: const Icon(Icons.close),
+                        onPressed: () {
+                          _searchController.clear();
+                          _pagingController.refresh();
+                        },
+                      ),
+              ),
+              onSubmitted: (_) => _pagingController.refresh(),
+            ),
           ),
-          style: TextStyle(color: Colors.white),
         ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.search),
-            onPressed: () {
-              _pagingController.refresh();
-            },
-          ),
-        ],
       ),
-      body: PagedListView<int, Evento>(
-        pagingController: _pagingController,
-        padding: EdgeInsets.all(8),
-        builderDelegate: PagedChildBuilderDelegate<Evento>(
-          itemBuilder: (context, evento, index) => EventoCard(evento: evento),
-          firstPageProgressIndicatorBuilder: (_) => Center(child: CircularProgressIndicator()),
-          newPageProgressIndicatorBuilder: (_) => Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Center(child: CircularProgressIndicator()),
-          ),
-          noItemsFoundIndicatorBuilder: (_) => Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.search_off, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text(
-                  "Nenhum evento encontrado.",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  "Tente ajustar sua busca.",
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-              ],
+      body: RefreshIndicator(
+        onRefresh: () => Future.sync(_pagingController.refresh),
+        child: PagedListView<int, Evento>(
+          pagingController: _pagingController,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          physics: const AlwaysScrollableScrollPhysics(),
+          builderDelegate: PagedChildBuilderDelegate<Evento>(
+            itemBuilder: (context, evento, index) => EventoCard(
+              evento: evento,
+              layout: EventoCardLayout.list,
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Evento: ${evento.nome}')),
+                );
+              },
             ),
-          ),
-          firstPageErrorIndicatorBuilder: (_) => Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline, size: 64, color: Colors.red),
-                SizedBox(height: 16),
-                Text(
-                  "Erro ao carregar eventos.",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 8),
-                ElevatedButton(
-                  onPressed: () => _pagingController.refresh(),
-                  child: Text('Tentar novamente'),
-                ),
-              ],
+            firstPageProgressIndicatorBuilder: (_) =>
+                const Center(child: CircularProgressIndicator()),
+            newPageProgressIndicatorBuilder: (_) => const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Center(child: CircularProgressIndicator()),
             ),
+            noItemsFoundIndicatorBuilder: (_) => const _SearchEmptyState(),
+            firstPageErrorIndicatorBuilder: (_) =>
+                _SearchErrorState(onRetry: _pagingController.refresh),
           ),
         ),
       ),
@@ -134,66 +134,71 @@ class _SearchPageState extends State<SearchPage> {
   }
 }
 
-// --- CARD DE EVENTO PARA BUSCA ---
-class EventoCard extends StatelessWidget {
-  const EventoCard({Key? key, required this.evento}) : super(key: key);
-
-  final Evento evento;
-
-  String _periodo() {
-    final formatter = DateFormat('d MMM, yyyy', 'pt_BR');
-    final inicio = evento.inicio;
-    final fim = evento.fim;
-    if (inicio != null && fim != null) {
-      if (inicio.isAtSameMomentAs(fim)) {
-        return formatter.format(inicio);
-      }
-      return '${formatter.format(inicio)} - ${formatter.format(fim)}';
-    }
-    if (inicio != null) return formatter.format(inicio);
-    if (fim != null) return formatter.format(fim);
-    return 'Data a definir';
-  }
+class _SearchEmptyState extends StatelessWidget {
+  const _SearchEmptyState();
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.symmetric(vertical: 4),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Theme.of(context).primaryColor,
-          child: Icon(Icons.event, color: Colors.white),
-        ),
-        title: Text(
-          evento.nome,
-          style: TextStyle(fontWeight: FontWeight.bold),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.search_off, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
             Text(
-              _periodo(),
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              'Nenhum evento encontrado',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
             ),
-            if (evento.categoria != null && evento.categoria!.isNotEmpty)
-              Text(
-                evento.categoria!,
-                style: TextStyle(fontSize: 12, color: Theme.of(context).primaryColor),
-              ),
+            SizedBox(height: 8),
+            Text(
+              'Tente usar outra palavra-chave ou filtros diferentes.',
+              style: TextStyle(color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
-        trailing: Text(
-          '${evento.participantes} participantes',
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+      ),
+    );
+  }
+}
+
+class _SearchErrorState extends StatelessWidget {
+  const _SearchErrorState({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off, size: 64, color: Colors.redAccent),
+            const SizedBox(height: 16),
+            const Text(
+              'Erro ao carregar eventos',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Verifique sua conexão ou tente novamente em instantes.',
+              style: TextStyle(color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Tentar novamente'),
+            ),
+          ],
         ),
-        onTap: () {
-          // Aqui você pode navegar para uma tela de detalhes do evento
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Detalhes do evento: ${evento.nome}')),
-          );
-        },
       ),
     );
   }
