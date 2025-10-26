@@ -286,7 +286,7 @@ class UserService {
     if (token == null || token.isEmpty) throw Exception('Token não encontrado');
 
     final uri = Uri.parse('$_baseUrl/categorias/$id');
-    final response = await SafeHttp.patch(
+    final response = await http.patch(
       uri,
       headers: {
         'Authorization': 'Bearer $token',
@@ -294,7 +294,7 @@ class UserService {
         'Accept': 'application/json',
       },
       body: jsonEncode({'nomeCategoria': nome}),
-    );
+    ).timeout(const Duration(seconds: 15));
 
     if (response.statusCode == 200 ||
         response.statusCode == 204 ||
@@ -313,7 +313,7 @@ class UserService {
     if (token == null || token.isEmpty) throw Exception('Token não encontrado');
 
     final uri = Uri.parse('$_baseUrl/categorias/$id');
-    final response = await SafeHttp.delete(
+    final response = await http.delete(
       uri,
       headers: {
         'Authorization': 'Bearer $token',
@@ -414,13 +414,10 @@ class UserService {
 
     final url = Uri.parse('$_baseUrl/usuarios/me');
     try {
-<<<<<<< HEAD
       if (WebChecks.isMixedContent(ApiConfig.base)) {
         throw Exception('Mixed content bloqueado no navegador: app https x API http.');
       }
 
-      final url = Uri.parse('$_baseUrl/usuarios/me');
-      
       final response = await http
           .get(
             url,
@@ -430,15 +427,6 @@ class UserService {
             },
           )
           .timeout(const Duration(seconds: 15));
-=======
-      final response = await SafeHttp.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      );
->>>>>>> 61c5ee6444703dbf3c5f37cd6b3fa763c09ac204
 
       if (response.statusCode == 200) {
         final body = utf8.decode(response.bodyBytes);
@@ -504,7 +492,7 @@ class UserService {
       },
     );
 
-    final response = await SafeHttp.get(
+    final response = await http.get(
       uri,
       headers: {
         'Authorization': 'Bearer $token',
@@ -569,7 +557,7 @@ class UserService {
       'role': role,
     }..removeWhere((key, value) => value == null || value == '');
 
-    final response = await SafeHttp.post(
+    final response = await http.post(
       uri,
       headers: {
         'Authorization': 'Bearer $token',
@@ -632,7 +620,7 @@ class UserService {
     }
 
     final uri = Uri.parse('$_baseUrl$_usuariosPath/$userId');
-    final response = await SafeHttp.patch(
+    final response = await http.patch(
       uri,
       headers: {
         'Authorization': 'Bearer $token',
@@ -662,7 +650,7 @@ class UserService {
     }
 
     final uri = Uri.parse('$_baseUrl$_usuariosPath/$userId');
-    final response = await SafeHttp.delete(
+    final response = await http.delete(
       uri,
       headers: {
         'Authorization': 'Bearer $token',

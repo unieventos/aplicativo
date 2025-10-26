@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/models/usuario.dart'; // Modelo Usuario centralizado
-import 'package:flutter_application_1/api_service.dart'; // Importa a sua classe de API
+import 'package:flutter_application_1/api_service.dart' as api_service;
 import 'package:flutter_application_1/models/course_option.dart';
 import 'package:flutter_application_1/models/managed_user.dart';
 import 'package:flutter_application_1/services/user_management_api.dart';
@@ -35,8 +35,8 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     _sobrenomeController = TextEditingController(text: widget.usuario.sobrenome);
     _emailController = TextEditingController(text: widget.usuario.email);
     _senhaController = TextEditingController();
-    _cursoSelecionadoId = widget.usuario.cursoId.isNotEmpty
-        ? widget.usuario.cursoId
+    _cursoSelecionadoId = widget.usuario.curso.isNotEmpty
+        ? widget.usuario.curso
         : null;
     _carregarCursos();
   }
@@ -49,39 +49,11 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     _senhaController.dispose();
     super.dispose();
   }
-  
-<<<<<<< HEAD
-  // Função para salvar as alterações, agora conectada à API.
-  Future<void> _salvarAlteracoes() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _isLoading = true);
-    
-    // Monta o mapa de dados para enviar à API, conforme o Swagger (usando PATCH).
-    final dadosParaAtualizar = {
-      "nome": _nomeController.text.trim(),
-      "sobrenome": _sobrenomeController.text.trim(),
-      "email": _emailController.text.trim(),
-      "cursoId": _cursoSelecionadoId,
-      // Envia a senha apenas se o campo não estiver vazio.
-      if (_senhaController.text.isNotEmpty) "senha": _senhaController.text,
-    };
-    
-    // Chama o método da API para atualizar o usuário.
-    final sucesso = await UsuarioApi.atualizarUsuario(widget.usuario.id, dadosParaAtualizar);
 
-    if (mounted) {
-      if (sucesso) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Usuário atualizado com sucesso!"), backgroundColor: Colors.green));
-        Navigator.of(context).pop(true); // Retorna 'true' para atualizar a lista anterior.
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro ao atualizar usuário."), backgroundColor: Colors.red));
-      }
-      setState(() => _isLoading = false);
-=======
   Future<void> _carregarCursos() async {
     setState(() => _isLoadingCursos = true);
     try {
-      final cursos = await UsuarioApi.listarCursos();
+      final cursos = await api_service.UsuarioApi.listarCursos();
       if (!mounted) return;
       setState(() {
         _cursos = cursos;
@@ -93,11 +65,11 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
         }
 
         if ((_cursoSelecionadoId == null || _cursoSelecionadoId!.isEmpty) &&
-            widget.usuario.cursoNome.isNotEmpty) {
+            widget.usuario.curso.isNotEmpty) {
           final match = _cursos.firstWhere(
             (curso) =>
                 curso.nome.toLowerCase() ==
-                widget.usuario.cursoNome.toLowerCase(),
+                widget.usuario.curso.toLowerCase(),
             orElse: () =>
                 CourseOption(id: '', nome: ''),
           );
@@ -150,7 +122,7 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
 
     try {
       final sucesso =
-          await UsuarioApi.atualizarUsuario(widget.usuario.id, payload);
+          await api_service.UsuarioApi.atualizarUsuario(widget.usuario.id, payload);
       if (!mounted) return;
 
       if (sucesso) {
@@ -181,7 +153,6 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
->>>>>>> 61c5ee6444703dbf3c5f37cd6b3fa763c09ac204
     }
   }
 
@@ -198,87 +169,118 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Avatar do usuário
               Center(
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor:
-                          Theme.of(context).primaryColor.withOpacity(0.1),
-                      child: Text(
-                        widget.usuario.initials,
-                        style: TextStyle(
-                            fontSize: 32,
-                            color: Theme.of(context).primaryColor),
-                      ),
-                    ),
-                    SizedBox(height: 8),
-<<<<<<< HEAD
-                    Text('Editando perfil de ${widget.usuario.nome}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-=======
-                    Text(
-                      'Editando perfil de ${widget.usuario.displayName}',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: 4),
-                    Text('Login: ${widget.usuario.login}'),
->>>>>>> 61c5ee6444703dbf3c5f37cd6b3fa763c09ac204
-                  ],
+                child: CircleAvatar(
+                  radius: 50,
+                  backgroundColor: Theme.of(context).primaryColor,
+                  child: Text(
+                    widget.usuario.nome.isNotEmpty 
+                        ? widget.usuario.nome[0].toUpperCase()
+                        : 'U',
+                    style: TextStyle(fontSize: 32, color: Colors.white),
+                  ),
                 ),
               ),
-              SizedBox(height: 32),
+              SizedBox(height: 24),
               
-              TextFormField(controller: _nomeController, decoration: InputDecoration(labelText: "Nome"), validator: (v) => v!.isEmpty ? 'O nome não pode ser vazio' : null),
+              // Informações do usuário
+              Text('Editando perfil de ${widget.usuario.nome}', 
+                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              SizedBox(height: 8),
+              Text('Login: ${widget.usuario.email}'),
+              SizedBox(height: 24),
+
+              // Campo Nome
+              TextFormField(
+                controller: _nomeController,
+                decoration: InputDecoration(
+                  labelText: "Nome",
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return "Nome é obrigatório";
+                  }
+                  return null;
+                },
+              ),
               SizedBox(height: 16),
-              
-              TextFormField(controller: _sobrenomeController, decoration: InputDecoration(labelText: "Sobrenome"), validator: (v) => v!.isEmpty ? 'O sobrenome não pode ser vazio' : null),
+
+              // Campo Sobrenome
+              TextFormField(
+                controller: _sobrenomeController,
+                decoration: InputDecoration(
+                  labelText: "Sobrenome",
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return "Sobrenome é obrigatório";
+                  }
+                  return null;
+                },
+              ),
               SizedBox(height: 16),
-              
+
+              // Campo Email
               TextFormField(
                 controller: _emailController,
+                decoration: InputDecoration(
+                  labelText: "E-mail",
+                  border: OutlineInputBorder(),
+                ),
                 keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(labelText: "E-mail"),
-                validator: (v) => (v!.isEmpty || !v.contains('@')) ? 'Email inválido' : null,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return "E-mail é obrigatório";
+                  }
+                  if (!value.contains('@')) {
+                    return "E-mail inválido";
+                  }
+                  return null;
+                },
               ),
               SizedBox(height: 16),
-              
-<<<<<<< HEAD
-              DropdownButtonFormField<int>(
-                value: _cursoSelecionadoId,
-                decoration: InputDecoration(labelText: "Selecione o Curso"),
-                items: _listaDeCursos.map((curso) => DropdownMenuItem(value: curso.id, child: Text(curso.nome))).toList(),
-                onChanged: (value) => setState(() => _cursoSelecionadoId = value),
-                validator: (v) => v == null ? 'Selecione um curso' : null,
-              ),
-=======
+
+              // Dropdown de Curso
               _buildCursoDropdown(),
->>>>>>> 61c5ee6444703dbf3c5f37cd6b3fa763c09ac204
               SizedBox(height: 16),
-              
+
+              // Campo Senha
               TextFormField(
                 controller: _senhaController,
-                obscureText: _obscureText,
                 decoration: InputDecoration(
                   labelText: "Nova Senha (opcional)",
-                  helperText: "Deixe em branco para não alterar a senha",
+                  border: OutlineInputBorder(),
                   suffixIcon: IconButton(
-                    icon: Icon(_obscureText ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setState(() => _obscureText = !_obscureText),
-                  )
+                    icon: Icon(_obscureText ? Icons.visibility : Icons.visibility_off),
+                    onPressed: () {
+                      setState(() {
+                        _obscureText = !_obscureText;
+                      });
+                    },
+                  ),
                 ),
+                obscureText: _obscureText,
+                validator: (value) {
+                  if (value != null && value.isNotEmpty && value.length < 6) {
+                    return "Senha deve ter pelo menos 6 caracteres";
+                  }
+                  return null;
+                },
               ),
-              SizedBox(height: 32),
-              
+              SizedBox(height: 24),
+
+              // Botão Salvar
               ElevatedButton(
                 onPressed: _isLoading ? null : _salvarAlteracoes,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(vertical: 16),
                 ),
                 child: _isLoading
-                    ? SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-                    : Text("SALVAR ALTERAÇÕES"),
+                    ? CircularProgressIndicator(color: Colors.white)
+                    : Text("Salvar Alterações", style: TextStyle(fontSize: 16)),
               ),
             ],
           ),
@@ -286,66 +288,46 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
       ),
     );
   }
-<<<<<<< HEAD
-=======
 
   Widget _buildCursoDropdown() {
     if (_isLoadingCursos) {
-      return InputDecorator(
-        decoration: InputDecoration(labelText: 'Curso'),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              SizedBox(width: 12),
-              Text('Carregando cursos...'),
-            ],
-          ),
+      return Container(
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey),
+          borderRadius: BorderRadius.circular(4),
         ),
-      );
-    }
-
-    if (_cursos.isEmpty) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InputDecorator(
-            decoration: InputDecoration(labelText: 'Curso'),
-            child: Text('Nenhum curso disponível.'),
-          ),
-          SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _carregarCursos,
-            icon: Icon(Icons.refresh),
-            label: Text('Tentar novamente'),
-          ),
-        ],
+        child: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 16),
+            Text('Carregando cursos...'),
+          ],
+        ),
       );
     }
 
     return DropdownButtonFormField<String>(
       value: _cursoSelecionadoId,
-      decoration: InputDecoration(labelText: 'Curso'),
-      items: _cursos
-          .map((curso) => DropdownMenuItem(
-                value: curso.id,
-                child: Text(curso.nome),
-              ))
-          .toList(),
-      onChanged: (value) {
-        setState(() {
-          _cursoSelecionadoId = value;
-        });
+      decoration: InputDecoration(
+        labelText: "Curso",
+        border: OutlineInputBorder(),
+      ),
+      items: _cursos.map((curso) => DropdownMenuItem(
+        value: curso.id,
+        child: Text(curso.nome),
+      )).toList(),
+      onChanged: (value) => setState(() => _cursoSelecionadoId = value),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return "Selecione um curso";
+        }
+        return null;
       },
-      validator: (value) =>
-          (value == null || value.isEmpty) ? 'Informe o curso' : null,
     );
   }
->>>>>>> 61c5ee6444703dbf3c5f37cd6b3fa763c09ac204
 }

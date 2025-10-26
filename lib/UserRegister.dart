@@ -5,10 +5,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:flutter_application_1/models/course_option.dart';
-import 'package:flutter_application_1/models/managed_user.dart';
+import 'package:flutter_application_1/models/usuario.dart';
 import 'package:flutter_application_1/modifyUser.dart';
 import 'package:flutter_application_1/register.dart';
-import 'package:flutter_application_1/services/user_management_api.dart';
+import 'package:flutter_application_1/api_service.dart';
 
 // --- TELA DE GERENCIAMENTO (CURSOS & USUÁRIOS) ---
 class CadastroUsuarioPage extends StatefulWidget {
@@ -34,7 +34,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
 
   // --- ESTADO DE USUÁRIOS ---
   final TextEditingController _buscaUsuariosController = TextEditingController();
-  final PagingController<int, ManagedUser> _pagingController =
+  final PagingController<int, Usuario> _pagingController =
       PagingController(firstPageKey: 0);
   String _usuarioBuscaAtual = '';
   Timer? _usuarioDebounce;
@@ -133,213 +133,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
         .toList();
   }
 
-  Future<void> _exibirDialogoNovoCurso() async {
-    final controller = TextEditingController();
-    final resultado = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Novo curso'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: 'Nome do curso',
-            hintText: 'Ex: Ciência da Computação',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () {
-              final text = controller.text.trim();
-              if (text.isEmpty) return;
-              Navigator.of(ctx).pop(text);
-            },
-            child: Text('Criar'),
-          ),
-        ],
-      ),
-    );
-
-    if (resultado == null || resultado.isEmpty) return;
-
-    setState(() => _operacaoEmAndamento = true);
-    try {
-      final created = await UsuarioApi.criarCurso(resultado);
-      if (!mounted) return;
-
-      if (created != null) {
-        setState(() {
-          _cursos = [..._cursos, created];
-          _cursosFiltrados =
-              _filtrarCursos(_cursos, _buscaCursosController.text);
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Curso criado com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Não foi possível criar o curso.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao criar curso: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _operacaoEmAndamento = false);
-      }
-    }
-  }
-
-  Future<void> _renomearCurso(CourseOption curso) async {
-    final controller = TextEditingController(text: curso.nome);
-    final novoNome = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Renomear curso'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(labelText: 'Nome do curso'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () {
-              final texto = controller.text.trim();
-              if (texto.isEmpty) return;
-              Navigator.of(ctx).pop(texto);
-            },
-            child: Text('Salvar'),
-          ),
-        ],
-      ),
-    );
-
-    if (novoNome == null || novoNome.isEmpty || novoNome == curso.nome) return;
-
-    setState(() => _operacaoEmAndamento = true);
-    try {
-      final sucesso = await UsuarioApi.atualizarCurso(curso.id, novoNome);
-      if (!mounted) return;
-
-      if (sucesso) {
-        setState(() {
-          _cursos = _cursos
-              .map((c) => c.id == curso.id
-                  ? CourseOption(id: c.id, nome: novoNome)
-                  : c)
-              .toList();
-          _cursosFiltrados =
-              _filtrarCursos(_cursos, _buscaCursosController.text);
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Curso atualizado com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Não foi possível atualizar o curso.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao atualizar curso: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _operacaoEmAndamento = false);
-      }
-    }
-  }
-
-  Future<void> _deletarCurso(CourseOption curso) async {
-    final confirmar = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Excluir curso'),
-        content: Text('Deseja realmente remover "${curso.nome}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('Excluir'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmar != true) return;
-
-    setState(() => _operacaoEmAndamento = true);
-    try {
-      final sucesso = await UsuarioApi.deletarCurso(curso.id);
-      if (!mounted) return;
-
-      if (sucesso) {
-        setState(() {
-          _cursos = _cursos.where((c) => c.id != curso.id).toList();
-          _cursosFiltrados =
-              _filtrarCursos(_cursos, _buscaCursosController.text);
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Curso removido com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Não foi possível remover o curso.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao remover curso: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _operacaoEmAndamento = false);
-      }
-    }
-  }
+  // Métodos de CRUD de cursos removidos - cursos são pré-cadastrados
 
   // ---------------------------------------------------------------------------
   // USUÁRIOS
@@ -434,7 +228,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
     });
   }
 
-  void _abrirEdicaoUsuario(ManagedUser usuario) {
+  void _abrirEdicaoUsuario(Usuario usuario) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -473,13 +267,8 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
   Widget? _buildFloatingActionButton() {
     if (!_verificacaoConcluida || !_isAdmin) return null;
     if (_tabController.index == 0) {
-      return FloatingActionButton.extended(
-        onPressed: _operacaoEmAndamento ? null : _exibirDialogoNovoCurso,
-        icon: Icon(Icons.add),
-        label: Text('Novo Curso'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-      );
+      // Na aba de cursos, não mostrar botão pois cursos são pré-cadastrados
+      return null;
     }
     return FloatingActionButton.extended(
       onPressed: _abrirCadastroUsuario,
@@ -575,8 +364,6 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
                           final curso = _cursosFiltrados[index];
                           return _CursoListItem(
                             curso: curso,
-                            onRename: () => _renomearCurso(curso),
-                            onDelete: () => _deletarCurso(curso),
                           );
                         },
                       ),
@@ -608,9 +395,9 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
         Expanded(
           child: RefreshIndicator(
             onRefresh: () => Future.sync(_pagingController.refresh),
-            child: PagedListView<int, ManagedUser>(
+            child: PagedListView<int, Usuario>(
               pagingController: _pagingController,
-              builderDelegate: PagedChildBuilderDelegate<ManagedUser>(
+              builderDelegate: PagedChildBuilderDelegate<Usuario>(
                 itemBuilder: (context, usuario, index) => _UsuarioListItem(
                   usuario: usuario,
                   onDelete: () => _onDeleteUser(usuario.id),
@@ -636,13 +423,9 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
 class _CursoListItem extends StatelessWidget {
   const _CursoListItem({
     required this.curso,
-    required this.onRename,
-    required this.onDelete,
   });
 
   final CourseOption curso;
-  final VoidCallback onRename;
-  final VoidCallback onDelete;
 
   String get _initials {
     final trimmed = curso.nome.trim();
@@ -671,41 +454,11 @@ class _CursoListItem extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
         subtitle: Text('ID: ${curso.id}'),
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton.icon(
-                  onPressed: onRename,
-                  icon: Icon(Icons.edit, size: 18),
-                  label: Text('Renomear'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.blue.shade700,
-                  ),
-                ),
-                SizedBox(width: 8),
-                TextButton.icon(
-                  onPressed: onDelete,
-                  icon: Icon(Icons.delete_outline, size: 18),
-                  label: Text('Excluir'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Theme.of(context).primaryColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
 }
 
-<<<<<<< HEAD
-// API de usuários centralizada em lib/api_service.dart
-=======
 class _UsuarioListItem extends StatelessWidget {
   const _UsuarioListItem({
     required this.usuario,
@@ -713,7 +466,7 @@ class _UsuarioListItem extends StatelessWidget {
     required this.onModify,
   });
 
-  final ManagedUser usuario;
+  final Usuario usuario;
   final VoidCallback onDelete;
   final VoidCallback onModify;
 
@@ -778,4 +531,3 @@ class _UsuarioListItem extends StatelessWidget {
     );
   }
 }
->>>>>>> 61c5ee6444703dbf3c5f37cd6b3fa763c09ac204
