@@ -244,6 +244,17 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
         bottom: _isAdmin
             ? TabBar(
                 controller: _tabController,
+                labelColor: Colors.black87,
+                unselectedLabelColor: Colors.grey[600],
+                indicatorColor: Theme.of(context).primaryColor,
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                ),
                 tabs: const [
                   Tab(text: 'Cursos'),
                   Tab(text: 'Usuários'),
@@ -493,7 +504,7 @@ class _UsuarioListItem extends StatelessWidget {
                       icon: Icon(Icons.edit, size: 18),
                       label: Text('Modificar'),
                       style: TextButton.styleFrom(
-                        foregroundColor: Colors.blue.shade700,
+                        foregroundColor: Theme.of(context).primaryColor,
                       ),
                     ),
                     SizedBox(width: 8),

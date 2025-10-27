@@ -29,8 +29,8 @@ class AppTheme {
     final base = ThemeData(
       useMaterial3: false,
       scaffoldBackgroundColor: AppColors.background,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.primary,
+      primaryColor: AppColors.primary,
+      colorScheme: ColorScheme.light(
         primary: AppColors.primary,
         secondary: AppColors.secondary,
         background: AppColors.background,
@@ -73,7 +73,7 @@ class AppTheme {
           color: AppColors.textPrimary,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.surface,
         elevation: 2,
         margin: EdgeInsets.zero,

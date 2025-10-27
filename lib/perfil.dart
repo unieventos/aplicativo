@@ -216,7 +216,7 @@ class _PerfilPageState extends State<PerfilPage> {
       child: Column(
         children: [
           ListTile(
-            leading: Icon(Icons.edit_outlined, color: Colors.blue.shade700),
+            leading: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
             title: const Text('Editar perfil'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () {},
