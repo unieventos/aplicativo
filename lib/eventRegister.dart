@@ -230,14 +230,33 @@ class _EVRegisterState extends State<EVRegister> {
                             labelText: 'Curso',
                             prefixIcon: Icon(Icons.school_outlined),
                           ),
+                          isExpanded: true,
                           items: _cursos
                               .map(
                                 (curso) => DropdownMenuItem(
                                   value: curso.id,
-                                  child: Text(curso.nome),
+                                  child: Text(
+                                    curso.nome,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               )
                               .toList(),
+                          selectedItemBuilder: (context) {
+                            return _cursos.map((curso) {
+                              return Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  _cursos.firstWhere(
+                                    (c) => c.id == _cursoSelecionadoId,
+                                    orElse: () => _cursos.first,
+                                  ).nome,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(color: Colors.black87),
+                                ),
+                              );
+                            }).toList();
+                          },
                           onChanged: (value) =>
                               setState(() => _cursoSelecionadoId = value),
                           validator: (value) {
