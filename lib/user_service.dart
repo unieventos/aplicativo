@@ -642,7 +642,7 @@ class UserService {
     return false;
   }
 
-  static Future<bool> deletarUsuario(String userId) async {
+  static Future<Map<String, dynamic>> deletarUsuario(String userId) async {
     final storage = FlutterSecureStorage();
     final token = await storage.read(key: 'token');
     if (token == null || token.isEmpty) {
@@ -661,12 +661,19 @@ class UserService {
     if (response.statusCode == 200 ||
         response.statusCode == 202 ||
         response.statusCode == 204) {
-      return true;
+      return {'sucesso': true, 'realmenteDeletado': true};
+    }
+
+    // Se o usuário não existe mais (400/404), considera como sucesso
+    // mas marca que já estava deletado
+    if (response.statusCode == 400 || response.statusCode == 404) {
+      print('[UserService] Usuário não encontrado (já foi removido): $userId');
+      return {'sucesso': true, 'realmenteDeletado': false};
     }
 
     final body = utf8.decode(response.bodyBytes);
     print(
         '[UserService] Erro ao deletar usuário (${response.statusCode}): $body');
-    return false;
+    return {'sucesso': false, 'realmenteDeletado': false};
   }
 }

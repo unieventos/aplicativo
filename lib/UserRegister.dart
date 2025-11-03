@@ -196,18 +196,57 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
       ),
     );
 
-    final sucesso = await UsuarioApi.deletarUsuario(userId);
+    // Remove o usuário da lista localmente primeiro para atualização imediata
+    final itemList = _pagingController.itemList;
+    List<Usuario>? itemListAtualizada;
+    if (itemList != null) {
+      itemListAtualizada = itemList.where((u) => u.id != userId).toList();
+      // Atualiza a lista local removendo o usuário deletado
+      _pagingController.itemList = itemListAtualizada;
+    }
+
+    dynamic resultado = await UsuarioApi.deletarUsuario(userId);
     if (!mounted) return;
 
-    if (sucesso) {
+    // Verifica se o resultado é um Map (pode ser bool em caso de erro de tipagem)
+    Map<String, dynamic>? resultadoMap;
+    if (resultado is Map<String, dynamic>) {
+      resultadoMap = resultado as Map<String, dynamic>;
+    } else {
+      // Fallback: se retornou bool (versão antiga), trata como falha
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Falha ao remover usuário')));
+      _pagingController.refresh();
+      return;
+    }
+
+    if (resultadoMap == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Falha ao remover usuário')));
+      _pagingController.refresh();
+      return;
+    }
+
+    if (resultadoMap['sucesso'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Usuário removido com sucesso')),
       );
-      _pagingController.refresh();
+      
+      // Só recarrega do servidor se foi realmente deletado agora
+      // Se já estava deletado (400/404), mantém apenas a remoção local
+      if (resultadoMap['realmenteDeletado'] == true) {
+        // Recarrega a lista do servidor para garantir sincronização
+        _pagingController.refresh();
+      }
+      // Se não foi realmente deletado (já estava removido), mantém a lista local atualizada
     } else {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Falha ao remover usuário')));
+      // Se falhou, restaura a lista original fazendo refresh
+      _pagingController.refresh();
     }
   }
 
@@ -394,7 +433,9 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
         ),
         Expanded(
           child: RefreshIndicator(
-            onRefresh: () => Future.sync(_pagingController.refresh),
+            onRefresh: () async {
+              _pagingController.refresh();
+            },
             child: PagedListView<int, Usuario>(
               pagingController: _pagingController,
               builderDelegate: PagedChildBuilderDelegate<Usuario>(

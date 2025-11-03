@@ -37,7 +37,7 @@ class UsuarioApi {
     return UserService.atualizarUsuario(userId, payload);
   }
 
-  static Future<bool> deletarUsuario(String userId) {
+  static Future<Map<String, dynamic>> deletarUsuario(String userId) {
     return UserService.deletarUsuario(userId);
   }
 

@@ -370,22 +370,13 @@ class _EVRegisterState extends State<EVRegister> {
     );
 
     if (data != null) {
-      final TimeOfDay? hora = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.now(),
-      );
-
-      if (hora != null) {
-        setState(() {
-          _dataInicio = DateTime(
-            data.year,
-            data.month,
-            data.day,
-            hora.hour,
-            hora.minute,
-          );
-        });
-      }
+      setState(() {
+        _dataInicio = DateTime(
+          data.year,
+          data.month,
+          data.day,
+        );
+      });
     }
   }
 
@@ -398,22 +389,13 @@ class _EVRegisterState extends State<EVRegister> {
     );
 
     if (data != null) {
-      final TimeOfDay? hora = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.now(),
-      );
-
-      if (hora != null) {
-        setState(() {
-          _dataFim = DateTime(
-            data.year,
-            data.month,
-            data.day,
-            hora.hour,
-            hora.minute,
-          );
-        });
-      }
+      setState(() {
+        _dataFim = DateTime(
+          data.year,
+          data.month,
+          data.day,
+        );
+      });
     }
   }
 }
@@ -469,7 +451,7 @@ class _DateTile extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   value != null
-                      ? DateFormat('dd/MM/yyyy · HH:mm').format(value!)
+                      ? DateFormat('dd/MM/yyyy').format(value!)
                       : 'Selecionar',
                   style: textTheme.bodyMedium,
                 ),

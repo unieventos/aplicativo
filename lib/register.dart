@@ -390,24 +390,52 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
     }
 
-    return DropdownButtonFormField<String>(
-      value: _cursoSelecionadoId,
-      decoration: const InputDecoration(
-        labelText: 'Curso',
-        prefixIcon: Icon(Icons.school_outlined),
-      ),
-      items: _cursos
-          .map(
-            (curso) =>
-                DropdownMenuItem(value: curso.id, child: Text(curso.nome)),
-          )
-          .toList(),
-      onChanged: (value) => setState(() => _cursoSelecionadoId = value),
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return "Selecione um curso";
-        }
-        return null;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Detecta telas pequenas (menores que 453 pixels)
+        final bool isSmallScreen = constraints.maxWidth < 453;
+        
+        return DropdownButtonFormField<String>(
+          value: _cursoSelecionadoId,
+          decoration: InputDecoration(
+            labelText: 'Curso',
+            // Remove o ícone em telas pequenas para evitar overflow
+            prefixIcon: isSmallScreen ? null : const Icon(Icons.school_outlined),
+            // Reduz padding em telas pequenas para economizar espaço
+            contentPadding: isSmallScreen
+                ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
+                : const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          ),
+          isExpanded: true,
+          items: _cursos
+              .map(
+                (curso) =>
+                    DropdownMenuItem(value: curso.id, child: Text(curso.nome)),
+              )
+              .toList(),
+          selectedItemBuilder: (context) {
+            return _cursos.map((curso) {
+              return Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _cursos.firstWhere(
+                    (c) => c.id == _cursoSelecionadoId,
+                    orElse: () => _cursos.isNotEmpty ? _cursos.first : curso,
+                  ).nome,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.black87),
+                ),
+              );
+            }).toList();
+          },
+          onChanged: (value) => setState(() => _cursoSelecionadoId = value),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return "Selecione um curso";
+            }
+            return null;
+          },
+        );
       },
     );
   }
