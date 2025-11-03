@@ -1,32 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
-import 'package:intl/intl.dart';
 
 // Seus imports, todos corretos.
 import 'package:flutter_application_1/eventRegister.dart';
 import 'package:flutter_application_1/UserRegister.dart';
 import 'package:flutter_application_1/perfil.dart';
 import 'package:flutter_application_1/search.dart';
-import 'package:flutter_application_1/login.dart';
 import 'package:flutter_application_1/api_service.dart';
 import 'package:flutter_application_1/models/evento.dart';
+import 'package:flutter_application_1/widgets/event_card.dart';
 
 // Modelo Evento agora em lib/models/evento.dart
 
 // Classe Principal da Home (sem alterações)
 class EventosPage extends StatefulWidget {
+  const EventosPage({super.key});
+
   @override
   _EventosPageState createState() => _EventosPageState();
 }
 
 class _EventosPageState extends State<EventosPage> {
   // ... (todo o código de _EventosPageState permanece o mesmo)
-  final _storage = FlutterSecureStorage();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
   int _selectedIndex = 0;
   String? _role;
-  List<Widget> _pages = [];
+  List<Widget> _pages = const [];
 
   @override
   void initState() {
@@ -35,46 +35,83 @@ class _EventosPageState extends State<EventosPage> {
   }
 
   Future<void> _loadRoleAndSetupPages() async {
-    final role = await _storage.read(key: 'role');
-    setState(() {
-      _role = role ?? 'user';
-      final bool isAdmin = _role?.toLowerCase() == 'admin';
+    try {
+      final role = await _storage.read(key: 'role');
+      if (!mounted) return;
 
-      _pages = [
-        FeedPage(),
-        EVRegister(),
-        if (isAdmin) CadastroUsuarioPage(),
-        PerfilPage(),
-      ];
-    });
+      setState(() {
+        _role = role ?? 'user';
+        final bool isAdmin = _isAdmin;
+
+        _pages = [
+          const FeedPage(),
+          const EVRegister(),
+          if (isAdmin) const CadastroUsuarioPage(),
+          const PerfilPage(),
+        ];
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _role = 'user';
+        _pages = [const FeedPage(), const EVRegister(), const PerfilPage()];
+      });
+    }
   }
 
+  bool get _isAdmin => (_role ?? '').toLowerCase() == 'admin';
+
   void _onItemTapped(int index) {
-    setState(() { _selectedIndex = index; });
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     if (_role == null || _pages.isEmpty) {
-      return Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(
+            color: Theme.of(context).primaryColor,
+          ),
+        ),
+      );
     }
-    final bool isAdmin = _role?.toLowerCase() == 'admin';
+    final bool isAdmin = _isAdmin;
     return Scaffold(
       body: IndexedStack(index: _selectedIndex, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
         selectedItemColor: Theme.of(context).primaryColor,
         unselectedItemColor: Colors.grey[600],
         showUnselectedLabels: false,
         showSelectedLabels: false,
+        backgroundColor: Colors.white,
         items: [
-          BottomNavigationBarItem(icon: Icon(Icons.celebration_outlined), activeIcon: Icon(Icons.celebration), label: 'Eventos'),
-          BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), activeIcon: Icon(Icons.add_circle), label: 'Cadastrar'),
-          if (isAdmin) BottomNavigationBarItem(icon: Icon(Icons.group_outlined), activeIcon: Icon(Icons.group), label: 'Usuários'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Perfil'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.celebration_outlined),
+            activeIcon: Icon(Icons.celebration),
+            label: 'Eventos',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add_circle_outline),
+            activeIcon: Icon(Icons.add_circle),
+            label: 'Cadastrar',
+          ),
+          if (isAdmin)
+            BottomNavigationBarItem(
+              icon: Icon(Icons.school_outlined),
+              activeIcon: Icon(Icons.school),
+              label: 'Cursos',
+            ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: 'Perfil',
+          ),
         ],
       ),
     );
@@ -83,13 +120,17 @@ class _EventosPageState extends State<EventosPage> {
 
 // --- TELA DO FEED DE EVENTOS, AGORA CONECTADA À API ---
 class FeedPage extends StatefulWidget {
+  const FeedPage({super.key});
+
   @override
   _FeedPageState createState() => _FeedPageState();
 }
 
 class _FeedPageState extends State<FeedPage> {
-  static const _pageSize = 10;
-  final PagingController<int, Evento> _pagingController = PagingController(firstPageKey: 0);
+  static const int _pageSize = 10;
+  final PagingController<int, Evento> _pagingController = PagingController(
+    firstPageKey: 0,
+  );
 
   @override
   void initState() {
@@ -125,47 +166,63 @@ class _FeedPageState extends State<FeedPage> {
     return Scaffold(
       appBar: AppBar(
         centerTitle: false,
-        title: Text("Próximos Eventos", style: TextStyle(fontWeight: FontWeight.bold)),
+        titleSpacing: 16,
+        elevation: 0,
+        title: Text(
+          'Próximos Eventos',
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+        ),
         actions: [
-          IconButton(icon: Icon(Icons.search), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SearchPage()))),
-          IconButton(icon: Icon(Icons.notifications_none), onPressed: () {}),
+          IconButton(
+            tooltip: 'Buscar eventos',
+            icon: const Icon(Icons.search),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => SearchPage()),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Notificações',
+            icon: const Icon(Icons.notifications_none),
+            onPressed: () {},
+          ),
+          const SizedBox(width: 8),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: () => Future.sync(() => _pagingController.refresh()),
         child: PagedListView<int, Evento>(
           pagingController: _pagingController,
-          padding: EdgeInsets.all(8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          physics: const AlwaysScrollableScrollPhysics(),
           builderDelegate: PagedChildBuilderDelegate<Evento>(
             itemBuilder: (context, evento, index) => EventoCard(evento: evento),
-            firstPageProgressIndicatorBuilder: (_) => Center(child: CircularProgressIndicator()),
-            newPageProgressIndicatorBuilder: (_) => Padding(padding: const EdgeInsets.all(16.0), child: Center(child: CircularProgressIndicator())),
-            noItemsFoundIndicatorBuilder: (_) => Center(child: Text("Nenhum evento encontrado.")),
-            firstPageErrorIndicatorBuilder: (_) => Center(child: Text("Erro ao carregar eventos.")),
+            firstPageProgressIndicatorBuilder: (_) =>
+                const Center(child: CircularProgressIndicator()),
+            newPageProgressIndicatorBuilder: (_) => const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            noItemsFoundIndicatorBuilder: (_) =>
+                const Center(child: Text("Nenhum evento encontrado.")),
+            firstPageErrorIndicatorBuilder: (_) => Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text("Erro ao carregar eventos."),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: _pagingController.refresh,
+                    child: const Text('Tentar novamente'),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
     );
   }
 }
-
-// --- CARD DE EVENTO (sem alterações) ---
-class EventoCard extends StatelessWidget {
-  final Evento evento;
-  const EventoCard({Key? key, required this.evento}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    // ... (O código do seu EventoCard permanece exatamente o mesmo)
-    return Card(
-      margin: EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 4,
-      shadowColor: Colors.black.withOpacity(0.15),
-      child: Column( /* ... seu conteúdo do card ... */ ),
-    );
-  }
-}
-
-
-// API de eventos centralizada em lib/api_service.dart

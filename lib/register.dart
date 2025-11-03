@@ -1,84 +1,62 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/api_service.dart'; // Importa a sua classe de API
-
-// --- MODELO DE DADOS PARA CURSO (Exemplo) ---
-// O ideal é que este modelo e a lista abaixo venham da sua API.
-class Curso {
-  final int id;
-  final String nome;
-  Curso({required this.id, required this.nome});
-}
+import 'package:flutter_application_1/api_service.dart' as api_service;
+import 'package:flutter_application_1/models/course_option.dart';
+import 'package:flutter_application_1/services/user_management_api.dart';
 
 // --- TELA DE CADASTRO DE USUÁRIO FINALIZADA ---
 class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key, required this.role});
+
   final String role;
-  RegisterScreen({required this.role});
 
   @override
   _RegisterScreenState createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
-  final _formKey = GlobalKey<FormState>();
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
 
-  final _nomeController = TextEditingController();
-  final _sobrenomeController = TextEditingController();
-  final _loginController = TextEditingController();
-  final _roleController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _senhaController = TextEditingController();
-  final _confirmarSenhaController = TextEditingController();
-  
-  // Lista COMPLETA dos 38 cursos pré-cadastrados no banco de dados
-  // Nomes EXATOS conforme cadastrados na API
-  final List<Curso> _listaDeCursos = [
-    Curso(id: 1, nome: "Administração"),
-    Curso(id: 2, nome: "Arquitetura e Urbanismo"),
-    Curso(id: 3, nome: "Artes"),
-    Curso(id: 4, nome: "Biomedicina"),
-    Curso(id: 5, nome: "Celulose e Papel"),
-    Curso(id: 6, nome: "Ciência da Computação"),
-    Curso(id: 7, nome: "Ciências Biológicas Bacharelado"),
-    Curso(id: 8, nome: "Ciências Biológicas Licenciatura"),
-    Curso(id: 9, nome: "Ciências Contábeis"),
-    Curso(id: 10, nome: "Design"),
-    Curso(id: 11, nome: "Design de Moda"),
-    Curso(id: 12, nome: "Educação Física - Bacharelado"),
-    Curso(id: 13, nome: "Educação Física - Licenciatura"),
-    Curso(id: 14, nome: "Enfermagem"),
-    Curso(id: 15, nome: "Engenharia Agronômica"),
-    Curso(id: 16, nome: "Engenharia Civil"),
-    Curso(id: 17, nome: "Engenharia de Computação"),
-    Curso(id: 18, nome: "Engenharia de Produção"),
-    Curso(id: 19, nome: "Engenharia Elétrica"),
-    Curso(id: 20, nome: "Engenharia Mecânica"),
-    Curso(id: 21, nome: "Engenharia Química"),
-    Curso(id: 22, nome: "Estética e Cosmética"),
-    Curso(id: 23, nome: "Farmácia"),
-    Curso(id: 24, nome: "Fisioterapia"),
-    Curso(id: 25, nome: "Gastronomia"),
-    Curso(id: 26, nome: "História"),
-    Curso(id: 27, nome: "Jogos Digitais"),
-    Curso(id: 28, nome: "Jornalismo"),
-    Curso(id: 29, nome: "Letras - Português e Inglês - Licenciatura"),
-    Curso(id: 30, nome: "Letras - Tradutor - Bacharelado"),
-    Curso(id: 31, nome: "Matemática"),
-    Curso(id: 32, nome: "Nutrição"),
-    Curso(id: 33, nome: "Odontologia"),
-    Curso(id: 34, nome: "Pedagogia"),
-    Curso(id: 35, nome: "Psicologia"),
-    Curso(id: 36, nome: "Publicidade e Propaganda"),
-    Curso(id: 37, nome: "Relações Internacionais"),
-    Curso(id: 38, nome: "Teatro"),
-  ];
-  
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+    );
+  }
+}
+
+class _RegisterScreenState extends State<RegisterScreen> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  final TextEditingController _nomeController = TextEditingController();
+  final TextEditingController _sobrenomeController = TextEditingController();
+  final TextEditingController _loginController = TextEditingController();
+  final TextEditingController _roleController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _senhaController = TextEditingController();
+  final TextEditingController _confirmarSenhaController =
+      TextEditingController();
+
   // Variável para armazenar o ID do curso selecionado.
-  int? _cursoSelecionadoId = 1; // Valor padrão: Administração
-  
+  String?
+  _cursoSelecionadoId; // Usando String para consistência com CourseOption
+
   bool _isLoading = false;
   bool _obscureSenha = true;
   bool _obscureConfirmarSenha = true;
-  
+  bool _isLoadingCursos = false;
+  List<CourseOption> _cursos = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _roleController.text = widget.role;
+    _carregarCursos();
+  }
 
   @override
   void dispose() {
@@ -92,65 +70,75 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  // Função de cadastro conectada à API.
-  Future<void> _cadastrarUsuario() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _isLoading = true);
-    
+  Future<void> _carregarCursos() async {
+    setState(() => _isLoadingCursos = true);
     try {
-      // Valida se o curso foi selecionado
-      if (_cursoSelecionadoId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Selecione um curso"), backgroundColor: Colors.orange)
-        );
-        setState(() => _isLoading = false);
-        return;
+      final cursos = await api_service.UsuarioApi.listarCursos();
+      if (!mounted) return;
+      setState(() {
+        _cursos = cursos;
+        if (_cursos.isNotEmpty) {
+          _cursoSelecionadoId = _cursos.first.id;
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Falha ao carregar cursos: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingCursos = false);
       }
+    }
+  }
 
-      // Monta o mapa de dados para enviar à API no formato correto
-      final cursoSelecionado = _listaDeCursos.firstWhere((curso) => curso.id == _cursoSelecionadoId);
-      
-      final dadosParaCriar = {
-        "login": _loginController.text.trim(),
-        "curso": cursoSelecionado.nome, // API espera nome do curso, não ID
-        "email": _emailController.text.trim(),
-        "senha": _senhaController.text,
-        "nome": _nomeController.text.trim(),
-        "sobrenome": _sobrenomeController.text.trim(),
-        "role": _roleController.text.trim() // API espera exatamente "admin" ou "usuario"
-      };
+  // Função para criar o usuário, agora conectada à API.
+  Future<void> _criarUsuario() async {
+    if (!_formKey.currentState!.validate()) return;
 
-      final sucesso = await UsuarioApi.criarUsuario(dadosParaCriar);
+    if (_cursoSelecionadoId == null || _cursoSelecionadoId!.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Selecione um curso')));
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    // Monta o mapa de dados para enviar à API
+    final dadosParaCriar = {
+      "nome": _nomeController.text.trim(),
+      "sobrenome": _sobrenomeController.text.trim(),
+      "login": _loginController.text.trim(),
+      "email": _emailController.text.trim(),
+      "senha": _senhaController.text,
+      "role": _roleController.text.trim(),
+      "curso": _cursoSelecionadoId!,
+    };
+
+    try {
+      final sucesso = await api_service.UsuarioApi.criarUsuario(dadosParaCriar);
 
       if (mounted) {
         if (sucesso) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("Usuário criado com sucesso!"), 
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
-            )
+            const SnackBar(content: Text('Usuário criado com sucesso!')),
           );
-          Navigator.of(context).pop(true);
+          Navigator.of(
+            context,
+          ).pop(true); // Retorna 'true' para atualizar a lista anterior.
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("Erro ao criar usuário. Verifique os dados e tente novamente."), 
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 4),
-            )
+            const SnackBar(content: Text('Erro ao criar usuário.')),
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Erro de conexão: $e"), 
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 4),
-          )
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro inesperado: $e')));
       }
     } finally {
       if (mounted) {
@@ -159,35 +147,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  // Método para testar conectividade com a API
+  // Função para testar conectividade com a API.
   Future<void> _testarConectividade() async {
-    setState(() => _isLoading = true);
-    
     try {
-      final conectado = await UsuarioApi.testarConectividade();
-      
+      final conectado = await api_service.UsuarioApi.testarConectividade();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(conectado ? "Conectividade OK!" : "Erro de conectividade"),
-            backgroundColor: conectado ? Colors.green : Colors.red,
-            duration: Duration(seconds: 3),
-          )
+            content: Text(
+              conectado ? 'Conectado com sucesso!' : 'Falha na conexão',
+            ),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Erro no teste: $e"),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 3),
-          )
+          SnackBar(content: Text('Erro ao testar conectividade: $e')),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
       }
     }
   }
@@ -195,101 +172,271 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: Text("Criar Novo Usuário"),
+        title: const Text('Cadastrar usuário'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.wifi_tethering_outlined),
+            onPressed: _testarConectividade,
+            tooltip: 'Testar conectividade',
+          ),
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextFormField(controller: _nomeController, decoration: InputDecoration(labelText: "Nome"), validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null),
-              SizedBox(height: 16),
-              TextFormField(controller: _sobrenomeController, decoration: InputDecoration(labelText: "Sobrenome"), validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null),
-              SizedBox(height: 16),
-              TextFormField(controller: _loginController, decoration: InputDecoration(labelText: "Login (nome de usuário)"), validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null),
-              SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                decoration: InputDecoration(labelText: "Perfil"),
-                value: _roleController.text.isNotEmpty ? _roleController.text : null,
-                items: [
-                  DropdownMenuItem(value: 'ADMIN', child: Text('Administrador')),
-                  DropdownMenuItem(value: 'GESTOR', child: Text('Gestor')),
-                  DropdownMenuItem(value: 'COLABORADOR', child: Text('Colaborador')),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    _roleController.text = value;
-                  }
-                },
-                validator: (v) => v == null || v.isEmpty ? 'Selecione um perfil' : null,
-              ),
-              SizedBox(height: 16),
-              TextFormField(controller: _emailController, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: "E-mail"), validator: (v) => (v!.isEmpty || !v.contains('@')) ? 'Email inválido' : null),
-              SizedBox(height: 16),
-              
-              // --- DROPDOWN CORRIGIDO PARA USAR ID ---
-              DropdownButtonFormField<int>(
-                decoration: InputDecoration(labelText: "Selecione o Curso"),
-                value: _cursoSelecionadoId,
-                items: _listaDeCursos.map((curso) {
-                  // O valor de cada item é o ID, mas o que é exibido é o Nome.
-                  return DropdownMenuItem(value: curso.id, child: Text(curso.nome));
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _cursoSelecionadoId = value;
-                  });
-                },
-                validator: (v) => v == null ? 'Selecione um curso' : null,
-              ),
-              SizedBox(height: 16),
-              TextFormField(
-                controller: _senhaController,
-                obscureText: _obscureSenha,
-                decoration: InputDecoration(
-                  labelText: "Senha",
-                  suffixIcon: IconButton(icon: Icon(_obscureSenha ? Icons.visibility_off : Icons.visibility), onPressed: () => setState(() => _obscureSenha = !_obscureSenha)),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _SectionTitle('Informações pessoais'),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: _nomeController,
+                          textCapitalization: TextCapitalization.words,
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(
+                            labelText: 'Nome',
+                            prefixIcon: Icon(Icons.person_outline),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Nome é obrigatório';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _sobrenomeController,
+                          textCapitalization: TextCapitalization.words,
+                          decoration: const InputDecoration(
+                            labelText: 'Sobrenome',
+                            prefixIcon: Icon(Icons.person_2_outlined),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Sobrenome é obrigatório';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: const InputDecoration(
+                            labelText: 'E-mail institucional',
+                            prefixIcon: Icon(Icons.alternate_email),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'E-mail é obrigatório';
+                            }
+                            if (!value.contains('@')) {
+                              return 'E-mail inválido';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _buildCursoDropdown(),
+                      ],
+                    ),
+                  ),
                 ),
-                validator: (v) => (v!.isEmpty || v.length < 6) ? 'A senha deve ter no mínimo 6 caracteres' : null,
-              ),
-              SizedBox(height: 16),
-              TextFormField(
-                controller: _confirmarSenhaController,
-                obscureText: _obscureConfirmarSenha,
-                decoration: InputDecoration(
-                  labelText: "Confirmar Senha",
-                  suffixIcon: IconButton(icon: Icon(_obscureConfirmarSenha ? Icons.visibility_off : Icons.visibility), onPressed: () => setState(() => _obscureConfirmarSenha = !_obscureConfirmarSenha)),
+                const SizedBox(height: 24),
+                _SectionTitle('Acesso à plataforma'),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: _loginController,
+                          decoration: const InputDecoration(
+                            labelText: 'Login',
+                            prefixIcon: Icon(Icons.badge_outlined),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Login é obrigatório';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _roleController,
+                          readOnly: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Perfil de acesso',
+                            prefixIcon: Icon(
+                              Icons.admin_panel_settings_outlined,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _senhaController,
+                          obscureText: _obscureSenha,
+                          decoration: InputDecoration(
+                            labelText: 'Senha provisória',
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscureSenha
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                              ),
+                              onPressed: () => setState(
+                                () => _obscureSenha = !_obscureSenha,
+                              ),
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Senha é obrigatória';
+                            }
+                            if (value.length < 6) {
+                              return 'Senha deve ter pelo menos 6 caracteres';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _confirmarSenhaController,
+                          obscureText: _obscureConfirmarSenha,
+                          decoration: InputDecoration(
+                            labelText: 'Confirmar senha',
+                            prefixIcon: const Icon(Icons.lock_reset_outlined),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscureConfirmarSenha
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                              ),
+                              onPressed: () => setState(
+                                () => _obscureConfirmarSenha =
+                                    !_obscureConfirmarSenha,
+                              ),
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Confirmação de senha é obrigatória';
+                            }
+                            if (value != _senhaController.text) {
+                              return 'Senhas não coincidem';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                validator: (v) => (v != _senhaController.text) ? 'As senhas não coincidem' : null,
-              ),
-              SizedBox(height: 16),
-              // Botão de teste de conectividade
-              OutlinedButton(
-                onPressed: _isLoading ? null : _testarConectividade,
-                child: Text("Testar Conectividade"),
-              ),
-              SizedBox(height: 16),
-              
-              
-              ElevatedButton(
-                onPressed: _isLoading ? null : _cadastrarUsuario,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 16),
+                const SizedBox(height: 32),
+                ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _criarUsuario,
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation(Colors.white),
+                          ),
+                        )
+                      : const Icon(Icons.save_alt_outlined),
+                  label: Text(_isLoading ? 'Enviando...' : 'Criar usuário'),
                 ),
-                child: _isLoading
-                    ? SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-                    : Text("CADASTRAR"),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildCursoDropdown() {
+    if (_isLoadingCursos) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+          color: Colors.grey.shade50,
+        ),
+        child: Row(
+          children: const [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Text('Carregando cursos...'),
+          ],
+        ),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Detecta telas pequenas (menores que 453 pixels)
+        final bool isSmallScreen = constraints.maxWidth < 453;
+        
+    return DropdownButtonFormField<String>(
+      value: _cursoSelecionadoId,
+          decoration: InputDecoration(
+        labelText: 'Curso',
+            // Remove o ícone em telas pequenas para evitar overflow
+            prefixIcon: isSmallScreen ? null : const Icon(Icons.school_outlined),
+            // Reduz padding em telas pequenas para economizar espaço
+            contentPadding: isSmallScreen
+                ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
+                : const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      ),
+          isExpanded: true,
+      items: _cursos
+          .map(
+            (curso) =>
+                DropdownMenuItem(value: curso.id, child: Text(curso.nome)),
+          )
+          .toList(),
+          selectedItemBuilder: (context) {
+            return _cursos.map((curso) {
+              return Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _cursos.firstWhere(
+                    (c) => c.id == _cursoSelecionadoId,
+                    orElse: () => _cursos.isNotEmpty ? _cursos.first : curso,
+                  ).nome,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.black87),
+                ),
+              );
+            }).toList();
+          },
+      onChanged: (value) => setState(() => _cursoSelecionadoId = value),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return "Selecione um curso";
+        }
+        return null;
+          },
+        );
+      },
     );
   }
 }

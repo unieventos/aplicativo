@@ -1,161 +1,721 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
-// Seus imports, garantindo que os nomes das classes estão corretos
-import 'package:flutter_application_1/modifyUser.dart'; // Supõe que a classe seja ModifyUserApp
-import 'package:flutter_application_1/register.dart'; // Supõe que a classe seja RegisterScreen
-import 'package:flutter_application_1/api_service.dart';
+import 'package:flutter_application_1/models/course_option.dart';
 import 'package:flutter_application_1/models/usuario.dart';
+import 'package:flutter_application_1/models/managed_user.dart';
+import 'package:flutter_application_1/modifyUser.dart';
+import 'package:flutter_application_1/register.dart';
+import 'package:flutter_application_1/services/user_management_api.dart';
+import 'package:flutter_application_1/user_service.dart';
 
-// Modelo Usuario agora em lib/models/usuario.dart
-
-// --- TELA PRINCIPAL DE GERENCIAMENTO DE USUÁRIOS ---
+// --- TELA DE GERENCIAMENTO (CURSOS & USUÁRIOS) ---
 class CadastroUsuarioPage extends StatefulWidget {
+  const CadastroUsuarioPage({super.key});
+
   @override
   _CadastroUsuarioPageState createState() => _CadastroUsuarioPageState();
 }
 
-class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
-  static const _pageSize = 10;
-  final PagingController<int, Usuario> _pagingController = PagingController(firstPageKey: 0);
-  String _searchText = '';
-  Timer? _debounce;
+class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
+    with SingleTickerProviderStateMixin {
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  late final TabController _tabController;
+
+  bool _isAdmin = false;
+  bool _verificacaoConcluida = false;
+  bool _operacaoEmAndamento = false;
+
+  // --- ESTADO DE CURSOS ---
+  final TextEditingController _buscaCursosController = TextEditingController();
+  List<CourseOption> _cursos = const [];
+  List<CourseOption> _cursosFiltrados = const [];
+  bool _isLoadingCursos = false;
+  Timer? _cursoDebounce;
+
+  // --- ESTADO DE USUÁRIOS ATIVOS ---
+  final TextEditingController _buscaUsuariosAtivosController =
+      TextEditingController();
+  final PagingController<int, Usuario> _pagingControllerAtivos = PagingController(
+    firstPageKey: 0,
+  );
+  String _usuarioBuscaAtivosAtual = '';
+  Timer? _usuarioAtivosDebounce;
+
+  // --- ESTADO DE USUÁRIOS DESATIVADOS ---
+  final TextEditingController _buscaUsuariosDesativadosController =
+      TextEditingController();
+  final PagingController<int, Usuario> _pagingControllerDesativados = PagingController(
+    firstPageKey: 0,
+  );
+  String _usuarioBuscaDesativadosAtual = '';
+  Timer? _usuarioDesativadosDebounce;
+
+  // Cache local de status de usuários (em memória)
+  // Armazena IDs de usuários que foram desativados/ativados nesta sessão
+  final Set<String> _usuariosDesativadosCache = <String>{};
 
   @override
   void initState() {
     super.initState();
-    _pagingController.addPageRequestListener((pageKey) {
-      _fetchPage(pageKey);
-    });
-  }
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() => setState(() {}));
 
-  // Função para buscar os dados da API
-  Future<void> _fetchPage(int pageKey) async {
-    try {
-      final newItems = await UsuarioApi.fetchUsuarios(pageKey, _pageSize, _searchText);
-      final isLastPage = newItems.length < _pageSize;
+    _buscaCursosController.addListener(_onCursoBuscaChange);
+    _buscaUsuariosAtivosController.addListener(_onUsuarioAtivosBuscaChange);
+    _buscaUsuariosDesativadosController.addListener(_onUsuarioDesativadosBuscaChange);
+    _pagingControllerAtivos.addPageRequestListener(_fetchUsuariosAtivosPage);
+    _pagingControllerDesativados.addPageRequestListener(_fetchUsuariosDesativadosPage);
 
-      if (isLastPage) {
-        _pagingController.appendLastPage(newItems);
-      } else {
-        final nextPageKey = pageKey + 1;
-        _pagingController.appendPage(newItems, nextPageKey);
-      }
-    } catch (error) {
-      _pagingController.error = error;
-    }
-  }
-
-  // Função de busca com "debounce" para não chamar a API a cada letra digitada
-  void _onSearchChanged(String query) {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () {
-      setState(() {
-        _searchText = query;
-      });
-      _pagingController.refresh();
-    });
+    _verificarPermissao();
   }
 
   @override
   void dispose() {
-    _pagingController.dispose();
-    _debounce?.cancel();
+    _cursoDebounce?.cancel();
+    _usuarioAtivosDebounce?.cancel();
+    _usuarioDesativadosDebounce?.cancel();
+    _tabController.dispose();
+
+    _buscaCursosController
+      ..removeListener(_onCursoBuscaChange)
+      ..dispose();
+    _buscaUsuariosAtivosController
+      ..removeListener(_onUsuarioAtivosBuscaChange)
+      ..dispose();
+    _buscaUsuariosDesativadosController
+      ..removeListener(_onUsuarioDesativadosBuscaChange)
+      ..dispose();
+
+    _pagingControllerAtivos.dispose();
+    _pagingControllerDesativados.dispose();
     super.dispose();
   }
 
+  void _verificarPermissao() async {
+    final role = await _storage.read(key: 'role');
+    final isAdmin = (role ?? '').toLowerCase() == 'admin';
+    if (!mounted) return;
+    setState(() {
+      _isAdmin = isAdmin;
+      _verificacaoConcluida = true;
+    });
+    if (isAdmin) {
+      _carregarCursos();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // CURSOS
+  // ---------------------------------------------------------------------------
+  Future<void> _carregarCursos({bool mostrarLoader = true}) async {
+    if (!_isAdmin) return;
+    if (mostrarLoader) {
+      setState(() => _isLoadingCursos = true);
+    }
+    try {
+      final cursos = await UsuarioApi.listarCursos();
+      if (!mounted) return;
+      setState(() {
+        _cursos = cursos;
+        _cursosFiltrados = _filtrarCursos(cursos, _buscaCursosController.text);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Falha ao carregar cursos: $e')));
+    } finally {
+      if (mounted && mostrarLoader) {
+        setState(() => _isLoadingCursos = false);
+      }
+    }
+  }
+
+  void _onCursoBuscaChange() {
+    if (_cursoDebounce?.isActive ?? false) _cursoDebounce!.cancel();
+    _cursoDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      setState(() {
+        _cursosFiltrados = _filtrarCursos(_cursos, _buscaCursosController.text);
+      });
+    });
+  }
+
+  List<CourseOption> _filtrarCursos(List<CourseOption> origem, String query) {
+    final termo = query.trim().toLowerCase();
+    if (termo.isEmpty) return List<CourseOption>.from(origem);
+    return origem
+        .where(
+          (curso) =>
+              curso.nome.toLowerCase().contains(termo) ||
+              curso.id.toLowerCase().contains(termo),
+        )
+        .toList();
+  }
+
+  // Métodos de CRUD de cursos removidos - cursos são pré-cadastrados
+
+  // ---------------------------------------------------------------------------
+  // USUÁRIOS ATIVOS
+  // ---------------------------------------------------------------------------
+  void _onUsuarioAtivosBuscaChange() {
+    if (_usuarioAtivosDebounce?.isActive ?? false) _usuarioAtivosDebounce!.cancel();
+    _usuarioAtivosDebounce = Timer(const Duration(milliseconds: 400), () {
+      final novoValor = _buscaUsuariosAtivosController.text.trim();
+      if (novoValor == _usuarioBuscaAtivosAtual) return;
+      _usuarioBuscaAtivosAtual = novoValor;
+      _pagingControllerAtivos.refresh();
+    });
+  }
+
+  Future<void> _fetchUsuariosAtivosPage(int pageKey) async {
+    try {
+      final managedUsers = await UsuarioApi.fetchUsuarios(
+        pageKey,
+        10,
+        _usuarioBuscaAtivosAtual,
+        apenasAtivos: true,
+      );
+      // Converte ManagedUser para Usuario
+      // Filtra usuários que estão no cache de desativados (não devem aparecer na lista de ativos)
+      // Como a API não retorna active, assumimos que todos retornados estão ativos
+      // exceto os que estão explicitamente no cache de desativados
+      final usuarios = managedUsers
+          .where((mu) => !_usuariosDesativadosCache.contains(mu.id))
+          .map((mu) => Usuario(
+                id: mu.id,
+                nome: mu.nome,
+                sobrenome: mu.sobrenome,
+                email: mu.email,
+                login: mu.login,
+                curso: mu.cursoDisplay,
+                role: mu.role,
+                active: true, // Lista de ativos sempre é true
+              ))
+          .toList();
+      final isLastPage = usuarios.length < 10;
+      if (isLastPage) {
+        _pagingControllerAtivos.appendLastPage(usuarios);
+      } else {
+        _pagingControllerAtivos.appendPage(usuarios, pageKey + 1);
+      }
+    } catch (error) {
+      _pagingControllerAtivos.error = error;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // USUÁRIOS DESATIVADOS
+  // ---------------------------------------------------------------------------
+  void _onUsuarioDesativadosBuscaChange() {
+    if (_usuarioDesativadosDebounce?.isActive ?? false) _usuarioDesativadosDebounce!.cancel();
+    _usuarioDesativadosDebounce = Timer(const Duration(milliseconds: 400), () {
+      final novoValor = _buscaUsuariosDesativadosController.text.trim();
+      if (novoValor == _usuarioBuscaDesativadosAtual) return;
+      _usuarioBuscaDesativadosAtual = novoValor;
+      _pagingControllerDesativados.refresh();
+    });
+  }
+
+  Future<void> _fetchUsuariosDesativadosPage(int pageKey) async {
+    try {
+      // Como a API não retorna o campo active, buscamos todos os usuários
+      // e filtramos apenas os que estão no cache de desativados
+      final managedUsers = await UsuarioApi.fetchUsuarios(
+        pageKey,
+        10,
+        _usuarioBuscaDesativadosAtual,
+        apenasAtivos: null, // Retorna todos
+      );
+      // Converte ManagedUser para Usuario
+      // Filtra apenas usuários que estão no cache de desativados
+      final usuarios = managedUsers
+          .where((mu) => _usuariosDesativadosCache.contains(mu.id))
+          .map((mu) => Usuario(
+                id: mu.id,
+                nome: mu.nome,
+                sobrenome: mu.sobrenome,
+                email: mu.email,
+                login: mu.login,
+                curso: mu.cursoDisplay,
+                role: mu.role,
+                active: false, // Lista de desativados sempre é false
+              ))
+          .toList();
+      
+      // Se não há mais itens no cache ou a lista é menor que 10, é a última página
+      final isLastPage = usuarios.length < 10 || _usuariosDesativadosCache.length <= (pageKey + 1) * 10;
+      if (isLastPage) {
+        _pagingControllerDesativados.appendLastPage(usuarios);
+      } else {
+        _pagingControllerDesativados.appendPage(usuarios, pageKey + 1);
+      }
+    } catch (error) {
+      _pagingControllerDesativados.error = error;
+    }
+  }
+
+  Future<void> _onAtivarUser(String userId) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Ativar usuário'),
+        content: Text('Deseja realmente ativar este usuário? Ele será exibido na lista de usuários ativos.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('Ativar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Ativando usuário...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    // Remove o usuário da lista de desativados localmente primeiro
+    final itemListDesativados = _pagingControllerDesativados.itemList;
+    if (itemListDesativados != null) {
+      final itemListAtualizada = itemListDesativados.where((u) => u.id != userId).toList();
+      _pagingControllerDesativados.itemList = itemListAtualizada;
+    }
+
+    try {
+      final sucesso = await UserService.atualizarUsuario(userId, {'active': true});
+      if (!mounted) return;
+
+      if (sucesso) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Usuário ativado com sucesso')),
+        );
+        
+        // Remove do cache de usuários desativados
+        _usuariosDesativadosCache.remove(userId);
+        
+        // Recarrega ambas as listas: remove dos desativados e adiciona aos ativos
+        _pagingControllerAtivos.refresh();
+        _pagingControllerDesativados.refresh();
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Falha ao ativar usuário')));
+        // Se falhou, restaura a lista original fazendo refresh
+        _pagingControllerDesativados.refresh();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao ativar usuário: $e')));
+      _pagingControllerDesativados.refresh();
+    }
+  }
+
+  Future<void> _onDeleteUser(String userId) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Desativar usuário'),
+        content: Text('Deseja realmente desativar este usuário? Ele não será mais exibido na lista.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('Desativar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Desativando usuário...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    // Remove o usuário da lista de ativos localmente primeiro para atualização imediata
+    final itemListAtivos = _pagingControllerAtivos.itemList;
+    if (itemListAtivos != null) {
+      final itemListAtualizada = itemListAtivos.where((u) => u.id != userId).toList();
+      _pagingControllerAtivos.itemList = itemListAtualizada;
+    }
+
+    dynamic resultado = await UsuarioApi.deletarUsuario(userId);
+    if (!mounted) return;
+
+    // Verifica se o resultado é um Map
+    Map<String, dynamic>? resultadoMap;
+    if (resultado is Map<String, dynamic>) {
+      resultadoMap = resultado;
+    } else {
+      // Fallback: se retornou bool (versão antiga), trata como falha
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Falha ao desativar usuário')));
+      _pagingControllerAtivos.refresh();
+      return;
+    }
+
+    if (resultadoMap['sucesso'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Usuário desativado com sucesso')),
+      );
+      
+      // Adiciona ao cache de usuários desativados
+      _usuariosDesativadosCache.add(userId);
+      
+      // Recarrega ambas as listas: remove dos ativos e adiciona aos desativados
+      _pagingControllerAtivos.refresh();
+      _pagingControllerDesativados.refresh();
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Falha ao desativar usuário')));
+      // Se falhou, restaura a lista original fazendo refresh
+      _pagingControllerAtivos.refresh();
+    }
+  }
+
+  void _abrirCadastroUsuario() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => RegisterScreen(role: 'admin')),
+    ).then((shouldRefresh) {
+      if (shouldRefresh == true) {
+        _pagingControllerAtivos.refresh();
+      }
+    });
+  }
+
+  void _abrirEdicaoUsuario(Usuario usuario) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => ModifyUserApp(usuario: usuario)),
+    ).then((shouldRefresh) {
+      if (shouldRefresh == true) {
+        // Atualiza a lista correspondente (ativa ou desativada)
+        if (usuario.active == true) {
+          _pagingControllerAtivos.refresh();
+        } else {
+          _pagingControllerDesativados.refresh();
+        }
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // Esta tela não deve ter o botão de voltar, pois faz parte da navegação principal
-        automaticallyImplyLeading: false, 
-        title: Text("Gerenciar Usuários"),
+        automaticallyImplyLeading: false,
+        title: Text('Gerenciar'),
         centerTitle: false,
-      ),
-      // O corpo agora está mais organizado
-      body: Column(
-        children: [
-          // Campo de busca com design moderno
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              onChanged: _onSearchChanged,
-              decoration: InputDecoration(
-                hintText: 'Pesquisar por nome...',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
+        bottom: _isAdmin
+            ? TabBar(
+                controller: _tabController,
+                labelColor: Colors.black87,
+                unselectedLabelColor: Colors.grey[600],
+                indicatorColor: Theme.of(context).primaryColor,
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
                 ),
-                filled: true,
-                fillColor: Colors.white,
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                ),
+                tabs: const [
+                  Tab(text: 'Cursos'),
+                  Tab(text: 'Usuários Ativos'),
+                  Tab(text: 'Usuários Desativados'),
+                ],
+              )
+            : null,
+      ),
+      body: SafeArea(child: _buildBody()),
+      floatingActionButton: _buildFloatingActionButton(),
+    );
+  }
+
+  Widget? _buildFloatingActionButton() {
+    if (!_verificacaoConcluida || !_isAdmin) return null;
+    if (_tabController.index == 0) {
+      // Na aba de cursos, não mostrar botão pois cursos são pré-cadastrados
+      return null;
+    }
+    // Mostra o botão apenas na aba de usuários ativos (índice 1)
+    if (_tabController.index == 1) {
+      return FloatingActionButton.extended(
+        onPressed: _abrirCadastroUsuario,
+        icon: Icon(Icons.person_add_alt_1_outlined),
+        label: Text('Novo Usuário'),
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
+      );
+    }
+    return null;
+  }
+
+  Widget _buildBody() {
+    if (!_verificacaoConcluida) {
+      return Center(child: CircularProgressIndicator());
+    }
+
+    if (!_isAdmin) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.lock_outline, size: 48, color: Colors.grey[600]),
+              SizedBox(height: 16),
+              Text(
+                'Acesso permitido apenas para administradores.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: Colors.grey[700]),
               ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return TabBarView(
+      controller: _tabController,
+      children: [
+        _buildCursosTab(), 
+        _buildUsuariosAtivosTab(),
+        _buildUsuariosDesativadosTab(),
+      ],
+    );
+  }
+
+  Widget _buildCursosTab() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: TextField(
+            controller: _buscaCursosController,
+            decoration: InputDecoration(
+              hintText: 'Pesquisar cursos...',
+              prefixIcon: Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              filled: true,
+              fillColor: Theme.of(context).colorScheme.surface,
             ),
           ),
-          // Lista paginada
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () => Future.sync(() => _pagingController.refresh()),
-              child: PagedListView<int, Usuario>(
-                pagingController: _pagingController,
-                builderDelegate: PagedChildBuilderDelegate<Usuario>(
-                  // Widget a ser exibido para cada item da lista
-                  itemBuilder: (context, usuario, index) => _UsuarioListItem(
-                    usuario: usuario,
-                    onDelete: () {
-                      // TODO: Adicionar lógica para deletar usuário
-                      // Após deletar, chame _pagingController.refresh() para atualizar a lista
-                    },
-                    onModify: () {
-                      // CORREÇÃO: Navega para a tela de modificar
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => ModifyUserApp(usuario: usuario)));
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () => _carregarCursos(mostrarLoader: false),
+            child: _isLoadingCursos && _cursos.isEmpty
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: const [
+                      SizedBox(
+                        height: 200,
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                    ],
+                  )
+                : _cursosFiltrados.isEmpty
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: const [
+                      SizedBox(
+                        height: 200,
+                        child: Center(child: Text('Nenhum curso encontrado.')),
+                      ),
+                    ],
+                  )
+                : ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 8,
+                    ),
+                    itemCount: _cursosFiltrados.length,
+                    itemBuilder: (context, index) {
+                      final curso = _cursosFiltrados[index];
+                      return _CursoListItem(curso: curso);
                     },
                   ),
-                  // Widgets para os diferentes estados da lista (carregando, erro, vazia)
-                  firstPageProgressIndicatorBuilder: (_) => Center(child: CircularProgressIndicator()),
-                  newPageProgressIndicatorBuilder: (_) => Center(child: CircularProgressIndicator()),
-                  noItemsFoundIndicatorBuilder: (_) => Center(child: Text("Nenhum usuário encontrado.")),
-                  firstPageErrorIndicatorBuilder: (_) => Center(child: Text("Erro ao carregar usuários.")),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUsuariosAtivosTab() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: TextField(
+            controller: _buscaUsuariosAtivosController,
+            decoration: InputDecoration(
+              hintText: 'Pesquisar usuários ativos...',
+              prefixIcon: Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              filled: true,
+              fillColor: Theme.of(context).colorScheme.surface,
+            ),
+          ),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              _pagingControllerAtivos.refresh();
+            },
+            child: PagedListView<int, Usuario>(
+              pagingController: _pagingControllerAtivos,
+              builderDelegate: PagedChildBuilderDelegate<Usuario>(
+                itemBuilder: (context, usuario, index) => _UsuarioListItem(
+                  usuario: usuario,
+                  onDelete: () => _onDeleteUser(usuario.id),
+                  onModify: () => _abrirEdicaoUsuario(usuario),
                 ),
+                firstPageProgressIndicatorBuilder: (_) =>
+                    Center(child: CircularProgressIndicator()),
+                newPageProgressIndicatorBuilder: (_) =>
+                    Center(child: CircularProgressIndicator()),
+                noItemsFoundIndicatorBuilder: (_) =>
+                    Center(child: Text('Nenhum usuário ativo encontrado.')),
+                firstPageErrorIndicatorBuilder: (_) =>
+                    Center(child: Text('Erro ao carregar usuários ativos.')),
               ),
             ),
           ),
-        ],
-      ),
-      // Botão flutuante para adicionar novo usuário
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          // CORREÇÃO: Navega para a tela de registro
-          Navigator.push(context, MaterialPageRoute(builder: (context) => RegisterScreen(role: 'admin')));
-        },
-        icon: Icon(Icons.add),
-        label: Text("Novo Usuário"),
-        backgroundColor: Theme.of(context).primaryColor, // Usa a cor do tema
-        foregroundColor: Colors.white,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUsuariosDesativadosTab() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: TextField(
+            controller: _buscaUsuariosDesativadosController,
+            decoration: InputDecoration(
+              hintText: 'Pesquisar usuários desativados...',
+              prefixIcon: Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              filled: true,
+              fillColor: Theme.of(context).colorScheme.surface,
+            ),
+          ),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              _pagingControllerDesativados.refresh();
+            },
+            child: PagedListView<int, Usuario>(
+              pagingController: _pagingControllerDesativados,
+              builderDelegate: PagedChildBuilderDelegate<Usuario>(
+                itemBuilder: (context, usuario, index) => _UsuarioListItem(
+                  usuario: usuario,
+                  onDelete: () => _onAtivarUser(usuario.id), // Ativa usuários desativados
+                  onModify: () => _abrirEdicaoUsuario(usuario),
+                ),
+                firstPageProgressIndicatorBuilder: (_) =>
+                    Center(child: CircularProgressIndicator()),
+                newPageProgressIndicatorBuilder: (_) =>
+                    Center(child: CircularProgressIndicator()),
+                noItemsFoundIndicatorBuilder: (_) =>
+                    Center(child: Text('Nenhum usuário desativado encontrado.')),
+                firstPageErrorIndicatorBuilder: (_) =>
+                    Center(child: Text('Erro ao carregar usuários desativados.')),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CursoListItem extends StatelessWidget {
+  const _CursoListItem({required this.curso});
+
+  final CourseOption curso;
+
+  String get _initials {
+    final trimmed = curso.nome.trim();
+    if (trimmed.isEmpty) return '?';
+    final parts = trimmed.split(RegExp(r'\s+'));
+    if (parts.length == 1) {
+      return parts.first[0].toUpperCase();
+    }
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 2,
+      child: ExpansionTile(
+        leading: CircleAvatar(
+          backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+          foregroundColor: Theme.of(context).primaryColor,
+          child: Text(_initials),
+        ),
+        title: Text(curso.nome, style: TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text('ID: ${curso.id}'),
       ),
     );
   }
 }
 
-// --- WIDGET PARA O ITEM DA LISTA DE USUÁRIO (CARD) ---
-// Separar em um widget menor deixa o código principal mais limpo.
 class _UsuarioListItem extends StatelessWidget {
-  final Usuario usuario;
-  final VoidCallback onDelete;
-  final VoidCallback onModify;
-
   const _UsuarioListItem({
     required this.usuario,
     required this.onDelete,
     required this.onModify,
   });
 
+  final Usuario usuario;
+  final VoidCallback onDelete;
+  final VoidCallback onModify;
+
   @override
   Widget build(BuildContext context) {
-    // ExpansionTile é um widget do próprio Flutter que lida com a lógica de expandir/recolher.
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -164,31 +724,51 @@ class _UsuarioListItem extends StatelessWidget {
         leading: CircleAvatar(
           backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
           foregroundColor: Theme.of(context).primaryColor,
-          child: Text(usuario.nome.isNotEmpty ? usuario.nome[0].toUpperCase() : '?'),
+          child: Text(usuario.initials),
         ),
-        title: Text('${usuario.nome} ${usuario.sobrenome}', style: TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text(usuario.email),
+        title: Text(
+          usuario.displayName,
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text('${usuario.email}\nLogin: ${usuario.login}'),
         children: [
-          // Conteúdo que aparece quando o card é expandido
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Botão de Modificar
-                TextButton.icon(
-                  onPressed: onModify,
-                  icon: Icon(Icons.edit, size: 18),
-                  label: Text("Modificar"),
-                  style: TextButton.styleFrom(foregroundColor: Colors.blue.shade700),
+                Text(
+                  'Curso: ${usuario.cursoDisplay.isNotEmpty ? usuario.cursoDisplay : 'Não informado'}',
                 ),
-                SizedBox(width: 8),
-                // Botão de Deletar
-                TextButton.icon(
-                  onPressed: onDelete,
-                  icon: Icon(Icons.delete_outline, size: 18),
-                  label: Text("Deletar"),
-                  style: TextButton.styleFrom(foregroundColor: Theme.of(context).primaryColor),
+                SizedBox(height: 4),
+                Text(
+                  'Perfil: ${usuario.role.isNotEmpty ? usuario.role.toUpperCase() : 'USER'}',
+                ),
+                SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      onPressed: onModify,
+                      icon: Icon(Icons.edit, size: 18),
+                      label: Text('Modificar'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Theme.of(context).primaryColor,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: onDelete,
+                      icon: Icon(
+                        usuario.active ? Icons.delete_outline : Icons.check_circle_outline,
+                        size: 18,
+                      ),
+                      label: Text(usuario.active ? 'Desativar' : 'Ativar'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Theme.of(context).primaryColor,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -198,5 +778,3 @@ class _UsuarioListItem extends StatelessWidget {
     );
   }
 }
-
-// API de usuários centralizada em lib/api_service.dart

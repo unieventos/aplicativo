@@ -26,11 +26,6 @@ class AuthService {
       }
       final url = Uri.parse(ApiConfig.authLogin());
       
-      // LOG DE DEBUG: Mostra exatamente o que está sendo enviado.
-      // Muito útil para encontrar problemas.
-      print('[AuthService] Enviando requisição para: $url');
-      print('[AuthService] Body: $body');
-
       final response = await http
           .post(
         url,
@@ -46,7 +41,7 @@ class AuthService {
         
         // VALIDAÇÃO: Verifica se a resposta contém a chave 'token'.
         if (responseBody != null && responseBody['token'] != null) {
-          print('[AuthService] Login bem-sucedido. Token recebido.');
+          print('[AuthService] Usuário entrou com sucesso.');
           return responseBody['token'];
         } else {
           // Se a resposta for 200, mas o JSON não tiver o formato esperado.

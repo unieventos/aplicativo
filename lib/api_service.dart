@@ -7,6 +7,7 @@ import 'package:flutter_application_1/utils/web_checks.dart';
 // Modelos centralizados
 import 'package:flutter_application_1/models/usuario.dart';
 import 'package:flutter_application_1/models/evento.dart';
+import 'package:flutter_application_1/models/course_option.dart';
 
 // Modelo para Categoria, baseado no Swagger
 class Categoria {
@@ -43,7 +44,10 @@ class UsuarioApi {
     if (response.statusCode == 200) {
       final data = json.decode(utf8.decode(response.bodyBytes));
       final List<dynamic> list = data['_embedded']?['usuarioResourceV1List'] ?? [];
-      return list.map((item) => Usuario.fromJson(item['user'])).toList();
+      final usuarios = list.map((item) => Usuario.fromJson(item['user'])).toList();
+      // Filtra apenas usuários ativos (is_active = true)
+      // Usuários desativados não devem ser exibidos na lista
+      return usuarios.where((usuario) => usuario.active == true).toList();
     } else {
       throw Exception('Falha ao carregar usuários: ${response.statusCode}');
     }
@@ -157,6 +161,56 @@ class UsuarioApi {
     }
   }
 
+  // GET /cursos - Lista todos os cursos pré-cadastrados
+  static Future<List<CourseOption>> listarCursos() async {
+    // Lista fixa dos 38 cursos pré-cadastrados conforme a API
+    final cursosPreCadastrados = [
+      'Administração',
+      'Arquitetura e Urbanismo',
+      'Artes',
+      'Biomedicina',
+      'Celulose e Papel',
+      'Ciência da Computação',
+      'Ciências Biológicas Bacharelado',
+      'Ciências Biológicas Licenciatura',
+      'Ciências Contábeis',
+      'Design',
+      'Design de Moda',
+      'Educação Física - Bacharelado',
+      'Educação Física - Licenciatura',
+      'Enfermagem',
+      'Engenharia Agronômica',
+      'Engenharia Civil',
+      'Engenharia de Computação',
+      'Engenharia de Produção',
+      'Engenharia Elétrica',
+      'Engenharia Mecânica',
+      'Engenharia Química',
+      'Estética e Cosmética',
+      'Farmácia',
+      'Fisioterapia',
+      'Gastronomia',
+      'História',
+      'Jogos Digitais',
+      'Jornalismo',
+      'Letras - Português e Inglês - Licenciatura',
+      'Letras - Tradutor - Bacharelado',
+      'Matemática',
+      'Nutrição',
+      'Odontologia',
+      'Pedagogia',
+      'Psicologia',
+      'Publicidade e Propaganda',
+      'Relações Internacionais',
+      'Teatro',
+    ];
+
+    return cursosPreCadastrados.map((nome) => CourseOption(
+      id: nome, // Usar o nome como ID para referência
+      nome: nome,
+    )).toList();
+  }
+
   // Método de teste para verificar conectividade com a API
   static Future<bool> testarConectividade() async {
     final token = await _storage.read(key: 'token');
@@ -223,7 +277,7 @@ class EventosApi {
   }
   
   // POST /eventos - Cadastra um novo evento
-  static Future<bool> criarEvento(Map<String, dynamic> dadosEvento) async {
+  static Future<bool> criarEvento(Map<String, dynamic> dadosEvento, [dynamic imagem]) async {
     final token = await _storage.read(key: 'token');
     if (token == null) return false;
 
