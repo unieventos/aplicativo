@@ -25,7 +25,7 @@ class AuthService {
         throw Exception('Bloqueado pelo navegador: mixed content (app https x API http). Use http na origem ou habilite https na API.');
       }
       final url = Uri.parse(ApiConfig.authLogin());
-
+      
       final response = await http
           .post(
         url,

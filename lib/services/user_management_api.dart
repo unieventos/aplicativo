@@ -4,11 +4,12 @@ import 'package:flutter_application_1/user_service.dart';
 
 class UsuarioApi {
   static Future<List<ManagedUser>> fetchUsuarios(
-      int page, int pageSize, String search) async {
+      int page, int pageSize, String search, {bool? apenasAtivos}) async {
     return UserService.listarUsuarios(
       page: page,
       size: pageSize,
       search: search,
+      apenasAtivos: apenasAtivos,
     );
   }
 

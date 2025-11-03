@@ -370,13 +370,13 @@ class _EVRegisterState extends State<EVRegister> {
     );
 
     if (data != null) {
-      setState(() {
-        _dataInicio = DateTime(
-          data.year,
-          data.month,
-          data.day,
-        );
-      });
+        setState(() {
+          _dataInicio = DateTime(
+            data.year,
+            data.month,
+            data.day,
+          );
+        });
     }
   }
 
@@ -389,13 +389,13 @@ class _EVRegisterState extends State<EVRegister> {
     );
 
     if (data != null) {
-      setState(() {
-        _dataFim = DateTime(
-          data.year,
-          data.month,
-          data.day,
-        );
-      });
+        setState(() {
+          _dataFim = DateTime(
+            data.year,
+            data.month,
+            data.day,
+          );
+        });
     }
   }
 }

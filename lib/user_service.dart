@@ -476,6 +476,7 @@ class UserService {
     int size = 10,
     String sortBy = 'nome',
     String search = '',
+    bool? apenasAtivos,
   }) async {
     final storage = FlutterSecureStorage();
     final token = await storage.read(key: 'token');
@@ -509,13 +510,46 @@ class UserService {
             ? embedded['usuarioResourceV1List']
             : null;
         if (list is List) {
-          return list
-              .map((item) => item is Map<String, dynamic>
-                  ? item['user'] ?? item['usuario'] ?? item
-                  : null)
+          final usuarios = list
+              .map((item) {
+                if (item is Map<String, dynamic>) {
+                  // Log para debug: ver toda a estrutura do item
+                  print('[UserService] Item completo: ${item.keys.toList()}');
+                  
+                  // Tenta obter o user, mas também verifica se active está no item pai
+                  final userData = item['user'] ?? item['usuario'] ?? item;
+                  if (userData is Map<String, dynamic>) {
+                    // Se active não está no user, tenta do item pai
+                    if (userData['active'] == null && item['active'] != null) {
+                      userData['active'] = item['active'];
+                    }
+                    // Se ainda não tem, verifica is_active
+                    if (userData['active'] == null && item['is_active'] != null) {
+                      userData['active'] = item['is_active'];
+                    }
+                    return userData;
+                  }
+                  return userData;
+                }
+                return null;
+              })
               .whereType<Map<String, dynamic>>()
               .map(ManagedUser.fromApi)
               .toList();
+          
+          // Filtra conforme solicitado
+          if (apenasAtivos == true) {
+            final usuariosAtivos = usuarios.where((usuario) => usuario.active == true).toList();
+            print('[UserService] Usuários ativos após filtro: ${usuariosAtivos.length}');
+            return usuariosAtivos;
+          } else if (apenasAtivos == false) {
+            final usuariosDesativados = usuarios.where((usuario) => usuario.active == false).toList();
+            print('[UserService] Usuários desativados após filtro: ${usuariosDesativados.length}');
+            return usuariosDesativados;
+          }
+          
+          // Se apenasAtivos for null, retorna todos
+          return usuarios;
         }
       }
       return <ManagedUser>[];
@@ -650,6 +684,8 @@ class UserService {
     }
 
     final uri = Uri.parse('$_baseUrl$_usuariosPath/$userId');
+    print('[UserService] DELETE $uri');
+    
     final response = await http.delete(
       uri,
       headers: {
@@ -658,22 +694,34 @@ class UserService {
       },
     );
 
+    final body = utf8.decode(response.bodyBytes);
+    print('[UserService] Response status: ${response.statusCode}, body: $body');
+
     if (response.statusCode == 200 ||
         response.statusCode == 202 ||
         response.statusCode == 204) {
       return {'sucesso': true, 'realmenteDeletado': true};
     }
 
-    // Se o usuário não existe mais (400/404), considera como sucesso
-    // mas marca que já estava deletado
+    // Se o usuário não existe mais ou já está inativo (400/404), considera como sucesso
+    // Erro 400 pode ser UserAlreadyInactive conforme comportamento da API
     if (response.statusCode == 400 || response.statusCode == 404) {
-      print('[UserService] Usuário não encontrado (já foi removido): $userId');
+      // Verifica se é o erro específico UserAlreadyInactive
+      final bodyLower = body.toLowerCase();
+      if (bodyLower.contains('already') || 
+          bodyLower.contains('inactive') || 
+          bodyLower.contains('já está') ||
+          bodyLower.contains('inativo')) {
+        print('[UserService] Usuário já estava inativo: $userId');
+        return {'sucesso': true, 'realmenteDeletado': false};
+      }
+      // Outros erros 400 ainda são tratados como sucesso (usuário não será exibido)
+      print('[UserService] Erro 400/404 ao desativar (tratado como sucesso): $userId - $body');
       return {'sucesso': true, 'realmenteDeletado': false};
     }
 
-    final body = utf8.decode(response.bodyBytes);
     print(
         '[UserService] Erro ao deletar usuário (${response.statusCode}): $body');
-    return {'sucesso': false, 'realmenteDeletado': false};
+    return {'sucesso': false, 'realmenteDeletado': false, 'mensagem': body};
   }
 }

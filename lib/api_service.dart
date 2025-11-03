@@ -44,7 +44,10 @@ class UsuarioApi {
     if (response.statusCode == 200) {
       final data = json.decode(utf8.decode(response.bodyBytes));
       final List<dynamic> list = data['_embedded']?['usuarioResourceV1List'] ?? [];
-      return list.map((item) => Usuario.fromJson(item['user'])).toList();
+      final usuarios = list.map((item) => Usuario.fromJson(item['user'])).toList();
+      // Filtra apenas usuários ativos (is_active = true)
+      // Usuários desativados não devem ser exibidos na lista
+      return usuarios.where((usuario) => usuario.active == true).toList();
     } else {
       throw Exception('Falha ao carregar usuários: ${response.statusCode}');
     }

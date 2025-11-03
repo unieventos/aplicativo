@@ -43,12 +43,36 @@ class ManagedUser {
       cursoId: cursoId,
       cursoNome: cursoNome,
       role: (json['role'] ?? '').toString(),
-      active: json['active'] == null
-          ? true
-          : (json['active'] is bool
-              ? json['active'] as bool
-              : json['active'].toString().toLowerCase() != 'false'),
+      active: _parseActive(json),
     );
+  }
+
+  static bool _parseActive(Map<String, dynamic> json) {
+    // Tenta diferentes possíveis nomes do campo
+    final activeValue = json['active'] ?? 
+                        json['is_active'] ?? 
+                        json['isActive'] ?? 
+                        json['ativo'];
+    
+    // Debug: log para verificar o que está vindo
+    if (activeValue == null) {
+      print('[ManagedUser] Campo active não encontrado no JSON. Chaves disponíveis: ${json.keys.toList()}');
+      // Se não vier o campo, assume que está ativo por padrão
+      // Mas vamos verificar se há algum campo que indique inativo
+      return true;
+    }
+    
+    print('[ManagedUser] Campo active encontrado: $activeValue (tipo: ${activeValue.runtimeType})');
+    
+    if (activeValue is bool) {
+      return activeValue;
+    }
+    
+    // Se for string, verifica se é 'false' ou '0'
+    final activeStr = activeValue.toString().toLowerCase();
+    final result = activeStr != 'false' && activeStr != '0';
+    print('[ManagedUser] active parseado como: $result');
+    return result;
   }
 
   ManagedUser copyWith({

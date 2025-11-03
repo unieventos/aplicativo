@@ -6,9 +6,11 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:flutter_application_1/models/course_option.dart';
 import 'package:flutter_application_1/models/usuario.dart';
+import 'package:flutter_application_1/models/managed_user.dart';
 import 'package:flutter_application_1/modifyUser.dart';
 import 'package:flutter_application_1/register.dart';
-import 'package:flutter_application_1/api_service.dart';
+import 'package:flutter_application_1/services/user_management_api.dart';
+import 'package:flutter_application_1/user_service.dart';
 
 // --- TELA DE GERENCIAMENTO (CURSOS & USUÁRIOS) ---
 class CadastroUsuarioPage extends StatefulWidget {
@@ -34,24 +36,39 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
   bool _isLoadingCursos = false;
   Timer? _cursoDebounce;
 
-  // --- ESTADO DE USUÁRIOS ---
-  final TextEditingController _buscaUsuariosController =
+  // --- ESTADO DE USUÁRIOS ATIVOS ---
+  final TextEditingController _buscaUsuariosAtivosController =
       TextEditingController();
-  final PagingController<int, Usuario> _pagingController = PagingController(
+  final PagingController<int, Usuario> _pagingControllerAtivos = PagingController(
     firstPageKey: 0,
   );
-  String _usuarioBuscaAtual = '';
-  Timer? _usuarioDebounce;
+  String _usuarioBuscaAtivosAtual = '';
+  Timer? _usuarioAtivosDebounce;
+
+  // --- ESTADO DE USUÁRIOS DESATIVADOS ---
+  final TextEditingController _buscaUsuariosDesativadosController =
+      TextEditingController();
+  final PagingController<int, Usuario> _pagingControllerDesativados = PagingController(
+    firstPageKey: 0,
+  );
+  String _usuarioBuscaDesativadosAtual = '';
+  Timer? _usuarioDesativadosDebounce;
+
+  // Cache local de status de usuários (em memória)
+  // Armazena IDs de usuários que foram desativados/ativados nesta sessão
+  final Set<String> _usuariosDesativadosCache = <String>{};
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() => setState(() {}));
 
     _buscaCursosController.addListener(_onCursoBuscaChange);
-    _buscaUsuariosController.addListener(_onUsuarioBuscaChange);
-    _pagingController.addPageRequestListener(_fetchUsuariosPage);
+    _buscaUsuariosAtivosController.addListener(_onUsuarioAtivosBuscaChange);
+    _buscaUsuariosDesativadosController.addListener(_onUsuarioDesativadosBuscaChange);
+    _pagingControllerAtivos.addPageRequestListener(_fetchUsuariosAtivosPage);
+    _pagingControllerDesativados.addPageRequestListener(_fetchUsuariosDesativadosPage);
 
     _verificarPermissao();
   }
@@ -59,17 +76,22 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
   @override
   void dispose() {
     _cursoDebounce?.cancel();
-    _usuarioDebounce?.cancel();
+    _usuarioAtivosDebounce?.cancel();
+    _usuarioDesativadosDebounce?.cancel();
     _tabController.dispose();
 
     _buscaCursosController
       ..removeListener(_onCursoBuscaChange)
       ..dispose();
-    _buscaUsuariosController
-      ..removeListener(_onUsuarioBuscaChange)
+    _buscaUsuariosAtivosController
+      ..removeListener(_onUsuarioAtivosBuscaChange)
+      ..dispose();
+    _buscaUsuariosDesativadosController
+      ..removeListener(_onUsuarioDesativadosBuscaChange)
       ..dispose();
 
-    _pagingController.dispose();
+    _pagingControllerAtivos.dispose();
+    _pagingControllerDesativados.dispose();
     super.dispose();
   }
 
@@ -138,42 +160,111 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
   // Métodos de CRUD de cursos removidos - cursos são pré-cadastrados
 
   // ---------------------------------------------------------------------------
-  // USUÁRIOS
+  // USUÁRIOS ATIVOS
   // ---------------------------------------------------------------------------
-  void _onUsuarioBuscaChange() {
-    if (_usuarioDebounce?.isActive ?? false) _usuarioDebounce!.cancel();
-    _usuarioDebounce = Timer(const Duration(milliseconds: 400), () {
-      final novoValor = _buscaUsuariosController.text.trim();
-      if (novoValor == _usuarioBuscaAtual) return;
-      _usuarioBuscaAtual = novoValor;
-      _pagingController.refresh();
+  void _onUsuarioAtivosBuscaChange() {
+    if (_usuarioAtivosDebounce?.isActive ?? false) _usuarioAtivosDebounce!.cancel();
+    _usuarioAtivosDebounce = Timer(const Duration(milliseconds: 400), () {
+      final novoValor = _buscaUsuariosAtivosController.text.trim();
+      if (novoValor == _usuarioBuscaAtivosAtual) return;
+      _usuarioBuscaAtivosAtual = novoValor;
+      _pagingControllerAtivos.refresh();
     });
   }
 
-  Future<void> _fetchUsuariosPage(int pageKey) async {
+  Future<void> _fetchUsuariosAtivosPage(int pageKey) async {
     try {
-      final usuarios = await UsuarioApi.fetchUsuarios(
+      final managedUsers = await UsuarioApi.fetchUsuarios(
         pageKey,
         10,
-        _usuarioBuscaAtual,
+        _usuarioBuscaAtivosAtual,
+        apenasAtivos: true,
       );
+      // Converte ManagedUser para Usuario
+      // Filtra usuários que estão no cache de desativados (não devem aparecer na lista de ativos)
+      // Como a API não retorna active, assumimos que todos retornados estão ativos
+      // exceto os que estão explicitamente no cache de desativados
+      final usuarios = managedUsers
+          .where((mu) => !_usuariosDesativadosCache.contains(mu.id))
+          .map((mu) => Usuario(
+                id: mu.id,
+                nome: mu.nome,
+                sobrenome: mu.sobrenome,
+                email: mu.email,
+                login: mu.login,
+                curso: mu.cursoDisplay,
+                role: mu.role,
+                active: true, // Lista de ativos sempre é true
+              ))
+          .toList();
       final isLastPage = usuarios.length < 10;
       if (isLastPage) {
-        _pagingController.appendLastPage(usuarios);
+        _pagingControllerAtivos.appendLastPage(usuarios);
       } else {
-        _pagingController.appendPage(usuarios, pageKey + 1);
+        _pagingControllerAtivos.appendPage(usuarios, pageKey + 1);
       }
     } catch (error) {
-      _pagingController.error = error;
+      _pagingControllerAtivos.error = error;
     }
   }
 
-  Future<void> _onDeleteUser(String userId) async {
+  // ---------------------------------------------------------------------------
+  // USUÁRIOS DESATIVADOS
+  // ---------------------------------------------------------------------------
+  void _onUsuarioDesativadosBuscaChange() {
+    if (_usuarioDesativadosDebounce?.isActive ?? false) _usuarioDesativadosDebounce!.cancel();
+    _usuarioDesativadosDebounce = Timer(const Duration(milliseconds: 400), () {
+      final novoValor = _buscaUsuariosDesativadosController.text.trim();
+      if (novoValor == _usuarioBuscaDesativadosAtual) return;
+      _usuarioBuscaDesativadosAtual = novoValor;
+      _pagingControllerDesativados.refresh();
+    });
+  }
+
+  Future<void> _fetchUsuariosDesativadosPage(int pageKey) async {
+    try {
+      // Como a API não retorna o campo active, buscamos todos os usuários
+      // e filtramos apenas os que estão no cache de desativados
+      final managedUsers = await UsuarioApi.fetchUsuarios(
+        pageKey,
+        10,
+        _usuarioBuscaDesativadosAtual,
+        apenasAtivos: null, // Retorna todos
+      );
+      // Converte ManagedUser para Usuario
+      // Filtra apenas usuários que estão no cache de desativados
+      final usuarios = managedUsers
+          .where((mu) => _usuariosDesativadosCache.contains(mu.id))
+          .map((mu) => Usuario(
+                id: mu.id,
+                nome: mu.nome,
+                sobrenome: mu.sobrenome,
+                email: mu.email,
+                login: mu.login,
+                curso: mu.cursoDisplay,
+                role: mu.role,
+                active: false, // Lista de desativados sempre é false
+              ))
+          .toList();
+      
+      // Se não há mais itens no cache ou a lista é menor que 10, é a última página
+      final isLastPage = usuarios.length < 10 || _usuariosDesativadosCache.length <= (pageKey + 1) * 10;
+      if (isLastPage) {
+        _pagingControllerDesativados.appendLastPage(usuarios);
+      } else {
+        _pagingControllerDesativados.appendPage(usuarios, pageKey + 1);
+      }
+    } catch (error) {
+      _pagingControllerDesativados.error = error;
+    }
+  }
+
+  Future<void> _onAtivarUser(String userId) async {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Excluir usuário'),
-        content: Text('Deseja realmente remover este usuário?'),
+        title: Text('Ativar usuário'),
+        content: Text('Deseja realmente ativar este usuário? Ele será exibido na lista de usuários ativos.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -181,7 +272,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('Excluir'),
+            child: Text('Ativar'),
           ),
         ],
       ),
@@ -191,62 +282,117 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Excluindo usuário...'),
+        content: Text('Ativando usuário...'),
         duration: Duration(seconds: 1),
       ),
     );
 
-    // Remove o usuário da lista localmente primeiro para atualização imediata
-    final itemList = _pagingController.itemList;
-    List<Usuario>? itemListAtualizada;
-    if (itemList != null) {
-      itemListAtualizada = itemList.where((u) => u.id != userId).toList();
-      // Atualiza a lista local removendo o usuário deletado
-      _pagingController.itemList = itemListAtualizada;
+    // Remove o usuário da lista de desativados localmente primeiro
+    final itemListDesativados = _pagingControllerDesativados.itemList;
+    if (itemListDesativados != null) {
+      final itemListAtualizada = itemListDesativados.where((u) => u.id != userId).toList();
+      _pagingControllerDesativados.itemList = itemListAtualizada;
+    }
+
+    try {
+      final sucesso = await UserService.atualizarUsuario(userId, {'active': true});
+      if (!mounted) return;
+
+      if (sucesso) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Usuário ativado com sucesso')),
+        );
+        
+        // Remove do cache de usuários desativados
+        _usuariosDesativadosCache.remove(userId);
+        
+        // Recarrega ambas as listas: remove dos desativados e adiciona aos ativos
+        _pagingControllerAtivos.refresh();
+        _pagingControllerDesativados.refresh();
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Falha ao ativar usuário')));
+        // Se falhou, restaura a lista original fazendo refresh
+        _pagingControllerDesativados.refresh();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao ativar usuário: $e')));
+      _pagingControllerDesativados.refresh();
+    }
+  }
+
+  Future<void> _onDeleteUser(String userId) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Desativar usuário'),
+        content: Text('Deseja realmente desativar este usuário? Ele não será mais exibido na lista.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('Desativar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Desativando usuário...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    // Remove o usuário da lista de ativos localmente primeiro para atualização imediata
+    final itemListAtivos = _pagingControllerAtivos.itemList;
+    if (itemListAtivos != null) {
+      final itemListAtualizada = itemListAtivos.where((u) => u.id != userId).toList();
+      _pagingControllerAtivos.itemList = itemListAtualizada;
     }
 
     dynamic resultado = await UsuarioApi.deletarUsuario(userId);
     if (!mounted) return;
 
-    // Verifica se o resultado é um Map (pode ser bool em caso de erro de tipagem)
+    // Verifica se o resultado é um Map
     Map<String, dynamic>? resultadoMap;
     if (resultado is Map<String, dynamic>) {
-      resultadoMap = resultado as Map<String, dynamic>;
+      resultadoMap = resultado;
     } else {
       // Fallback: se retornou bool (versão antiga), trata como falha
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Falha ao remover usuário')));
-      _pagingController.refresh();
-      return;
-    }
-
-    if (resultadoMap == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Falha ao remover usuário')));
-      _pagingController.refresh();
+      ).showSnackBar(const SnackBar(content: Text('Falha ao desativar usuário')));
+      _pagingControllerAtivos.refresh();
       return;
     }
 
     if (resultadoMap['sucesso'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Usuário removido com sucesso')),
+        const SnackBar(content: Text('Usuário desativado com sucesso')),
       );
       
-      // Só recarrega do servidor se foi realmente deletado agora
-      // Se já estava deletado (400/404), mantém apenas a remoção local
-      if (resultadoMap['realmenteDeletado'] == true) {
-        // Recarrega a lista do servidor para garantir sincronização
-        _pagingController.refresh();
-      }
-      // Se não foi realmente deletado (já estava removido), mantém a lista local atualizada
+      // Adiciona ao cache de usuários desativados
+      _usuariosDesativadosCache.add(userId);
+      
+      // Recarrega ambas as listas: remove dos ativos e adiciona aos desativados
+      _pagingControllerAtivos.refresh();
+      _pagingControllerDesativados.refresh();
     } else {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Falha ao remover usuário')));
+      ).showSnackBar(const SnackBar(content: Text('Falha ao desativar usuário')));
       // Se falhou, restaura a lista original fazendo refresh
-      _pagingController.refresh();
+      _pagingControllerAtivos.refresh();
     }
   }
 
@@ -256,7 +402,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
       MaterialPageRoute(builder: (context) => RegisterScreen(role: 'admin')),
     ).then((shouldRefresh) {
       if (shouldRefresh == true) {
-        _pagingController.refresh();
+        _pagingControllerAtivos.refresh();
       }
     });
   }
@@ -267,7 +413,12 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
       MaterialPageRoute(builder: (context) => ModifyUserApp(usuario: usuario)),
     ).then((shouldRefresh) {
       if (shouldRefresh == true) {
-        _pagingController.refresh();
+        // Atualiza a lista correspondente (ativa ou desativada)
+        if (usuario.active == true) {
+          _pagingControllerAtivos.refresh();
+        } else {
+          _pagingControllerDesativados.refresh();
+        }
       }
     });
   }
@@ -296,7 +447,8 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
                 ),
                 tabs: const [
                   Tab(text: 'Cursos'),
-                  Tab(text: 'Usuários'),
+                  Tab(text: 'Usuários Ativos'),
+                  Tab(text: 'Usuários Desativados'),
                 ],
               )
             : null,
@@ -312,13 +464,17 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
       // Na aba de cursos, não mostrar botão pois cursos são pré-cadastrados
       return null;
     }
-    return FloatingActionButton.extended(
-      onPressed: _abrirCadastroUsuario,
-      icon: Icon(Icons.person_add_alt_1_outlined),
-      label: Text('Novo Usuário'),
-      backgroundColor: Theme.of(context).primaryColor,
-      foregroundColor: Colors.white,
-    );
+    // Mostra o botão apenas na aba de usuários ativos (índice 1)
+    if (_tabController.index == 1) {
+      return FloatingActionButton.extended(
+        onPressed: _abrirCadastroUsuario,
+        icon: Icon(Icons.person_add_alt_1_outlined),
+        label: Text('Novo Usuário'),
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
+      );
+    }
+    return null;
   }
 
   Widget _buildBody() {
@@ -348,7 +504,11 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
 
     return TabBarView(
       controller: _tabController,
-      children: [_buildCursosTab(), _buildUsuariosTab()],
+      children: [
+        _buildCursosTab(), 
+        _buildUsuariosAtivosTab(),
+        _buildUsuariosDesativadosTab(),
+      ],
     );
   }
 
@@ -412,15 +572,15 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
     );
   }
 
-  Widget _buildUsuariosTab() {
+  Widget _buildUsuariosAtivosTab() {
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.all(16.0),
           child: TextField(
-            controller: _buscaUsuariosController,
+            controller: _buscaUsuariosAtivosController,
             decoration: InputDecoration(
-              hintText: 'Pesquisar usuários...',
+              hintText: 'Pesquisar usuários ativos...',
               prefixIcon: Icon(Icons.search),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -434,10 +594,10 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
         Expanded(
           child: RefreshIndicator(
             onRefresh: () async {
-              _pagingController.refresh();
+              _pagingControllerAtivos.refresh();
             },
             child: PagedListView<int, Usuario>(
-              pagingController: _pagingController,
+              pagingController: _pagingControllerAtivos,
               builderDelegate: PagedChildBuilderDelegate<Usuario>(
                 itemBuilder: (context, usuario, index) => _UsuarioListItem(
                   usuario: usuario,
@@ -449,9 +609,57 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
                 newPageProgressIndicatorBuilder: (_) =>
                     Center(child: CircularProgressIndicator()),
                 noItemsFoundIndicatorBuilder: (_) =>
-                    Center(child: Text('Nenhum usuário encontrado.')),
+                    Center(child: Text('Nenhum usuário ativo encontrado.')),
                 firstPageErrorIndicatorBuilder: (_) =>
-                    Center(child: Text('Erro ao carregar usuários.')),
+                    Center(child: Text('Erro ao carregar usuários ativos.')),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUsuariosDesativadosTab() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: TextField(
+            controller: _buscaUsuariosDesativadosController,
+            decoration: InputDecoration(
+              hintText: 'Pesquisar usuários desativados...',
+              prefixIcon: Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              filled: true,
+              fillColor: Theme.of(context).colorScheme.surface,
+            ),
+          ),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              _pagingControllerDesativados.refresh();
+            },
+            child: PagedListView<int, Usuario>(
+              pagingController: _pagingControllerDesativados,
+              builderDelegate: PagedChildBuilderDelegate<Usuario>(
+                itemBuilder: (context, usuario, index) => _UsuarioListItem(
+                  usuario: usuario,
+                  onDelete: () => _onAtivarUser(usuario.id), // Ativa usuários desativados
+                  onModify: () => _abrirEdicaoUsuario(usuario),
+                ),
+                firstPageProgressIndicatorBuilder: (_) =>
+                    Center(child: CircularProgressIndicator()),
+                newPageProgressIndicatorBuilder: (_) =>
+                    Center(child: CircularProgressIndicator()),
+                noItemsFoundIndicatorBuilder: (_) =>
+                    Center(child: Text('Nenhum usuário desativado encontrado.')),
+                firstPageErrorIndicatorBuilder: (_) =>
+                    Center(child: Text('Erro ao carregar usuários desativados.')),
               ),
             ),
           ),
@@ -551,8 +759,11 @@ class _UsuarioListItem extends StatelessWidget {
                     SizedBox(width: 8),
                     TextButton.icon(
                       onPressed: onDelete,
-                      icon: Icon(Icons.delete_outline, size: 18),
-                      label: Text('Excluir'),
+                      icon: Icon(
+                        usuario.active ? Icons.delete_outline : Icons.check_circle_outline,
+                        size: 18,
+                      ),
+                      label: Text(usuario.active ? 'Desativar' : 'Ativar'),
                       style: TextButton.styleFrom(
                         foregroundColor: Theme.of(context).primaryColor,
                       ),
