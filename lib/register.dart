@@ -5,9 +5,9 @@ import 'package:flutter_application_1/services/user_management_api.dart';
 
 // --- TELA DE CADASTRO DE USUÁRIO FINALIZADA ---
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key, required this.role});
+  const RegisterScreen({super.key, this.role});
 
-  final String role;
+  final String? role;
 
   @override
   _RegisterScreenState createState() => _RegisterScreenState();
@@ -45,16 +45,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String?
   _cursoSelecionadoId; // Usando String para consistência com CourseOption
 
+  // Variável para armazenar o role selecionado
+  String? _roleSelecionado;
+
   bool _isLoading = false;
   bool _obscureSenha = true;
   bool _obscureConfirmarSenha = true;
   bool _isLoadingCursos = false;
   List<CourseOption> _cursos = const [];
 
+  // Lista de roles disponíveis
+  static const List<Map<String, String>> _rolesDisponiveis = [
+    {'value': 'ADMIN', 'label': 'Administrador'},
+    {'value': 'GESTOR', 'label': 'Gestor'},
+    {'value': 'COLABORADOR', 'label': 'Colaborador'},
+  ];
+
   @override
   void initState() {
     super.initState();
-    _roleController.text = widget.role;
+    // Define o role inicial se fornecido, senão usa COLABORADOR como padrão
+    _roleSelecionado = widget.role ?? 'COLABORADOR';
+    _roleController.text = _roleSelecionado ?? '';
     _carregarCursos();
   }
 
@@ -113,7 +125,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       "login": _loginController.text.trim(),
       "email": _emailController.text.trim(),
       "senha": _senhaController.text,
-      "role": _roleController.text.trim(),
+      "role": _roleSelecionado ?? 'COLABORADOR',
       "curso": _cursoSelecionadoId!,
     };
 
@@ -273,16 +285,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           },
                         ),
                         const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _roleController,
-                          readOnly: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Perfil de acesso',
-                            prefixIcon: Icon(
-                              Icons.admin_panel_settings_outlined,
-                            ),
-                          ),
-                        ),
+                        _buildRoleDropdown(),
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: _senhaController,
@@ -436,6 +439,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return null;
           },
         );
+      },
+    );
+  }
+
+  Widget _buildRoleDropdown() {
+    return DropdownButtonFormField<String>(
+      value: _roleSelecionado,
+      decoration: const InputDecoration(
+        labelText: 'Perfil de acesso',
+        prefixIcon: Icon(Icons.admin_panel_settings_outlined),
+      ),
+      isExpanded: true,
+      items: _rolesDisponiveis
+          .map(
+            (role) => DropdownMenuItem(
+              value: role['value'],
+              child: Text(role['label']!),
+            ),
+          )
+          .toList(),
+      onChanged: (value) {
+        if (value != null) {
+          setState(() {
+            _roleSelecionado = value;
+            _roleController.text = value;
+          });
+        }
+      },
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Selecione um perfil de acesso';
+        }
+        return null;
       },
     );
   }

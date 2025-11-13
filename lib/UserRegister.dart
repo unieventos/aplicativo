@@ -415,7 +415,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
   void _abrirCadastroUsuario() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => RegisterScreen(role: 'admin')),
+      MaterialPageRoute(builder: (context) => RegisterScreen()),
     ).then((shouldRefresh) {
       if (shouldRefresh == true) {
         _pagingControllerAtivos.refresh();

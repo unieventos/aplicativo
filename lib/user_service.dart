@@ -493,6 +493,8 @@ class UserService {
       },
     );
 
+    print('[UserService] Fazendo requisição para: $uri');
+    
     final response = await http.get(
       uri,
       headers: {
@@ -510,6 +512,7 @@ class UserService {
             ? embedded['usuarioResourceV1List']
             : null;
         if (list is List) {
+          print('[UserService] Total de itens retornados pela API: ${list.length}');
           final usuarios = list
               .map((item) {
                 if (item is Map<String, dynamic>) {
@@ -541,6 +544,18 @@ class UserService {
                       print('[UserService] Campo active NÃO encontrado para usuário ${userData['id']}. Chaves disponíveis: ${userData.keys.toList()}');
                     }
                     
+                    // Verifica e extrai o role se for um objeto
+                    final roleRaw = userData['role'];
+                    if (roleRaw is Map<String, dynamic>) {
+                      // Role é um objeto, extrai o name
+                      final roleName = roleRaw['name'] ?? roleRaw['role'] ?? '';
+                      userData['role'] = roleName.toString();
+                      print('[UserService] Role extraído do objeto para usuário ${userData['id']}: $roleName');
+                    } else if (roleRaw != null) {
+                      // Role já é uma string, mantém como está
+                      userData['role'] = roleRaw.toString();
+                    }
+                    
                     return userData;
                   }
                   return userData;
@@ -556,6 +571,14 @@ class UserService {
           final ativosCount = usuarios.where((u) => u.active == true).length;
           final inativosCount = usuarios.where((u) => u.active == false).length;
           print('[UserService] Usuários ativos: $ativosCount, inativos: $inativosCount');
+          
+          // Log para debug: mostra os roles dos usuários retornados
+          final rolesCount = <String, int>{};
+          for (final usuario in usuarios) {
+            final role = usuario.role.toUpperCase();
+            rolesCount[role] = (rolesCount[role] ?? 0) + 1;
+          }
+          print('[UserService] Distribuição por role: $rolesCount');
           
           // Filtra conforme solicitado
           if (apenasAtivos == true) {
