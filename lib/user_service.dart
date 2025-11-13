@@ -519,14 +519,28 @@ class UserService {
                   // Tenta obter o user, mas também verifica se active está no item pai
                   final userData = item['user'] ?? item['usuario'] ?? item;
                   if (userData is Map<String, dynamic>) {
-                    // Se active não está no user, tenta do item pai
-                    if (userData['active'] == null && item['active'] != null) {
-                      userData['active'] = item['active'];
+                    // Tenta encontrar o campo active em várias localizações possíveis
+                    // 1. No objeto user
+                    // 2. No item pai
+                    // 3. Com diferentes nomes (active, is_active, isActive, ativo)
+                    dynamic activeValue = userData['active'] ?? 
+                                         userData['is_active'] ?? 
+                                         userData['isActive'] ?? 
+                                         userData['ativo'] ??
+                                         item['active'] ?? 
+                                         item['is_active'] ?? 
+                                         item['isActive'] ?? 
+                                         item['ativo'];
+                    
+                    // Se encontrou o valor, adiciona ao userData para garantir que seja parseado
+                    if (activeValue != null) {
+                      userData['active'] = activeValue;
+                      userData['is_active'] = activeValue; // Também adiciona como is_active para garantir
+                      print('[UserService] Campo active encontrado para usuário ${userData['id']}: $activeValue');
+                    } else {
+                      print('[UserService] Campo active NÃO encontrado para usuário ${userData['id']}. Chaves disponíveis: ${userData.keys.toList()}');
                     }
-                    // Se ainda não tem, verifica is_active
-                    if (userData['active'] == null && item['is_active'] != null) {
-                      userData['active'] = item['is_active'];
-                    }
+                    
                     return userData;
                   }
                   return userData;
@@ -536,6 +550,12 @@ class UserService {
               .whereType<Map<String, dynamic>>()
               .map(ManagedUser.fromApi)
               .toList();
+          
+          // Log para debug: mostra quantos usuários foram parseados e seus status
+          print('[UserService] Total de usuários parseados: ${usuarios.length}');
+          final ativosCount = usuarios.where((u) => u.active == true).length;
+          final inativosCount = usuarios.where((u) => u.active == false).length;
+          print('[UserService] Usuários ativos: $ativosCount, inativos: $inativosCount');
           
           // Filtra conforme solicitado
           if (apenasAtivos == true) {

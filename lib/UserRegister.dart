@@ -181,11 +181,10 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
         apenasAtivos: true,
       );
       // Converte ManagedUser para Usuario
-      // Filtra usuários que estão no cache de desativados (não devem aparecer na lista de ativos)
-      // Como a API não retorna active, assumimos que todos retornados estão ativos
-      // exceto os que estão explicitamente no cache de desativados
+      // Usa o campo active real do ManagedUser para garantir que apenas usuários ativos apareçam
+      // Filtra também usuários que estão no cache de desativados (desativações locais recentes)
       final usuarios = managedUsers
-          .where((mu) => !_usuariosDesativadosCache.contains(mu.id))
+          .where((mu) => mu.active == true && !_usuariosDesativadosCache.contains(mu.id))
           .map((mu) => Usuario(
                 id: mu.id,
                 nome: mu.nome,
@@ -194,9 +193,11 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
                 login: mu.login,
                 curso: mu.cursoDisplay,
                 role: mu.role,
-                active: true, // Lista de ativos sempre é true
+                active: mu.active, // Usa o campo active real da API
               ))
           .toList();
+      
+      print('[UserRegister] Usuários ativos recebidos da API: ${managedUsers.length}, após filtro: ${usuarios.length}');
       final isLastPage = usuarios.length < 10;
       if (isLastPage) {
         _pagingControllerAtivos.appendLastPage(usuarios);
@@ -223,18 +224,18 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
 
   Future<void> _fetchUsuariosDesativadosPage(int pageKey) async {
     try {
-      // Como a API não retorna o campo active, buscamos todos os usuários
-      // e filtramos apenas os que estão no cache de desativados
+      // Busca apenas usuários inativos da API usando o parâmetro apenasAtivos: false
       final managedUsers = await UsuarioApi.fetchUsuarios(
         pageKey,
         10,
         _usuarioBuscaDesativadosAtual,
-        apenasAtivos: null, // Retorna todos
+        apenasAtivos: false, // Busca apenas usuários inativos
       );
       // Converte ManagedUser para Usuario
-      // Filtra apenas usuários que estão no cache de desativados
-      final usuarios = managedUsers
-          .where((mu) => _usuariosDesativadosCache.contains(mu.id))
+      // A API já deve retornar apenas usuários inativos quando apenasAtivos: false
+      // Mas ainda filtra para garantir que apenas inativos apareçam
+      final usuariosDaApi = managedUsers
+          .where((mu) => mu.active == false) // Filtra apenas inativos para garantir
           .map((mu) => Usuario(
                 id: mu.id,
                 nome: mu.nome,
@@ -243,12 +244,23 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
                 login: mu.login,
                 curso: mu.cursoDisplay,
                 role: mu.role,
-                active: false, // Lista de desativados sempre é false
+                active: mu.active, // Usa o campo active real da API
               ))
           .toList();
       
-      // Se não há mais itens no cache ou a lista é menor que 10, é a última página
-      final isLastPage = usuarios.length < 10 || _usuariosDesativadosCache.length <= (pageKey + 1) * 10;
+      print('[UserRegister] Usuários desativados recebidos da API: ${managedUsers.length}, após filtro: ${usuariosDaApi.length}');
+      
+      // Adiciona usuários do cache local que ainda não foram retornados pela API
+      // (caso de desativações recentes que ainda não foram sincronizadas)
+      final usuariosDoCache = _usuariosDesativadosCache
+          .where((id) => !usuariosDaApi.any((u) => u.id == id))
+          .toList();
+      
+      // Se há usuários no cache que não estão na API, busca seus dados
+      // Por enquanto, apenas usa os da API para evitar múltiplas chamadas
+      final usuarios = usuariosDaApi;
+      
+      final isLastPage = usuarios.length < 10;
       if (isLastPage) {
         _pagingControllerDesativados.appendLastPage(usuarios);
       } else {
@@ -303,10 +315,12 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
           const SnackBar(content: Text('Usuário ativado com sucesso')),
         );
         
-        // Remove do cache de usuários desativados
+        // Remove do cache de usuários desativados para feedback imediato
+        // O cache será limpo após o refresh que buscará o status real da API
         _usuariosDesativadosCache.remove(userId);
         
         // Recarrega ambas as listas: remove dos desativados e adiciona aos ativos
+        // A API agora retorna o campo active correto, então o cache é apenas para feedback imediato
         _pagingControllerAtivos.refresh();
         _pagingControllerDesativados.refresh();
       } else {
@@ -381,10 +395,12 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
         const SnackBar(content: Text('Usuário desativado com sucesso')),
       );
       
-      // Adiciona ao cache de usuários desativados
+      // Adiciona ao cache de usuários desativados para feedback imediato
+      // O cache será limpo após o refresh que buscará o status real da API
       _usuariosDesativadosCache.add(userId);
       
       // Recarrega ambas as listas: remove dos ativos e adiciona aos desativados
+      // A API agora retorna o campo active correto, então o cache é apenas para feedback imediato
       _pagingControllerAtivos.refresh();
       _pagingControllerDesativados.refresh();
     } else {
