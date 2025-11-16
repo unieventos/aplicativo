@@ -174,17 +174,25 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
 
   Future<void> _fetchUsuariosAtivosPage(int pageKey) async {
     try {
-      final managedUsers = await UsuarioApi.fetchUsuarios(
+      // Busca TODOS os usuários da página (sem filtro de apenasAtivos)
+      // Isso permite obter o tamanho original da resposta da API
+      // e filtrar apenas os ativos no cliente
+      final todosUsuarios = await UsuarioApi.fetchUsuarios(
         pageKey,
         10,
         _usuarioBuscaAtivosAtual,
-        apenasAtivos: true,
+        apenasAtivos: null, // Busca todos para obter tamanho original da API
       );
+      
+      final tamanhoOriginal = todosUsuarios.length;
+      
+      // Filtra apenas os usuários ativos no cliente
+      final usuariosAtivos = todosUsuarios
+          .where((mu) => mu.active == true)
+          .toList();
+      
       // Converte ManagedUser para Usuario
-      // Usa o campo active real do ManagedUser para garantir que apenas usuários ativos apareçam
-      // Filtra também usuários que estão no cache de desativados (desativações locais recentes)
-      final usuarios = managedUsers
-          .where((mu) => mu.active == true && !_usuariosDesativadosCache.contains(mu.id))
+      final usuarios = usuariosAtivos
           .map((mu) => Usuario(
                 id: mu.id,
                 nome: mu.nome,
@@ -193,12 +201,15 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
                 login: mu.login,
                 curso: mu.cursoDisplay,
                 role: mu.role,
-                active: mu.active, // Usa o campo active real da API
+                active: mu.active,
               ))
           .toList();
       
-      print('[UserRegister] Usuários ativos recebidos da API: ${managedUsers.length}, após filtro: ${usuarios.length}');
-      final isLastPage = usuarios.length < 10;
+      // Verifica se é a última página baseado no tamanho ORIGINAL (antes do filtro)
+      // Se a API retornou menos de 10 itens no total, não há mais páginas
+      // Se retornou 10 itens, ainda pode haver mais páginas mesmo que após filtrar tenhamos menos
+      final isLastPage = tamanhoOriginal < 10;
+      
       if (isLastPage) {
         _pagingControllerAtivos.appendLastPage(usuarios);
       } else {
@@ -248,7 +259,6 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
               ))
           .toList();
       
-      print('[UserRegister] Usuários desativados recebidos da API: ${managedUsers.length}, após filtro: ${usuariosDaApi.length}');
       
       // Adiciona usuários do cache local que ainda não foram retornados pela API
       // (caso de desativações recentes que ainda não foram sincronizadas)
