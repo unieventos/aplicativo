@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/models/usuario.dart'; // Modelo Usuario centralizado
 import 'package:flutter_application_1/api_service.dart' as api_service;
 import 'package:flutter_application_1/models/course_option.dart';
+import 'package:flutter_application_1/user_service.dart';
 
 class ModifyUserApp extends StatefulWidget {
   final Usuario usuario;
@@ -19,12 +20,21 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
   late TextEditingController _nomeController;
   late TextEditingController _sobrenomeController;
   late TextEditingController _emailController;
+  late TextEditingController _loginController;
   late TextEditingController _senhaController;
   bool _isLoadingCursos = false;
   List<CourseOption> _cursos = const [];
   String? _cursoSelecionadoId;
+  String? _roleSelecionado;
   bool _isLoading = false;
   bool _obscureText = true;
+
+  // Lista de roles disponíveis
+  static const List<Map<String, String>> _rolesDisponiveis = [
+    {'value': 'ADMIN', 'label': 'Administrador'},
+    {'value': 'GESTOR', 'label': 'Gestor'},
+    {'value': 'COLABORADOR', 'label': 'Colaborador'},
+  ];
 
   @override
   void initState() {
@@ -34,10 +44,15 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
       text: widget.usuario.sobrenome,
     );
     _emailController = TextEditingController(text: widget.usuario.email);
+    _loginController = TextEditingController(text: widget.usuario.login);
     _senhaController = TextEditingController();
     _cursoSelecionadoId = widget.usuario.curso.isNotEmpty
         ? widget.usuario.curso
         : null;
+    // Inicializa o role selecionado com o role atual do usuário
+    _roleSelecionado = widget.usuario.role.isNotEmpty
+        ? widget.usuario.role.toUpperCase()
+        : 'COLABORADOR';
     _carregarCursos();
   }
 
@@ -46,6 +61,7 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     _nomeController.dispose();
     _sobrenomeController.dispose();
     _emailController.dispose();
+    _loginController.dispose();
     _senhaController.dispose();
     super.dispose();
   }
@@ -95,25 +111,49 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
       return;
     }
 
-    if (_cursoSelecionadoId == null || _cursoSelecionadoId!.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Selecione um curso')));
-      return;
-    }
-
     setState(() => _isLoading = true);
 
-    final payload = {
+    // Monta o payload apenas com os campos que foram alterados ou que têm valor
+    final payload = <String, dynamic>{
       'nome': _nomeController.text.trim(),
       'sobrenome': _sobrenomeController.text.trim(),
       'email': _emailController.text.trim(),
-      'curso': _cursoSelecionadoId!,
-      if (_senhaController.text.isNotEmpty) 'senha': _senhaController.text,
+      'role': _roleSelecionado ?? 'COLABORADOR',
     };
 
+    // Adiciona login apenas se foi alterado e não está vazio
+    final loginAtualizado = _loginController.text.trim();
+    if (loginAtualizado.isNotEmpty && loginAtualizado != widget.usuario.login) {
+      payload['login'] = loginAtualizado;
+    }
+
+    // Adiciona curso apenas se foi selecionado um curso diferente
+    if (_cursoSelecionadoId != null && _cursoSelecionadoId!.isNotEmpty) {
+      try {
+        final cursoSelecionado = _cursos.firstWhere(
+          (curso) => curso.id == _cursoSelecionadoId,
+        );
+        final nomeCurso = cursoSelecionado.nome;
+        // Só adiciona se o curso foi alterado
+        if (nomeCurso != widget.usuario.curso) {
+          payload['curso'] = nomeCurso; // API espera o nome do curso, não o ID
+        }
+      } catch (e) {
+        // Se o curso não for encontrado na lista, mas foi selecionado, envia o nome original
+        if (widget.usuario.curso.isNotEmpty) {
+          payload['curso'] = widget.usuario.curso;
+        }
+      }
+    }
+
+    // Adiciona senha apenas se foi preenchida
+    if (_senhaController.text.isNotEmpty) {
+      payload['senha'] = _senhaController.text;
+    }
+
     try {
-      final sucesso = await api_service.UsuarioApi.atualizarUsuario(
+      // Usa UserService que tem melhor tratamento de erros e filtragem de campos vazios
+      final sucesso = await UserService.atualizarUsuario(
         widget.usuario.id,
         payload,
       );
@@ -131,9 +171,29 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
       }
     } catch (e) {
       if (!mounted) return;
+      
+      // Trata erros de CORS especificamente
+      final errorMessage = e.toString().toLowerCase();
+      String mensagemErro;
+      
+      if (errorMessage.contains('cors') || 
+          errorMessage.contains('cross-origin') ||
+          errorMessage.contains('networkerror') ||
+          errorMessage.contains('access-control-allow-methods')) {
+        mensagemErro = 'Erro de CORS: O backend precisa permitir o método PATCH nas configurações de CORS. Entre em contato com o administrador do sistema.';
+      } else {
+        mensagemErro = 'Erro ao atualizar usuário: $e';
+      }
+      
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Erro inesperado: $e')));
+      ).showSnackBar(
+        SnackBar(
+          content: Text(mensagemErro),
+          duration: const Duration(seconds: 5),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -185,7 +245,7 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                'Login: ${widget.usuario.login}',
+                                'ID: ${widget.usuario.id}',
                                 style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(color: Colors.grey[600]),
                               ),
@@ -226,6 +286,15 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
+                      controller: _loginController,
+                      decoration: const InputDecoration(
+                        labelText: 'Login (opcional)',
+                        prefixIcon: Icon(Icons.person_outline),
+                        helperText: 'Nome de usuário para login - deixe vazio para manter o atual',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       decoration: const InputDecoration(
@@ -244,6 +313,8 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
                     ),
                     const SizedBox(height: 16),
                     _buildCursoDropdown(),
+                    const SizedBox(height: 16),
+                    _buildRoleDropdown(),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _senhaController,
@@ -325,19 +396,52 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     return DropdownButtonFormField<String>(
       value: _cursoSelecionadoId,
       decoration: const InputDecoration(
-        labelText: 'Curso',
+        labelText: 'Curso (opcional)',
         prefixIcon: Icon(Icons.school_outlined),
+        helperText: 'Deixe sem seleção para manter o curso atual',
       ),
-      items: _cursos
+      items: [
+        const DropdownMenuItem<String>(
+          value: null,
+          child: Text('Manter curso atual'),
+        ),
+        ..._cursos
+            .map(
+              (curso) =>
+                  DropdownMenuItem(value: curso.id, child: Text(curso.nome)),
+            )
+            .toList(),
+      ],
+      onChanged: (value) => setState(() => _cursoSelecionadoId = value),
+    );
+  }
+
+  Widget _buildRoleDropdown() {
+    return DropdownButtonFormField<String>(
+      value: _roleSelecionado,
+      decoration: const InputDecoration(
+        labelText: 'Perfil de acesso',
+        prefixIcon: Icon(Icons.admin_panel_settings_outlined),
+      ),
+      isExpanded: true,
+      items: _rolesDisponiveis
           .map(
-            (curso) =>
-                DropdownMenuItem(value: curso.id, child: Text(curso.nome)),
+            (role) => DropdownMenuItem(
+              value: role['value'],
+              child: Text(role['label']!),
+            ),
           )
           .toList(),
-      onChanged: (value) => setState(() => _cursoSelecionadoId = value),
+      onChanged: (value) {
+        if (value != null) {
+          setState(() {
+            _roleSelecionado = value;
+          });
+        }
+      },
       validator: (value) {
         if (value == null || value.isEmpty) {
-          return 'Selecione um curso';
+          return 'Selecione um perfil de acesso';
         }
         return null;
       },
