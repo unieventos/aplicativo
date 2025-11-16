@@ -263,12 +263,53 @@ class UserService {
   }
 
   static Future<List<CourseOption>> listarCursos() async {
-    final detalhadas = await listarCategoriasDetalhadas();
-    return detalhadas
-        .where((item) =>
-            (item['id'] ?? '').isNotEmpty && (item['nome'] ?? '').isNotEmpty)
-        .map((item) => CourseOption(id: item['id']!, nome: item['nome']!))
-        .toList();
+    final storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'token');
+    if (token == null || token.isEmpty) throw Exception('Token não encontrado');
+    final uri = Uri.parse(ApiConfig.cursos());
+    final response = await http
+        .get(
+          uri,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+          },
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 200) {
+      final body = utf8.decode(response.bodyBytes);
+      final data = jsonDecode(body);
+      final List<CourseOption> result = [];
+      if (data is List) {
+        for (final item in data) {
+          final m = item is Map<String, dynamic> ? item : <String, dynamic>{};
+          final id = (m['id'] ?? m['cursoId'] ?? '').toString();
+          final nome = (m['nomeCurso'] ?? m['nome'] ?? m['name'] ?? '').toString();
+          if (id.isNotEmpty && nome.isNotEmpty) {
+            result.add(CourseOption(id: id, nome: nome));
+          }
+        }
+        return result;
+      }
+      if (data is Map<String, dynamic>) {
+        final list = data['_embedded']?['cursoResourceV1List'];
+        if (list is List) {
+          for (final item in list) {
+            final c = item is Map<String, dynamic> ? (item['curso'] ?? item) : item;
+            final id = (c['id'] ?? c['cursoId'] ?? '').toString();
+            final nome = (c['nomeCurso'] ?? c['nome'] ?? c['name'] ?? '').toString();
+            if (id.isNotEmpty && nome.isNotEmpty) {
+              result.add(CourseOption(id: id, nome: nome));
+            }
+          }
+        }
+        return result;
+      }
+      return <CourseOption>[];
+    }
+    final body = utf8.decode(response.bodyBytes);
+    print('[UserService] Erro ao listar cursos (${response.statusCode}): $body');
+    return <CourseOption>[];
   }
 
   static Future<CourseOption?> criarCurso(String nome) async {

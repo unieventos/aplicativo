@@ -6,11 +6,11 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:flutter_application_1/models/course_option.dart';
 import 'package:flutter_application_1/models/usuario.dart';
-import 'package:flutter_application_1/models/managed_user.dart';
 import 'package:flutter_application_1/modifyUser.dart';
 import 'package:flutter_application_1/register.dart';
 import 'package:flutter_application_1/services/user_management_api.dart';
 import 'package:flutter_application_1/user_service.dart';
+import 'package:flutter_application_1/api_service.dart' as api_service;
 
 // --- TELA DE GERENCIAMENTO (CURSOS & USUÁRIOS) ---
 class CadastroUsuarioPage extends StatefulWidget {
@@ -117,7 +117,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
       setState(() => _isLoadingCursos = true);
     }
     try {
-      final cursos = await UsuarioApi.listarCursos();
+      final cursos = await api_service.UsuarioApi.listarCursos();
       if (!mounted) return;
       setState(() {
         _cursos = cursos;

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api_service.dart' as api_service;
 import 'package:flutter_application_1/models/course_option.dart';
-import 'package:flutter_application_1/services/user_management_api.dart';
 
 // --- TELA DE CADASTRO DE USUÁRIO FINALIZADA ---
 class RegisterScreen extends StatefulWidget {
