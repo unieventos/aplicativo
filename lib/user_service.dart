@@ -670,26 +670,43 @@ class UserService {
     }
 
     final uri = Uri.parse('$_baseUrl$_usuariosPath/$userId');
-    final response = await http.patch(
-      uri,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode(filteredPayload),
-    );
+    
+    try {
+      final response = await http.patch(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(filteredPayload),
+      ).timeout(const Duration(seconds: 15));
 
-    if (response.statusCode == 200 ||
-        response.statusCode == 204 ||
-        response.statusCode == 202) {
-      return true;
+      if (response.statusCode == 200 ||
+          response.statusCode == 204 ||
+          response.statusCode == 202) {
+        return true;
+      }
+
+      final body = utf8.decode(response.bodyBytes);
+      print(
+          '[UserService] Erro ao atualizar usuário (${response.statusCode}): $body');
+      return false;
+    } on http.ClientException catch (e) {
+      // Trata erros de CORS especificamente
+      final errorMessage = e.message.toLowerCase();
+      if (errorMessage.contains('cors') || 
+          errorMessage.contains('cross-origin') ||
+          errorMessage.contains('networkerror')) {
+        print('[UserService] Erro de CORS ao atualizar usuário. O backend precisa permitir o método PATCH nas configurações de CORS.');
+        rethrow;
+      }
+      print('[UserService] Erro de conexão ao atualizar usuário: $e');
+      rethrow;
+    } catch (e) {
+      print('[UserService] Erro inesperado ao atualizar usuário: $e');
+      rethrow;
     }
-
-    final body = utf8.decode(response.bodyBytes);
-    print(
-        '[UserService] Erro ao atualizar usuário (${response.statusCode}): $body');
-    return false;
   }
 
   static Future<Map<String, dynamic>> deletarUsuario(String userId) async {
