@@ -34,6 +34,17 @@ class ManagedUser {
       if (cursoNome.isEmpty) cursoNome = asString;
     }
 
+    // Extrai o role - pode vir como objeto ou string
+    String roleValue = '';
+    final roleRaw = json['role'];
+    if (roleRaw is Map<String, dynamic>) {
+      // Role é um objeto, extrai o name
+      roleValue = (roleRaw['name'] ?? roleRaw['role'] ?? '').toString();
+    } else if (roleRaw != null) {
+      // Role já é uma string ou outro tipo
+      roleValue = roleRaw.toString();
+    }
+
     return ManagedUser(
       id: (json['id'] ?? '').toString(),
       nome: (json['nome'] ?? '').toString(),
@@ -42,7 +53,7 @@ class ManagedUser {
       login: (json['login'] ?? '').toString(),
       cursoId: cursoId,
       cursoNome: cursoNome,
-      role: (json['role'] ?? '').toString(),
+      role: roleValue,
       active: _parseActive(json),
     );
   }

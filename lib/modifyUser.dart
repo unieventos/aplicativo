@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/models/usuario.dart'; // Modelo Usuario centralizado
 import 'package:flutter_application_1/api_service.dart' as api_service;
 import 'package:flutter_application_1/models/course_option.dart';
-import 'package:flutter_application_1/models/managed_user.dart';
-import 'package:flutter_application_1/services/user_management_api.dart';
 
 class ModifyUserApp extends StatefulWidget {
   final Usuario usuario;

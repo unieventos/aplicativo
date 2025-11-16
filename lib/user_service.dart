@@ -263,12 +263,53 @@ class UserService {
   }
 
   static Future<List<CourseOption>> listarCursos() async {
-    final detalhadas = await listarCategoriasDetalhadas();
-    return detalhadas
-        .where((item) =>
-            (item['id'] ?? '').isNotEmpty && (item['nome'] ?? '').isNotEmpty)
-        .map((item) => CourseOption(id: item['id']!, nome: item['nome']!))
-        .toList();
+    final storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'token');
+    if (token == null || token.isEmpty) throw Exception('Token não encontrado');
+    final uri = Uri.parse(ApiConfig.cursos());
+    final response = await http
+        .get(
+          uri,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+          },
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 200) {
+      final body = utf8.decode(response.bodyBytes);
+      final data = jsonDecode(body);
+      final List<CourseOption> result = [];
+      if (data is List) {
+        for (final item in data) {
+          final m = item is Map<String, dynamic> ? item : <String, dynamic>{};
+          final id = (m['id'] ?? m['cursoId'] ?? '').toString();
+          final nome = (m['nomeCurso'] ?? m['nome'] ?? m['name'] ?? '').toString();
+          if (id.isNotEmpty && nome.isNotEmpty) {
+            result.add(CourseOption(id: id, nome: nome));
+          }
+        }
+        return result;
+      }
+      if (data is Map<String, dynamic>) {
+        final list = data['_embedded']?['cursoResourceV1List'];
+        if (list is List) {
+          for (final item in list) {
+            final c = item is Map<String, dynamic> ? (item['curso'] ?? item) : item;
+            final id = (c['id'] ?? c['cursoId'] ?? '').toString();
+            final nome = (c['nomeCurso'] ?? c['nome'] ?? c['name'] ?? '').toString();
+            if (id.isNotEmpty && nome.isNotEmpty) {
+              result.add(CourseOption(id: id, nome: nome));
+            }
+          }
+        }
+        return result;
+      }
+      return <CourseOption>[];
+    }
+    final body = utf8.decode(response.bodyBytes);
+    print('[UserService] Erro ao listar cursos (${response.statusCode}): $body');
+    return <CourseOption>[];
   }
 
   static Future<CourseOption?> criarCurso(String nome) async {
@@ -493,6 +534,8 @@ class UserService {
       },
     );
 
+    print('[UserService] Fazendo requisição para: $uri');
+    
     final response = await http.get(
       uri,
       headers: {
@@ -510,6 +553,7 @@ class UserService {
             ? embedded['usuarioResourceV1List']
             : null;
         if (list is List) {
+          print('[UserService] Total de itens retornados pela API: ${list.length}');
           final usuarios = list
               .map((item) {
                 if (item is Map<String, dynamic>) {
@@ -519,14 +563,40 @@ class UserService {
                   // Tenta obter o user, mas também verifica se active está no item pai
                   final userData = item['user'] ?? item['usuario'] ?? item;
                   if (userData is Map<String, dynamic>) {
-                    // Se active não está no user, tenta do item pai
-                    if (userData['active'] == null && item['active'] != null) {
-                      userData['active'] = item['active'];
+                    // Tenta encontrar o campo active em várias localizações possíveis
+                    // 1. No objeto user
+                    // 2. No item pai
+                    // 3. Com diferentes nomes (active, is_active, isActive, ativo)
+                    dynamic activeValue = userData['active'] ?? 
+                                         userData['is_active'] ?? 
+                                         userData['isActive'] ?? 
+                                         userData['ativo'] ??
+                                         item['active'] ?? 
+                                         item['is_active'] ?? 
+                                         item['isActive'] ?? 
+                                         item['ativo'];
+                    
+                    // Se encontrou o valor, adiciona ao userData para garantir que seja parseado
+                    if (activeValue != null) {
+                      userData['active'] = activeValue;
+                      userData['is_active'] = activeValue; // Também adiciona como is_active para garantir
+                      print('[UserService] Campo active encontrado para usuário ${userData['id']}: $activeValue');
+                    } else {
+                      print('[UserService] Campo active NÃO encontrado para usuário ${userData['id']}. Chaves disponíveis: ${userData.keys.toList()}');
                     }
-                    // Se ainda não tem, verifica is_active
-                    if (userData['active'] == null && item['is_active'] != null) {
-                      userData['active'] = item['is_active'];
+                    
+                    // Verifica e extrai o role se for um objeto
+                    final roleRaw = userData['role'];
+                    if (roleRaw is Map<String, dynamic>) {
+                      // Role é um objeto, extrai o name
+                      final roleName = roleRaw['name'] ?? roleRaw['role'] ?? '';
+                      userData['role'] = roleName.toString();
+                      print('[UserService] Role extraído do objeto para usuário ${userData['id']}: $roleName');
+                    } else if (roleRaw != null) {
+                      // Role já é uma string, mantém como está
+                      userData['role'] = roleRaw.toString();
                     }
+                    
                     return userData;
                   }
                   return userData;
@@ -536,6 +606,20 @@ class UserService {
               .whereType<Map<String, dynamic>>()
               .map(ManagedUser.fromApi)
               .toList();
+          
+          // Log para debug: mostra quantos usuários foram parseados e seus status
+          print('[UserService] Total de usuários parseados: ${usuarios.length}');
+          final ativosCount = usuarios.where((u) => u.active == true).length;
+          final inativosCount = usuarios.where((u) => u.active == false).length;
+          print('[UserService] Usuários ativos: $ativosCount, inativos: $inativosCount');
+          
+          // Log para debug: mostra os roles dos usuários retornados
+          final rolesCount = <String, int>{};
+          for (final usuario in usuarios) {
+            final role = usuario.role.toUpperCase();
+            rolesCount[role] = (rolesCount[role] ?? 0) + 1;
+          }
+          print('[UserService] Distribuição por role: $rolesCount');
           
           // Filtra conforme solicitado
           if (apenasAtivos == true) {
