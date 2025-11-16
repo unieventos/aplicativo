@@ -33,7 +33,6 @@ class AppTheme {
       colorScheme: ColorScheme.light(
         primary: AppColors.primary,
         secondary: AppColors.secondary,
-        background: AppColors.background,
         surface: AppColors.surface,
       ),
     );
@@ -115,8 +114,8 @@ class AppTheme {
       ),
       checkboxTheme: CheckboxThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-        fillColor: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
             return AppColors.primary;
           }
           return Colors.grey.shade400;
