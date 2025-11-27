@@ -1,12 +1,13 @@
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import 'package:flutter_application_1/api_service.dart' as api_service;
-import 'models/course_option.dart';
 
 // --- TELA DE CADASTRO DE EVENTO FINALIZADA ---
 class EVRegister extends StatefulWidget {
@@ -21,12 +22,13 @@ class _EVRegisterState extends State<EVRegister> {
 
   final _tituloController = TextEditingController();
 
-  String? _cursoSelecionadoId;
-  List<CourseOption> _cursos = [];
+  String? _categoriaSelecionadaId;
+  List<api_service.Categoria> _categorias = [];
   DateTime? _dataInicio;
   DateTime? _dataFim;
   final ImagePicker _imagePicker = ImagePicker();
   XFile? _imagemSelecionada;
+  Uint8List? _imagemBytes; // Para armazenar bytes da imagem no Web
   final TextEditingController _descricaoController = TextEditingController();
   bool _isLoading = false;
   String? _userRole;
@@ -34,7 +36,7 @@ class _EVRegisterState extends State<EVRegister> {
   @override
   void initState() {
     super.initState();
-    _carregarCursos();
+    _carregarCategorias();
     _carregarRole();
   }
 
@@ -45,21 +47,21 @@ class _EVRegisterState extends State<EVRegister> {
     super.dispose();
   }
 
-  Future<void> _carregarCursos() async {
+  Future<void> _carregarCategorias() async {
     try {
-      final cursos = await api_service.UsuarioApi.listarCursos();
+      final categorias = await api_service.CategoriaApi.fetchCategorias();
       if (!mounted) return;
       setState(() {
-        _cursos = cursos;
-        if (_cursos.isNotEmpty) {
-          _cursoSelecionadoId = _cursos.first.id;
+        _categorias = categorias;
+        if (_categorias.isNotEmpty) {
+          _categoriaSelecionadaId = _categorias.first.id;
         }
       });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Falha ao carregar cursos: $e')));
+      ).showSnackBar(SnackBar(content: Text('Falha ao carregar categorias: $e')));
     }
   }
 
@@ -88,9 +90,19 @@ class _EVRegisterState extends State<EVRegister> {
         imageQuality: 80,
       );
       if (imagem != null) {
-        setState(() {
-          _imagemSelecionada = imagem;
-        });
+        // No Web, precisamos ler os bytes para exibir a imagem
+        if (kIsWeb) {
+          final bytes = await imagem.readAsBytes();
+          setState(() {
+            _imagemSelecionada = imagem;
+            _imagemBytes = bytes;
+          });
+        } else {
+          setState(() {
+            _imagemSelecionada = imagem;
+            _imagemBytes = null; // Não necessário em outras plataformas
+          });
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -103,10 +115,10 @@ class _EVRegisterState extends State<EVRegister> {
   Future<void> _publicarEvento() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_cursoSelecionadoId == null || _cursoSelecionadoId!.isEmpty) {
+    if (_categoriaSelecionadaId == null || _categoriaSelecionadaId!.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Selecione um curso')));
+      ).showSnackBar(const SnackBar(content: Text('Selecione uma categoria')));
       return;
     }
 
@@ -137,35 +149,95 @@ class _EVRegisterState extends State<EVRegister> {
 
     try {
       final dadosEvento = {
-        'titulo': _tituloController.text.trim(),
+        'nomeEvento': _tituloController.text.trim(),
         'descricao': _descricaoController.text.trim(),
-        'cursoId': _cursoSelecionadoId!,
-        'dataInicio': _dataInicio!.toIso8601String(),
-        'dataFim': _dataFim!.toIso8601String(),
+        'categoria': _categoriaSelecionadaId!,
+        'dateInicio': DateFormat('yyyy-MM-dd').format(_dataInicio!),
+        'dateFim': DateFormat('yyyy-MM-dd').format(_dataFim!),
       };
 
-      final sucesso = await api_service.EventosApi.criarEvento(
+      final resultado = await api_service.EventosApi.criarEvento(
         dadosEvento,
         _imagemSelecionada,
       );
 
       if (!mounted) return;
 
-      if (sucesso) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Evento criado com sucesso!')),
-        );
-        Navigator.of(context).pop(true);
+      if (resultado['success'] == true) {
+        final eventoId = resultado['eventId'];
+        
+        // Se há imagem e evento foi criado, fazer upload
+        if (_imagemSelecionada != null && eventoId != null) {
+          try {
+            // No Web, usa bytes; em outras plataformas, usa File
+            final uploadResult = kIsWeb && _imagemBytes != null
+                ? await api_service.EventosApi.enviarImagemEvento(
+                    _imagemBytes!,
+                    eventoId,
+                    nomeArquivo: _imagemSelecionada!.name,
+                    mimeTypeString: _imagemSelecionada!.mimeType,
+                  )
+                : await api_service.EventosApi.enviarImagemEvento(
+                    File(_imagemSelecionada!.path),
+                    eventoId,
+                  );
+            
+            if (uploadResult['success'] != true) {
+              // Avisa mas não falha, pois o evento já foi criado
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(uploadResult['message'] ?? 
+                                 uploadResult['error'] ?? 
+                                 'Evento criado, mas houve erro ao enviar imagem'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              }
+            }
+          } catch (e) {
+            // Log do erro mas não bloqueia
+            print('Erro ao enviar imagem: $e');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Evento criado, mas houve erro ao enviar imagem'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            }
+          }
+        }
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Evento criado com sucesso!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.of(context).pop(true);
+        }
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Erro ao criar evento')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(resultado['error'] ?? 'Erro ao criar evento'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Erro inesperado: $e')));
+      ).showSnackBar(
+        SnackBar(
+          content: Text('Erro inesperado: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -225,31 +297,31 @@ class _EVRegisterState extends State<EVRegister> {
                         ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField<String>(
-                          value: _cursoSelecionadoId,
+                          value: _categoriaSelecionadaId,
                           decoration: const InputDecoration(
-                            labelText: 'Curso',
-                            prefixIcon: Icon(Icons.school_outlined),
+                            labelText: 'Categoria',
+                            prefixIcon: Icon(Icons.category_outlined),
                           ),
                           isExpanded: true,
-                          items: _cursos
+                          items: _categorias
                               .map(
-                                (curso) => DropdownMenuItem(
-                                  value: curso.id,
+                                (categoria) => DropdownMenuItem(
+                                  value: categoria.id,
                                   child: Text(
-                                    curso.nome,
+                                    categoria.nome,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               )
                               .toList(),
                           selectedItemBuilder: (context) {
-                            return _cursos.map((curso) {
+                            return _categorias.map((categoria) {
                               return Align(
                                 alignment: Alignment.centerLeft,
                                 child: Text(
-                                  _cursos.firstWhere(
-                                    (c) => c.id == _cursoSelecionadoId,
-                                    orElse: () => _cursos.first,
+                                  _categorias.firstWhere(
+                                    (c) => c.id == _categoriaSelecionadaId,
+                                    orElse: () => _categorias.first,
                                   ).nome,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(color: Colors.black87),
@@ -258,10 +330,10 @@ class _EVRegisterState extends State<EVRegister> {
                             }).toList();
                           },
                           onChanged: (value) =>
-                              setState(() => _cursoSelecionadoId = value),
+                              setState(() => _categoriaSelecionadaId = value),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Selecione um curso';
+                              return 'Selecione uma categoria';
                             }
                             return null;
                           },
@@ -315,12 +387,19 @@ class _EVRegisterState extends State<EVRegister> {
                         if (_imagemSelecionada != null)
                           ClipRRect(
                             borderRadius: BorderRadius.circular(16),
-                            child: Image.file(
-                              File(_imagemSelecionada!.path),
-                              height: 180,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                            ),
+                            child: kIsWeb && _imagemBytes != null
+                                ? Image.memory(
+                                    _imagemBytes!,
+                                    height: 180,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                  )
+                                : Image.file(
+                                    File(_imagemSelecionada!.path),
+                                    height: 180,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                  ),
                           )
                         else
                           Container(
