@@ -255,22 +255,34 @@ class EventosApi {
 
   // GET /eventos - Busca lista paginada de eventos
   static Future<List<Evento>> fetchEventos(int page, int pageSize, {String search = ''}) async {
+    // Token opcional - a API não requer autenticação
     final token = await _storage.read(key: 'token');
-    if (token == null) throw Exception('Token não encontrado.');
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
       throw Exception('Mixed content bloqueado no navegador: app https x API http.');
     }
 
     final url = Uri.parse('$_baseUrl?page=$page&size=$pageSize&sortBy=dateInicio&name=$search');
+    
+    // Headers condicionais - só adiciona Authorization se o token existir
+    final headers = <String, String>{
+      'Accept': 'application/json',
+    };
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    
     final response = await http
-        .get(url, headers: {'Authorization': 'Bearer $token'})
+        .get(url, headers: headers)
         .timeout(const Duration(seconds: 15));
 
     if (response.statusCode == 200) {
       final data = json.decode(utf8.decode(response.bodyBytes));
       final List<dynamic> list = data['_embedded']?['eventoResourceV1List'] ?? [];
       return list.map((item) => Evento.fromJson(item['evento'])).toList();
+    } else if (response.statusCode == 404) {
+      // API retorna 404 quando não há eventos (EventNotFoundException)
+      return [];
     } else {
       throw Exception('Falha ao carregar eventos: ${response.statusCode}');
     }
