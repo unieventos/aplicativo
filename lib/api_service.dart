@@ -1,5 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_application_1/config/api_config.dart';
 import 'package:flutter_application_1/utils/web_checks.dart';
@@ -161,6 +165,61 @@ class UsuarioApi {
     }
   }
 
+  // GET /usuarios/{id} - Busca um usuário específico por ID
+  static Future<Usuario?> buscarUsuarioPorId(String id) async {
+    final token = await _storage.read(key: 'token');
+    if (token == null) {
+      // Se não houver token, retorna null (pode ser listagem pública)
+      return null;
+    }
+
+    if (WebChecks.isMixedContent(ApiConfig.base)) {
+      throw Exception('Mixed content bloqueado no navegador: app https x API http.');
+    }
+
+    final url = Uri.parse('$_baseUrl/$id');
+    try {
+      final response = await http
+          .get(
+            url,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+            },
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(utf8.decode(response.bodyBytes));
+        // A API pode retornar o usuário em diferentes estruturas
+        // Tenta encontrar o objeto 'user' dentro da resposta
+        Map<String, dynamic>? userData;
+        if (data is Map<String, dynamic>) {
+          if (data['user'] is Map<String, dynamic>) {
+            userData = data['user'] as Map<String, dynamic>;
+          } else if (data['nome'] != null || data['id'] != null) {
+            // Se já é o objeto user diretamente
+            userData = data;
+          }
+        }
+
+        if (userData != null) {
+          return Usuario.fromJson(userData);
+        }
+        return null;
+      } else if (response.statusCode == 404) {
+        // Usuário não encontrado
+        return null;
+      } else {
+        print("Erro ao buscar usuário por ID: ${response.statusCode}");
+        return null;
+      }
+    } catch (e) {
+      print("Erro ao buscar usuário por ID: $e");
+      return null;
+    }
+  }
+
   // GET /cursos - Lista todos os cursos pré-cadastrados
   static Future<List<CourseOption>> listarCursos() async {
     // Lista fixa dos 38 cursos pré-cadastrados conforme a API
@@ -255,31 +314,247 @@ class EventosApi {
 
   // GET /eventos - Busca lista paginada de eventos
   static Future<List<Evento>> fetchEventos(int page, int pageSize, {String search = ''}) async {
+    // Token opcional - a API não requer autenticação
     final token = await _storage.read(key: 'token');
-    if (token == null) throw Exception('Token não encontrado.');
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
       throw Exception('Mixed content bloqueado no navegador: app https x API http.');
     }
 
     final url = Uri.parse('$_baseUrl?page=$page&size=$pageSize&sortBy=dateInicio&name=$search');
+    
+    // Headers condicionais - só adiciona Authorization se o token existir
+    final headers = <String, String>{
+      'Accept': 'application/json',
+    };
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    
     final response = await http
-        .get(url, headers: {'Authorization': 'Bearer $token'})
+        .get(url, headers: headers)
         .timeout(const Duration(seconds: 15));
 
     if (response.statusCode == 200) {
       final data = json.decode(utf8.decode(response.bodyBytes));
       final List<dynamic> list = data['_embedded']?['eventoResourceV1List'] ?? [];
-      return list.map((item) => Evento.fromJson(item['evento'])).toList();
+      final eventos = list.map((item) => Evento.fromJson(item['evento'])).toList();
+      
+      // Buscar nomes dos criadores e fotos se houver token
+      if (token != null && token.isNotEmpty && eventos.isNotEmpty) {
+        await _enriquecerNomesCriadores(eventos);
+        await _enriquecerFotosEventos(eventos, token);
+      }
+      
+      return eventos;
+    } else if (response.statusCode == 404) {
+      // API retorna 404 quando não há eventos (EventNotFoundException)
+      return [];
     } else {
       throw Exception('Falha ao carregar eventos: ${response.statusCode}');
     }
   }
+
+  // Enriquece os eventos com os nomes dos criadores
+  static Future<void> _enriquecerNomesCriadores(List<Evento> eventos) async {
+    // Coleta todos os IDs únicos de criadores
+    final criadoresIds = <String>{};
+    for (final evento in eventos) {
+      final criadorId = evento.criador;
+      // Verifica se é um UUID (formato básico: contém hífens e tem comprimento típico)
+      if (criadorId.isNotEmpty && 
+          criadorId.length > 20 && 
+          criadorId.contains('-')) {
+        criadoresIds.add(criadorId);
+      }
+    }
+
+    if (criadoresIds.isEmpty) {
+      return; // Não há IDs para buscar
+    }
+
+    // Busca todos os usuários em paralelo
+    final usuariosFutures = criadoresIds.map((id) => UsuarioApi.buscarUsuarioPorId(id));
+    final usuariosResults = await Future.wait(usuariosFutures);
+
+    // Cria mapa de ID -> nome completo
+    final Map<String, String> nomesCriadores = {};
+    for (int i = 0; i < criadoresIds.length; i++) {
+      final id = criadoresIds.elementAt(i);
+      final usuario = usuariosResults[i];
+      if (usuario != null) {
+        final nomeCompleto = usuario.displayName.isNotEmpty 
+            ? usuario.displayName 
+            : (usuario.nome.isNotEmpty ? usuario.nome : id);
+        nomesCriadores[id] = nomeCompleto;
+      } else {
+        // Se não encontrou o usuário, mantém o ID ou usa fallback
+        nomesCriadores[id] = 'Usuário desconhecido';
+      }
+    }
+
+    // Atualiza os eventos com os nomes dos criadores
+    // Como Evento é imutável, precisamos recriar os objetos
+    for (int i = 0; i < eventos.length; i++) {
+      final evento = eventos[i];
+      final criadorId = evento.criador;
+      
+      // Se o criador é um UUID e temos o nome, substitui
+      if (criadorId.isNotEmpty && 
+          criadorId.length > 20 && 
+          criadorId.contains('-') &&
+          nomesCriadores.containsKey(criadorId)) {
+        final nomeCriador = nomesCriadores[criadorId]!;
+        // Recria o evento com o nome do criador
+        eventos[i] = Evento(
+          id: evento.id,
+          titulo: evento.titulo,
+          descricao: evento.descricao,
+          autor: nomeCriador,
+          criador: nomeCriador,
+          cursoAutor: evento.cursoAutor,
+          autorAvatarUrl: evento.autorAvatarUrl,
+          imagemUrl: evento.imagemUrl,
+          data: evento.data,
+          inicio: evento.inicio,
+          fim: evento.fim,
+          categoria: evento.categoria,
+          participantes: evento.participantes,
+        );
+      }
+    }
+  }
+
+  // Enriquece os eventos com as URLs das fotos
+  static Future<void> _enriquecerFotosEventos(List<Evento> eventos, String token) async {
+    if (eventos.isEmpty) return;
+
+    // Coleta todos os IDs únicos de eventos
+    final ids = eventos.map((e) => e.id).where((id) => id.isNotEmpty).toSet();
+    if (ids.isEmpty) return;
+
+    try {
+      final limite = ids.length > 200 ? ids.length : 200;
+      final url = Uri.parse('${ApiConfig.base}/fotos?page=0&size=$limite&sortBy=id');
+      final response = await http.get(
+        url,
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      // 404 é esperado quando não há fotos, não é um erro
+      if (response.statusCode == 404) {
+        print('[EventosApi] Nenhuma foto encontrada (404 - esperado)');
+        return;
+      }
+      
+      if (response.statusCode != 200) {
+        print('[EventosApi] Erro ao buscar fotos: ${response.statusCode}');
+        return; // Falha silenciosa
+      }
+
+      final bodyText = utf8.decode(response.bodyBytes);
+      final decoded = bodyText.isNotEmpty ? jsonDecode(bodyText) : null;
+      if (decoded == null) return;
+
+      // Extrai lista de fotos
+      final List<dynamic> listaFotos = [];
+      if (decoded is Map<String, dynamic>) {
+        final embedded = decoded['_embedded'];
+        if (embedded is Map<String, dynamic>) {
+          final candidato = embedded['fotoResourceV1List'] ?? 
+                           embedded['fotoList'] ?? 
+                           embedded['foto'];
+          if (candidato is List) {
+            listaFotos.addAll(candidato);
+          }
+        }
+        final content = decoded['content'];
+        if (content is List) {
+          listaFotos.addAll(content);
+        }
+      } else if (decoded is List) {
+        listaFotos.addAll(decoded);
+      }
+
+      // Cria mapa de ID do evento -> URL da foto
+      final Map<String, String> fotosMap = {};
+      for (final item in listaFotos) {
+        if (item is! Map<String, dynamic>) continue;
+        
+        final foto = item['foto'] is Map<String, dynamic>
+            ? item['foto'] as Map<String, dynamic>
+            : item;
+        
+        final alvo = _stringOuNuloFoto(foto['alvo']) ?? _stringOuNuloFoto(item['alvo']) ?? '';
+        if (alvo.toUpperCase() != 'EVENTO') continue;
+        
+        final idAlvo = _stringOuNuloFoto(foto['idAlvo']) ?? _stringOuNuloFoto(item['idAlvo']);
+        if (idAlvo == null || !ids.contains(idAlvo)) continue;
+        
+        final path = _stringOuNuloFoto(foto['path']) ?? _stringOuNuloFoto(item['path']);
+        if (path == null || path.isEmpty) continue;
+        
+        // Resolve o path para URL completa
+        final urlCompleta = _resolverPathFoto(path);
+        fotosMap[idAlvo] = urlCompleta;
+      }
+
+      // Atualiza os eventos com as URLs das fotos
+      for (int i = 0; i < eventos.length; i++) {
+        final evento = eventos[i];
+        if (fotosMap.containsKey(evento.id)) {
+          // Recria o evento com a URL da foto
+          eventos[i] = Evento(
+            id: evento.id,
+            titulo: evento.titulo,
+            descricao: evento.descricao,
+            autor: evento.autor,
+            criador: evento.criador,
+            cursoAutor: evento.cursoAutor,
+            autorAvatarUrl: evento.autorAvatarUrl,
+            imagemUrl: fotosMap[evento.id]!,
+            data: evento.data,
+            inicio: evento.inicio,
+            fim: evento.fim,
+            categoria: evento.categoria,
+            participantes: evento.participantes,
+          );
+        }
+      }
+    } catch (e) {
+      // Falha silenciosa - não bloqueia a exibição dos eventos
+      print('[EventosApi] Erro ao buscar fotos: $e');
+    }
+  }
+
+  static String? _stringOuNuloFoto(dynamic valor) {
+    if (valor == null) return null;
+    if (valor is String) return valor.isEmpty ? null : valor;
+    return valor.toString();
+  }
+
+  static String _resolverPathFoto(String path) {
+    final trimmed = path.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    final base = Uri.parse(ApiConfig.base.endsWith('/') ? ApiConfig.base : '${ApiConfig.base}/');
+    final sanitized = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
+    return base.resolve(sanitized).toString();
+  }
   
   // POST /eventos - Cadastra um novo evento
-  static Future<bool> criarEvento(Map<String, dynamic> dadosEvento, [dynamic imagem]) async {
+  static Future<Map<String, dynamic>> criarEvento(Map<String, dynamic> dadosEvento, [dynamic imagem]) async {
     final token = await _storage.read(key: 'token');
-    if (token == null) return false;
+    if (token == null) {
+      return {
+        'success': false,
+        'error': 'Token não encontrado. Faça login novamente.',
+      };
+    }
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
       throw Exception('Mixed content bloqueado no navegador: app https x API http.');
@@ -287,6 +562,10 @@ class EventosApi {
 
     final url = Uri.parse(_baseUrl);
     try {
+      // Log do payload sendo enviado
+      print('[EventosApi] POST $url');
+      print('[EventosApi] Payload: ${jsonEncode(dadosEvento)}');
+      
       final response = await http
           .post(
             url,
@@ -294,11 +573,225 @@ class EventosApi {
             body: jsonEncode(dadosEvento),
           )
           .timeout(const Duration(seconds: 15));
-      return response.statusCode == 201;
+
+      final responseBody = utf8.decode(response.bodyBytes);
+      print('[EventosApi] Status: ${response.statusCode}');
+      print('[EventosApi] Response: $responseBody');
+
+      if (response.statusCode == 201) {
+        // Extrair ID do evento do header Location ou do body
+        String? eventId = _extractEventIdFromHeaders(response.headers);
+        
+        // Se não encontrou no header, tenta no body
+        if (eventId == null && responseBody.isNotEmpty) {
+          try {
+            final data = jsonDecode(responseBody);
+            eventId = _extractEventIdFromBody(data);
+          } catch (_) {
+            // Body não é JSON válido, ignora
+          }
+        }
+
+        return {
+          'success': true,
+          'eventId': eventId,
+        };
+      } else {
+        // Tenta extrair mensagem de erro do body
+        String errorMessage = 'Erro ao criar evento';
+        try {
+          final errorData = jsonDecode(responseBody);
+          errorMessage = errorData['message'] ?? 
+                         errorData['error'] ?? 
+                         errorData['detail'] ??
+                         errorMessage;
+        } catch (_) {
+          errorMessage = responseBody.isNotEmpty 
+              ? responseBody 
+              : 'Erro ${response.statusCode}';
+        }
+        
+        return {
+          'success': false,
+          'error': errorMessage,
+          'statusCode': response.statusCode,
+        };
+      }
     } catch (e) {
-      print("Erro ao criar evento: $e");
-      return false;
+      return {
+        'success': false,
+        'error': 'Erro de conexão: ${e.toString()}',
+      };
     }
+  }
+
+  // Extrai o ID do evento do header Location
+  static String? _extractEventIdFromHeaders(Map<String, String> headers) {
+    final location = headers['location'] ?? headers['Location'];
+    if (location == null || location.isEmpty) return null;
+    final sanitized = location.split('?').first;
+    final segments = sanitized.split('/').where((segment) => segment.isNotEmpty).toList();
+    return segments.isNotEmpty ? segments.last : null;
+  }
+
+  // Extrai o ID do evento do body da resposta
+  static String? _extractEventIdFromBody(dynamic data) {
+    if (data == null) return null;
+    if (data is Map<String, dynamic>) {
+      // Tenta encontrar ID diretamente
+      final directId = data['id'];
+      if (directId is String && directId.isNotEmpty) return directId;
+
+      // Tenta encontrar em evento.id
+      final evento = data['evento'];
+      if (evento is Map<String, dynamic>) {
+        final nestedId = evento['id'];
+        if (nestedId is String && nestedId.isNotEmpty) return nestedId;
+      }
+    }
+    return null;
+  }
+
+  // POST /fotos - Envia imagem para um evento
+  // Aceita File (mobile/desktop) ou Uint8List (Web)
+  static Future<Map<String, dynamic>> enviarImagemEvento(
+    dynamic arquivo, 
+    String eventoId, {
+    String? nomeArquivo,
+    String? mimeTypeString,
+  }) async {
+    final token = await _storage.read(key: 'token');
+    if (token == null) {
+      return {
+        'success': false,
+        'error': 'Token não encontrado. Faça login novamente.',
+      };
+    }
+
+    if (WebChecks.isMixedContent(ApiConfig.base)) {
+      throw Exception('Mixed content bloqueado no navegador: app https x API http.');
+    }
+
+    final url = Uri.parse('${ApiConfig.base}/fotos');
+    
+    try {
+      final request = http.MultipartRequest('POST', url);
+      request.headers.addAll({
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+
+      // Adiciona o arquivo - suporta tanto File quanto Uint8List (Web)
+      MediaType mimeType;
+      if (kIsWeb && arquivo is Uint8List) {
+        // No Web, usa os bytes diretamente
+        if (mimeTypeString != null) {
+          try {
+            mimeType = MediaType.parse(mimeTypeString);
+          } catch (_) {
+            // Se falhar ao parsear, tenta inferir do nome do arquivo
+            mimeType = _mimeTypeForPath(nomeArquivo ?? 'imagem.jpg');
+          }
+        } else {
+          // Tenta inferir do nome do arquivo
+          mimeType = _mimeTypeForPath(nomeArquivo ?? 'imagem.jpg');
+        }
+        request.files.add(http.MultipartFile.fromBytes(
+          'foto',
+          arquivo,
+          filename: nomeArquivo ?? 'imagem.jpg',
+          contentType: mimeType,
+        ));
+      } else if (arquivo is File) {
+        // Em outras plataformas, usa File
+        mimeType = _mimeTypeForPath(arquivo.path);
+        request.files.add(await http.MultipartFile.fromPath(
+          'foto',
+          arquivo.path,
+          contentType: mimeType,
+        ));
+      } else {
+        return {
+          'success': false,
+          'error': 'Tipo de arquivo não suportado. Use File ou Uint8List.',
+        };
+      }
+
+      // Adiciona os dados do evento
+      request.files.add(http.MultipartFile.fromString(
+        'dados',
+        jsonEncode({'tipo': 'EVENTO', 'id': eventoId}),
+        contentType: MediaType('application', 'json'),
+      ));
+
+      final streamed = await request.send();
+      final responseText = await streamed.stream.bytesToString();
+      
+      dynamic data;
+      try {
+        data = responseText.isNotEmpty ? jsonDecode(responseText) : null;
+      } catch (_) {
+        data = responseText;
+      }
+
+      if (streamed.statusCode == 200 || streamed.statusCode == 201) {
+        return {
+          'success': true,
+          'data': data,
+          'message': _extractMessage(data) ?? 'Imagem anexada com sucesso.',
+          'statusCode': streamed.statusCode,
+        };
+      }
+
+      return {
+        'success': false,
+        'message': _extractMessage(data) ?? 'Falha ao anexar imagem.',
+        'details': data,
+        'statusCode': streamed.statusCode,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'error': 'Erro ao anexar imagem: ${e.toString()}',
+      };
+    }
+  }
+
+  // Determina o MIME type baseado na extensão do arquivo (path ou nome)
+  static MediaType _mimeTypeForPath(String pathOrName) {
+    final parts = pathOrName.split('.');
+    if (parts.length < 2) {
+      return MediaType('application', 'octet-stream');
+    }
+    switch (parts.last.toLowerCase()) {
+      case 'png':
+        return MediaType('image', 'png');
+      case 'jpg':
+      case 'jpeg':
+        return MediaType('image', 'jpeg');
+      case 'heic':
+        return MediaType('image', 'heic');
+      case 'webp':
+        return MediaType('image', 'webp');
+      default:
+        return MediaType('application', 'octet-stream');
+    }
+  }
+
+  // Extrai mensagem de erro do body da resposta
+  static String? _extractMessage(dynamic data) {
+    if (data == null) return null;
+    if (data is Map<String, dynamic>) {
+      final keys = ['message', 'mensagem', 'detail', 'error'];
+      for (final key in keys) {
+        final value = data[key];
+        if (value is String && value.isNotEmpty) {
+          return value;
+        }
+      }
+    }
+    if (data is String && data.isNotEmpty) return data;
+    return null;
   }
 }
 

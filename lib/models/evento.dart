@@ -33,25 +33,49 @@ class Evento {
   String get nome => titulo;
 
   factory Evento.fromJson(Map<String, dynamic> json) {
-    // Tenta mapear diferentes possíveis nomes de campos vindos da API
+    // Mapeia os campos da API conforme a documentação
     final dynamic dataRaw = json['data'] ?? json['dataInicio'] ?? json['dateInicio'];
     final dynamic inicioRaw = json['inicio'] ?? json['dataInicio'] ?? json['dateInicio'];
     final dynamic fimRaw = json['fim'] ?? json['dataFim'] ?? json['dateFim'];
     
+    // Conta participantes da lista usuariosPermissao
+    final usuariosPermissao = json['usuariosPermissao'];
+    final int participantesCount = usuariosPermissao is List ? usuariosPermissao.length : 0;
+    
+    // Extrai categoria se existir (pode vir como objeto ou string)
+    String categoriaNome = '';
+    final categoriaRaw = json['eventoCategoria'];
+    if (categoriaRaw is List && categoriaRaw.isNotEmpty) {
+      final primeiraCategoria = categoriaRaw.first;
+      if (primeiraCategoria is Map<String, dynamic>) {
+        categoriaNome = primeiraCategoria['nomeCategoria'] ?? primeiraCategoria['nome'] ?? '';
+      }
+    } else if (categoriaRaw is String) {
+      categoriaNome = categoriaRaw;
+    } else if (categoriaRaw is Map<String, dynamic>) {
+      categoriaNome = categoriaRaw['nomeCategoria'] ?? categoriaRaw['nome'] ?? '';
+    }
+    
     return Evento(
       id: json['id'] ?? '',
-      titulo: json['titulo'] ?? json['nome'] ?? 'Título não informado',
+      // API retorna 'nomeEvento', não 'titulo' ou 'nome'
+      titulo: json['nomeEvento'] ?? json['titulo'] ?? json['nome'] ?? 'Título não informado',
       descricao: json['descricao'] ?? json['description'] ?? '',
-      autor: json['autor'] ?? json['criador'] ?? 'Autor desconhecido',
-      criador: json['criador'] ?? json['autor'] ?? 'Criador desconhecido',
+      // API retorna 'usuarioCriador'
+      autor: json['usuarioCriador'] ?? json['autor'] ?? json['criador'] ?? 'Autor desconhecido',
+      criador: json['usuarioCriador'] ?? json['criador'] ?? json['autor'] ?? 'Criador desconhecido',
       cursoAutor: json['cursoAutor'] ?? json['curso'] ?? 'Curso não informado',
       autorAvatarUrl: json['autorAvatarUrl'] ?? json['avatarUrl'] ?? '',
       imagemUrl: json['imagemUrl'] ?? json['imagem'] ?? '',
       data: dataRaw is String ? (DateTime.tryParse(dataRaw) ?? DateTime.now()) : DateTime.now(),
       inicio: inicioRaw is String ? (DateTime.tryParse(inicioRaw) ?? DateTime.now()) : DateTime.now(),
       fim: fimRaw is String ? (DateTime.tryParse(fimRaw) ?? DateTime.now()) : DateTime.now(),
-      categoria: json['categoria'] ?? json['category'] ?? '',
-      participantes: json['participantes'] ?? json['participants'] ?? 0,
+      categoria: categoriaNome.isNotEmpty 
+          ? categoriaNome 
+          : (json['categoria'] ?? json['category'] ?? ''),
+      participantes: participantesCount > 0 
+          ? participantesCount 
+          : (json['participantes'] ?? json['participants'] ?? 0),
     );
   }
 
