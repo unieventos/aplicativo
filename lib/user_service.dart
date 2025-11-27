@@ -395,41 +395,71 @@ class UserService {
     final body = utf8.decode(response.bodyBytes);
     print(
         '[UserService] Resposta criar categoria ${response.statusCode}: $body');
+    print('[UserService] Headers: ${response.headers}');
+    
     if (response.statusCode == 200 || response.statusCode == 201) {
       try {
-        final data = jsonDecode(body);
+        final data = body.isNotEmpty ? jsonDecode(body) : null;
         // tenta extrair id/nome de diferentes formatos
         String id = '';
         String nome = nomeCategoria;
+        
         if (data is Map<String, dynamic>) {
           if (data['categoria'] is Map<String, dynamic>) {
             final c = data['categoria'] as Map<String, dynamic>;
             id = (c['id'] ?? '').toString();
             nome = (c['nomeCategoria'] ?? nome).toString();
+            print('[UserService] ID extraído do objeto categoria: $id');
           } else {
             id = (data['id'] ?? '').toString();
             nome = (data['nomeCategoria'] ?? data['nome'] ?? nome).toString();
+            print('[UserService] ID extraído do objeto raiz: $id');
           }
         }
+        
+        // Se não encontrou no body, tenta no header Location
         if (id.isEmpty) {
           final location =
               response.headers['location'] ?? response.headers['Location'];
+          print('[UserService] Tentando extrair ID do header Location: $location');
           if (location != null && location.isNotEmpty) {
-            id = location
-                .split('/')
-                .lastWhere((segment) => segment.isNotEmpty, orElse: () => '');
+            // Remove query parameters se houver
+            final locationPath = location.split('?').first;
+            final segments = locationPath.split('/').where((s) => s.isNotEmpty).toList();
+            if (segments.isNotEmpty) {
+              id = segments.last;
+              print('[UserService] ID extraído do header Location: $id');
+            } else {
+              print('[UserService] AVISO: Location header não contém segmentos válidos');
+            }
           }
         }
+        
         if (nome.isEmpty) nome = nomeCategoria;
+        
+        if (id.isEmpty) {
+          print('[UserService] AVISO: Não foi possível extrair ID da categoria criada');
+        } else {
+          print('[UserService] Categoria criada com sucesso: ID=$id, Nome=$nome');
+        }
+        
         return {'id': id, 'nome': nome};
-      } catch (_) {
+      } catch (e) {
+        print('[UserService] Erro ao parsear resposta: $e');
+        // Tenta extrair do header Location como fallback
         final location =
             response.headers['location'] ?? response.headers['Location'];
+        print('[UserService] Fallback: tentando extrair do Location: $location');
         final id = (location != null && location.isNotEmpty)
             ? location
                 .split('/')
-                .lastWhere((segment) => segment.isNotEmpty, orElse: () => '')
+                .where((s) => s.isNotEmpty)
+                .toList()
+                .lastOrNull ?? ''
             : '';
+        if (id.isNotEmpty) {
+          print('[UserService] ID extraído do Location (fallback): $id');
+        }
         return {'id': id, 'nome': nomeCategoria};
       }
     }

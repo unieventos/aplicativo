@@ -8,6 +8,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import 'package:flutter_application_1/api_service.dart' as api_service;
+import 'package:flutter_application_1/models/course_option.dart';
+import 'package:flutter_application_1/user_service.dart';
 
 // --- TELA DE CADASTRO DE EVENTO FINALIZADA ---
 class EVRegister extends StatefulWidget {
@@ -22,8 +24,8 @@ class _EVRegisterState extends State<EVRegister> {
 
   final _tituloController = TextEditingController();
 
-  String? _categoriaSelecionadaId;
-  List<api_service.Categoria> _categorias = [];
+  String? _cursoSelecionadoId;
+  List<CourseOption> _cursos = [];
   DateTime? _dataInicio;
   DateTime? _dataFim;
   final ImagePicker _imagePicker = ImagePicker();
@@ -36,7 +38,7 @@ class _EVRegisterState extends State<EVRegister> {
   @override
   void initState() {
     super.initState();
-    _carregarCategorias();
+    _carregarCursos();
     _carregarRole();
   }
 
@@ -47,21 +49,21 @@ class _EVRegisterState extends State<EVRegister> {
     super.dispose();
   }
 
-  Future<void> _carregarCategorias() async {
+  Future<void> _carregarCursos() async {
     try {
-      final categorias = await api_service.CategoriaApi.fetchCategorias();
+      final cursos = await api_service.UsuarioApi.listarCursos();
       if (!mounted) return;
       setState(() {
-        _categorias = categorias;
-        if (_categorias.isNotEmpty) {
-          _categoriaSelecionadaId = _categorias.first.id;
+        _cursos = cursos;
+        if (_cursos.isNotEmpty) {
+          _cursoSelecionadoId = _cursos.first.id;
         }
       });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Falha ao carregar categorias: $e')));
+      ).showSnackBar(SnackBar(content: Text('Falha ao carregar cursos: $e')));
     }
   }
 
@@ -115,10 +117,10 @@ class _EVRegisterState extends State<EVRegister> {
   Future<void> _publicarEvento() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_categoriaSelecionadaId == null || _categoriaSelecionadaId!.isEmpty) {
+    if (_cursoSelecionadoId == null || _cursoSelecionadoId!.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Selecione uma categoria')));
+      ).showSnackBar(const SnackBar(content: Text('Selecione um curso')));
       return;
     }
 
@@ -148,18 +150,58 @@ class _EVRegisterState extends State<EVRegister> {
     setState(() => _isLoading = true);
 
     try {
+      // Busca o nome do curso selecionado
+      final cursoSelecionado = _cursos.firstWhere(
+        (c) => c.id == _cursoSelecionadoId,
+        orElse: () => _cursos.first,
+      );
+      
+      // Busca ou cria uma categoria com o nome do curso
+      final categoriaId = await _obterOuCriarCategoriaPorCurso(cursoSelecionado.nome);
+      
+      if (categoriaId == null || categoriaId.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erro ao obter categoria para o curso selecionado. Tente novamente.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+          ),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // Valida se o ID da categoria é válido (não vazio e não é apenas espaços)
+      if (categoriaId.trim().isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('ID de categoria inválido. Tente novamente.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
       final dadosEvento = {
         'nomeEvento': _tituloController.text.trim(),
         'descricao': _descricaoController.text.trim(),
-        'categoria': _categoriaSelecionadaId!,
+        'categoria': categoriaId.trim(), // ID da categoria (não do curso)
         'dateInicio': DateFormat('yyyy-MM-dd').format(_dataInicio!),
         'dateFim': DateFormat('yyyy-MM-dd').format(_dataFim!),
       };
+
+      print('[EVRegister] Criando evento com dados: $dadosEvento');
+      print('[EVRegister] Categoria ID: $categoriaId');
 
       final resultado = await api_service.EventosApi.criarEvento(
         dadosEvento,
         _imagemSelecionada,
       );
+
+      print('[EVRegister] Resultado: $resultado');
 
       if (!mounted) return;
 
@@ -216,14 +258,24 @@ class _EVRegisterState extends State<EVRegister> {
               backgroundColor: Colors.green,
             ),
           );
-          Navigator.of(context).pop(true);
+          // Tenta fazer pop, se não conseguir (porque está em IndexedStack), 
+          // o usuário pode navegar manualmente para o feed
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop(true);
+          }
         }
       } else {
         if (mounted) {
+          final errorMsg = resultado['error'] ?? 
+                          resultado['message'] ?? 
+                          'Erro ao criar evento (${resultado['statusCode'] ?? 'desconhecido'})';
+          print('[EVRegister] Erro ao criar evento: $errorMsg');
+          print('[EVRegister] Detalhes: ${resultado['details']}');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(resultado['error'] ?? 'Erro ao criar evento'),
+              content: Text(errorMsg),
               backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
             ),
           );
         }
@@ -242,6 +294,73 @@ class _EVRegisterState extends State<EVRegister> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  // Busca uma categoria existente pelo nome do curso, ou cria uma nova se não existir
+  Future<String?> _obterOuCriarCategoriaPorCurso(String nomeCurso) async {
+    try {
+      print('[EVRegister] Buscando categoria para curso: $nomeCurso');
+      
+      // Primeiro, tenta buscar categorias existentes
+      final categorias = await api_service.CategoriaApi.fetchCategorias();
+      print('[EVRegister] Categorias encontradas: ${categorias.length}');
+      
+      // Procura uma categoria com o mesmo nome do curso
+      try {
+        final categoriaExistente = categorias.firstWhere(
+          (c) => c.nome.toLowerCase() == nomeCurso.toLowerCase(),
+        );
+        
+        // Se encontrou uma categoria com o mesmo nome, usa ela
+        if (categoriaExistente.nome.toLowerCase() == nomeCurso.toLowerCase()) {
+          print('[EVRegister] Categoria encontrada: ${categoriaExistente.nome} (ID: ${categoriaExistente.id})');
+          return categoriaExistente.id;
+        }
+      } catch (_) {
+        // Não encontrou categoria com o mesmo nome, continua
+        print('[EVRegister] Nenhuma categoria encontrada com o nome do curso');
+      }
+      
+      // Se não encontrou, tenta criar uma nova categoria com o nome do curso
+      print('[EVRegister] Tentando criar nova categoria: $nomeCurso');
+      final resultado = await UserService.criarCategoria(nomeCurso);
+      
+      print('[EVRegister] Resultado criar categoria: $resultado');
+      
+      if (resultado != null && resultado['id'] != null) {
+        final categoriaId = resultado['id'] as String;
+        if (categoriaId.isNotEmpty) {
+          print('[EVRegister] Categoria criada com sucesso: ID $categoriaId');
+          return categoriaId;
+        } else {
+          print('[EVRegister] AVISO: Categoria criada mas ID está vazio!');
+        }
+      } else {
+        print('[EVRegister] ERRO: Não foi possível criar categoria ou ID não foi retornado');
+      }
+      
+      // Se não conseguiu criar, tenta usar a primeira categoria disponível como fallback
+      if (categorias.isNotEmpty) {
+        print('[EVRegister] Usando primeira categoria como fallback: ${categorias.first.nome} (ID: ${categorias.first.id})');
+        return categorias.first.id;
+      }
+      
+      print('[EVRegister] Nenhuma categoria disponível');
+      return null;
+    } catch (e) {
+      print('[EVRegister] Erro ao obter/criar categoria: $e');
+      // Em caso de erro, tenta buscar categorias novamente e usar a primeira
+      try {
+        final categorias = await api_service.CategoriaApi.fetchCategorias();
+        if (categorias.isNotEmpty) {
+          print('[EVRegister] Fallback: usando primeira categoria disponível');
+          return categorias.first.id;
+        }
+      } catch (e2) {
+        print('[EVRegister] Erro no fallback: $e2');
+      }
+      return null;
     }
   }
 
@@ -297,31 +416,31 @@ class _EVRegisterState extends State<EVRegister> {
                         ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField<String>(
-                          value: _categoriaSelecionadaId,
+                          value: _cursoSelecionadoId,
                           decoration: const InputDecoration(
-                            labelText: 'Categoria',
-                            prefixIcon: Icon(Icons.category_outlined),
+                            labelText: 'Curso',
+                            prefixIcon: Icon(Icons.school_outlined),
                           ),
                           isExpanded: true,
-                          items: _categorias
+                          items: _cursos
                               .map(
-                                (categoria) => DropdownMenuItem(
-                                  value: categoria.id,
+                                (curso) => DropdownMenuItem(
+                                  value: curso.id,
                                   child: Text(
-                                    categoria.nome,
+                                    curso.nome,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               )
                               .toList(),
                           selectedItemBuilder: (context) {
-                            return _categorias.map((categoria) {
+                            return _cursos.map((curso) {
                               return Align(
                                 alignment: Alignment.centerLeft,
                                 child: Text(
-                                  _categorias.firstWhere(
-                                    (c) => c.id == _categoriaSelecionadaId,
-                                    orElse: () => _categorias.first,
+                                  _cursos.firstWhere(
+                                    (c) => c.id == _cursoSelecionadoId,
+                                    orElse: () => _cursos.first,
                                   ).nome,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(color: Colors.black87),
@@ -330,10 +449,10 @@ class _EVRegisterState extends State<EVRegister> {
                             }).toList();
                           },
                           onChanged: (value) =>
-                              setState(() => _categoriaSelecionadaId = value),
+                              setState(() => _cursoSelecionadoId = value),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Selecione uma categoria';
+                              return 'Selecione um curso';
                             }
                             return null;
                           },
