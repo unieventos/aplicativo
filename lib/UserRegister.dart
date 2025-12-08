@@ -178,12 +178,14 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
 
   Future<void> _fetchUsuariosAtivosPage(int pageKey) async {
     try {
+      // Busca apenas usuários ativos da API usando o parâmetro apenasAtivos: true
       final managedUsers = await UsuarioApi.fetchUsuarios(
         pageKey,
         10,
         _usuarioBuscaAtivosAtual,
         apenasAtivos: true,
       );
+      
       // Converte ManagedUser para Usuario
       // Usa o campo active real do ManagedUser para garantir que apenas usuários ativos apareçam
       // Filtra também usuários que estão no cache de desativados (desativações locais recentes)
@@ -198,13 +200,14 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
                 login: mu.login,
                 curso: mu.cursoDisplay,
                 role: mu.role,
-                active: mu.active, // Usa o campo active real da API
+                active: mu.active,
               ))
           .toList();
 
-      print(
-          '[UserRegister] Usuários ativos recebidos da API: ${managedUsers.length}, após filtro: ${usuarios.length}');
-      final isLastPage = usuarios.length < 10;
+      // Verifica se é a última página baseado no tamanho retornado pela API
+      // Se a API retornou menos de 10 itens, não há mais páginas
+      final isLastPage = managedUsers.length < 10;
+      
       if (isLastPage) {
         _pagingControllerAtivos.appendLastPage(usuarios);
       } else {
@@ -255,9 +258,6 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
                 active: mu.active, // Usa o campo active real da API
               ))
           .toList();
-
-      print(
-          '[UserRegister] Usuários desativados recebidos da API: ${managedUsers.length}, após filtro: ${usuariosDaApi.length}');
 
       // Adiciona usuários do cache local que ainda não foram retornados pela API
       // (caso de desativações recentes que ainda não foram sincronizadas)

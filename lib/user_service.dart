@@ -395,41 +395,71 @@ class UserService {
     final body = utf8.decode(response.bodyBytes);
     print(
         '[UserService] Resposta criar categoria ${response.statusCode}: $body');
+    print('[UserService] Headers: ${response.headers}');
+    
     if (response.statusCode == 200 || response.statusCode == 201) {
       try {
-        final data = jsonDecode(body);
+        final data = body.isNotEmpty ? jsonDecode(body) : null;
         // tenta extrair id/nome de diferentes formatos
         String id = '';
         String nome = nomeCategoria;
+        
         if (data is Map<String, dynamic>) {
           if (data['categoria'] is Map<String, dynamic>) {
             final c = data['categoria'] as Map<String, dynamic>;
             id = (c['id'] ?? '').toString();
             nome = (c['nomeCategoria'] ?? nome).toString();
+            print('[UserService] ID extraído do objeto categoria: $id');
           } else {
             id = (data['id'] ?? '').toString();
             nome = (data['nomeCategoria'] ?? data['nome'] ?? nome).toString();
+            print('[UserService] ID extraído do objeto raiz: $id');
           }
         }
+        
+        // Se não encontrou no body, tenta no header Location
         if (id.isEmpty) {
           final location =
               response.headers['location'] ?? response.headers['Location'];
+          print('[UserService] Tentando extrair ID do header Location: $location');
           if (location != null && location.isNotEmpty) {
-            id = location
-                .split('/')
-                .lastWhere((segment) => segment.isNotEmpty, orElse: () => '');
+            // Remove query parameters se houver
+            final locationPath = location.split('?').first;
+            final segments = locationPath.split('/').where((s) => s.isNotEmpty).toList();
+            if (segments.isNotEmpty) {
+              id = segments.last;
+              print('[UserService] ID extraído do header Location: $id');
+            } else {
+              print('[UserService] AVISO: Location header não contém segmentos válidos');
+            }
           }
         }
+        
         if (nome.isEmpty) nome = nomeCategoria;
+        
+        if (id.isEmpty) {
+          print('[UserService] AVISO: Não foi possível extrair ID da categoria criada');
+        } else {
+          print('[UserService] Categoria criada com sucesso: ID=$id, Nome=$nome');
+        }
+        
         return {'id': id, 'nome': nome};
-      } catch (_) {
+      } catch (e) {
+        print('[UserService] Erro ao parsear resposta: $e');
+        // Tenta extrair do header Location como fallback
         final location =
             response.headers['location'] ?? response.headers['Location'];
+        print('[UserService] Fallback: tentando extrair do Location: $location');
         final id = (location != null && location.isNotEmpty)
             ? location
                 .split('/')
-                .lastWhere((segment) => segment.isNotEmpty, orElse: () => '')
+                .where((s) => s.isNotEmpty)
+                .toList()
+                .lastOrNull ?? ''
             : '';
+        if (id.isNotEmpty) {
+          print('[UserService] ID extraído do Location (fallback): $id');
+        }
         return {'id': id, 'nome': nomeCategoria};
       }
     }
@@ -534,8 +564,6 @@ class UserService {
       },
     );
 
-    print('[UserService] Fazendo requisição para: $uri');
-    
     final response = await http.get(
       uri,
       headers: {
@@ -547,19 +575,16 @@ class UserService {
     if (response.statusCode == 200) {
       final bodyText = utf8.decode(response.bodyBytes);
       final data = jsonDecode(bodyText);
+      
       if (data is Map<String, dynamic>) {
         final embedded = data['_embedded'];
         final list = embedded is Map<String, dynamic>
             ? embedded['usuarioResourceV1List']
             : null;
         if (list is List) {
-          print('[UserService] Total de itens retornados pela API: ${list.length}');
           final usuarios = list
               .map((item) {
                 if (item is Map<String, dynamic>) {
-                  // Log para debug: ver toda a estrutura do item
-                  print('[UserService] Item completo: ${item.keys.toList()}');
-                  
                   // Tenta obter o user, mas também verifica se active está no item pai
                   final userData = item['user'] ?? item['usuario'] ?? item;
                   if (userData is Map<String, dynamic>) {
@@ -579,10 +604,7 @@ class UserService {
                     // Se encontrou o valor, adiciona ao userData para garantir que seja parseado
                     if (activeValue != null) {
                       userData['active'] = activeValue;
-                      userData['is_active'] = activeValue; // Também adiciona como is_active para garantir
-                      print('[UserService] Campo active encontrado para usuário ${userData['id']}: $activeValue');
-                    } else {
-                      print('[UserService] Campo active NÃO encontrado para usuário ${userData['id']}. Chaves disponíveis: ${userData.keys.toList()}');
+                      userData['is_active'] = activeValue;
                     }
                     
                     // Verifica e extrai o role se for um objeto
@@ -591,7 +613,6 @@ class UserService {
                       // Role é um objeto, extrai o name
                       final roleName = roleRaw['name'] ?? roleRaw['role'] ?? '';
                       userData['role'] = roleName.toString();
-                      print('[UserService] Role extraído do objeto para usuário ${userData['id']}: $roleName');
                     } else if (roleRaw != null) {
                       // Role já é uma string, mantém como está
                       userData['role'] = roleRaw.toString();
@@ -607,29 +628,11 @@ class UserService {
               .map(ManagedUser.fromApi)
               .toList();
           
-          // Log para debug: mostra quantos usuários foram parseados e seus status
-          print('[UserService] Total de usuários parseados: ${usuarios.length}');
-          final ativosCount = usuarios.where((u) => u.active == true).length;
-          final inativosCount = usuarios.where((u) => u.active == false).length;
-          print('[UserService] Usuários ativos: $ativosCount, inativos: $inativosCount');
-          
-          // Log para debug: mostra os roles dos usuários retornados
-          final rolesCount = <String, int>{};
-          for (final usuario in usuarios) {
-            final role = usuario.role.toUpperCase();
-            rolesCount[role] = (rolesCount[role] ?? 0) + 1;
-          }
-          print('[UserService] Distribuição por role: $rolesCount');
-          
           // Filtra conforme solicitado
           if (apenasAtivos == true) {
-            final usuariosAtivos = usuarios.where((usuario) => usuario.active == true).toList();
-            print('[UserService] Usuários ativos após filtro: ${usuariosAtivos.length}');
-            return usuariosAtivos;
+            return usuarios.where((usuario) => usuario.active == true).toList();
           } else if (apenasAtivos == false) {
-            final usuariosDesativados = usuarios.where((usuario) => usuario.active == false).toList();
-            print('[UserService] Usuários desativados após filtro: ${usuariosDesativados.length}');
-            return usuariosDesativados;
+            return usuarios.where((usuario) => usuario.active == false).toList();
           }
           
           // Se apenasAtivos for null, retorna todos
@@ -738,26 +741,43 @@ class UserService {
     }
 
     final uri = Uri.parse('$_baseUrl$_usuariosPath/$userId');
-    final response = await http.patch(
-      uri,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode(filteredPayload),
-    );
+    
+    try {
+      final response = await http.patch(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(filteredPayload),
+      ).timeout(const Duration(seconds: 15));
 
-    if (response.statusCode == 200 ||
-        response.statusCode == 204 ||
-        response.statusCode == 202) {
-      return true;
+      if (response.statusCode == 200 ||
+          response.statusCode == 204 ||
+          response.statusCode == 202) {
+        return true;
+      }
+
+      final body = utf8.decode(response.bodyBytes);
+      print(
+          '[UserService] Erro ao atualizar usuário (${response.statusCode}): $body');
+      return false;
+    } on http.ClientException catch (e) {
+      // Trata erros de CORS especificamente
+      final errorMessage = e.message.toLowerCase();
+      if (errorMessage.contains('cors') || 
+          errorMessage.contains('cross-origin') ||
+          errorMessage.contains('networkerror')) {
+        print('[UserService] Erro de CORS ao atualizar usuário. O backend precisa permitir o método PATCH nas configurações de CORS.');
+        rethrow;
+      }
+      print('[UserService] Erro de conexão ao atualizar usuário: $e');
+      rethrow;
+    } catch (e) {
+      print('[UserService] Erro inesperado ao atualizar usuário: $e');
+      rethrow;
     }
-
-    final body = utf8.decode(response.bodyBytes);
-    print(
-        '[UserService] Erro ao atualizar usuário (${response.statusCode}): $body');
-    return false;
   }
 
   static Future<Map<String, dynamic>> deletarUsuario(String userId) async {
