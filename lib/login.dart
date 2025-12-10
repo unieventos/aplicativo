@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:flutter_application_1/auth_service.dart';
 import 'package:flutter_application_1/home.dart';
@@ -227,10 +229,64 @@ class _LoginHeader extends StatelessWidget {
           if (!isLoading)
             Align(
               alignment: Alignment.topRight,
-              child: Image.asset(
-                'assets/logo.png',
-                height: 64,
-                fit: BoxFit.contain,
+              child: FutureBuilder<String>(
+                future: rootBundle.loadString('assets/unisagrado-transparente-preto.svg')
+                    .catchError((error) {
+                  debugPrint('Erro ao carregar SVG com rootBundle: $error');
+                  // Tenta com DefaultAssetBundle como fallback
+                  return DefaultAssetBundle.of(context)
+                      .loadString('assets/unisagrado-transparente-preto.svg')
+                      .catchError((error2) {
+                    debugPrint('Erro ao carregar SVG com DefaultAssetBundle: $error2');
+                    return '';
+                  });
+                }),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const SizedBox(
+                      width: 120,
+                      height: 64,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      ),
+                    );
+                  }
+                  
+                  if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+                    debugPrint('Erro ao carregar SVG: ${snapshot.error}');
+                    return Container(
+                      width: 120,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(
+                        Icons.image_not_supported,
+                        color: Colors.white70,
+                        size: 32,
+                      ),
+                    );
+                  }
+                  
+                  return SizedBox(
+                    width: 120,
+                    height: 64,
+                    child: SvgPicture.string(
+                      snapshot.data!,
+                      width: 120,
+                      height: 64,
+                      fit: BoxFit.contain,
+                      colorFilter: const ColorFilter.mode(
+                        Colors.white,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           const SizedBox(height: 32),

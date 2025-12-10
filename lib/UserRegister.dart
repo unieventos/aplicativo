@@ -178,18 +178,20 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
 
   Future<void> _fetchUsuariosAtivosPage(int pageKey) async {
     try {
-      // Busca apenas usuários ativos da API usando o parâmetro apenasAtivos: true
-      final managedUsers = await UsuarioApi.fetchUsuarios(
+      // Busca usuários da API SEM filtrar por ativos no serviço
+      // Isso permite verificar o tamanho original retornado pela API para paginação correta
+      final managedUsersRaw = await UsuarioApi.fetchUsuarios(
         pageKey,
         10,
         _usuarioBuscaAtivosAtual,
-        apenasAtivos: true,
+        apenasAtivos: null, // Não filtra no serviço, vamos filtrar aqui
       );
       
-      // Converte ManagedUser para Usuario
-      // Usa o campo active real do ManagedUser para garantir que apenas usuários ativos apareçam
-      // Filtra também usuários que estão no cache de desativados (desativações locais recentes)
-      final usuarios = managedUsers
+      // Guarda o tamanho original ANTES do filtro para verificação de última página
+      final tamanhoOriginal = managedUsersRaw.length;
+      
+      // Filtra apenas usuários ativos e que não estão no cache de desativados
+      final usuarios = managedUsersRaw
           .where((mu) =>
               mu.active == true && !_usuariosDesativadosCache.contains(mu.id))
           .map((mu) => Usuario(
@@ -204,9 +206,18 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
               ))
           .toList();
 
-      // Verifica se é a última página baseado no tamanho retornado pela API
+      // Verifica se é a última página baseado no tamanho ORIGINAL retornado pela API
       // Se a API retornou menos de 10 itens, não há mais páginas
-      final isLastPage = managedUsers.length < 10;
+      // IMPORTANTE: Usa o tamanho ANTES do filtro para determinar se há mais páginas
+      final isLastPage = tamanhoOriginal < 10;
+      
+      // Se não há usuários após o filtro mas a API retornou dados, continua buscando
+      // Isso evita que usuários sejam perdidos se todos da página estiverem no cache de desativados
+      if (usuarios.isEmpty && !isLastPage) {
+        // Se não há usuários nesta página mas há mais páginas, busca a próxima
+        _fetchUsuariosAtivosPage(pageKey + 1);
+        return;
+      }
       
       if (isLastPage) {
         _pagingControllerAtivos.appendLastPage(usuarios);
