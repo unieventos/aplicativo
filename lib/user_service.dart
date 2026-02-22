@@ -87,56 +87,7 @@ class UserService {
 
         throw Exception('Formato inesperado de categorias');
       } else if (response.statusCode == 404) {
-        // Considera como "sem categorias" e tenta fallback opcional
-        final fallback = Uri.parse(
-            'http://172.171.192.14:8080/unieventos/categorias?page=0&size=100&sortBy=id');
-        print('[UserService] 404 em $url, tentando fallback $fallback');
-        final resp2 = await http.get(
-          fallback,
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Accept': 'application/json',
-          },
-        );
-        if (resp2.statusCode == 200) {
-          final bodyText = utf8.decode(resp2.bodyBytes);
-          final data = jsonDecode(bodyText);
-          if (data is List) {
-            return data
-                .map<String>((item) {
-                  if (item is String) return item;
-                  if (item is Map<String, dynamic>) {
-                    return (item['nome'] ??
-                            item['name'] ??
-                            item['categoria'] ??
-                            '')
-                        .toString();
-                  }
-                  return item.toString();
-                })
-                .where((e) => e.isNotEmpty)
-                .toList();
-          }
-          if (data is Map<String, dynamic> && data['_embedded'] != null) {
-            final list = (data['_embedded']['categoriaList'] ?? []) as List;
-            return list
-                .map<String>((item) {
-                  if (item is Map<String, dynamic>) {
-                    final obj = (item['categoria'] ?? item);
-                    if (obj is Map<String, dynamic>) {
-                      return (obj['nome'] ?? obj['name'] ?? '').toString();
-                    }
-                  }
-                  return item.toString();
-                })
-                .where((e) => e.isNotEmpty)
-                .toList();
-          }
-          throw Exception('Formato inesperado de categorias (fallback)');
-        }
-        // Se também deu 404 no fallback, retorna lista vazia para o app lidar graciosamente
-        print(
-            '[UserService] Fallback também retornou ${resp2.statusCode}. Retornando lista vazia.');
+        // 404 means no categories exist yet – return empty list gracefully
         return <String>[];
       } else {
         final body = utf8.decode(response.bodyBytes);
@@ -205,60 +156,6 @@ class UserService {
       return result;
     }
 
-    // fallback 8080
-    final fb = Uri.parse(
-        'http://172.171.192.14:8080/unieventos/categorias?page=0&size=100&sortBy=id');
-    print(
-        '[UserService] ${response.statusCode} em $url, tentando $fb (detalhadas)');
-    final r2 = await http.get(
-      fb,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/json',
-      },
-    );
-    if (r2.statusCode == 200) {
-      final text = utf8.decode(r2.bodyBytes);
-      final data = jsonDecode(text);
-      final List<Map<String, String>> result = [];
-      if (data is Map<String, dynamic> && data['_embedded'] != null) {
-        final embedded = data['_embedded'] as Map<String, dynamic>;
-        final rawList = (embedded['categoriaResourceV1List'] ??
-            embedded['categoriaList'] ??
-            []) as List;
-        for (final item in rawList) {
-          if (item is Map<String, dynamic>) {
-            final categoria = item['categoria'];
-            if (categoria is Map<String, dynamic>) {
-              final id = (categoria['id'] ?? '').toString();
-              final nome = (categoria['nomeCategoria'] ??
-                      categoria['nome'] ??
-                      categoria['name'] ??
-                      '')
-                  .toString();
-              if (id.isNotEmpty && nome.isNotEmpty) {
-                result.add({'id': id, 'nome': nome});
-              }
-            }
-          }
-        }
-      } else if (data is List) {
-        for (final item in data) {
-          if (item is Map<String, dynamic>) {
-            final id = (item['id'] ?? item['categoriaId'] ?? '').toString();
-            final nome =
-                (item['nomeCategoria'] ?? item['nome'] ?? item['name'] ?? '')
-                    .toString();
-            if (id.isNotEmpty && nome.isNotEmpty) {
-              result.add({'id': id, 'nome': nome});
-            }
-          }
-        }
-      }
-      return result;
-    }
-    print(
-        '[UserService] Fallback categorias detalhadas retornou ${r2.statusCode}');
     return <Map<String, String>>[];
   }
 
@@ -537,9 +434,9 @@ class UserService {
     await storage.write(key: 'nome', value: profile.nome);
     await storage.write(key: 'sobrenome', value: profile.sobrenome);
     await storage.write(key: 'email', value: profile.email);
-    await storage.write(key: 'cursoId', value: profile.cursoId);
+    await storage.write(key: 'login', value: profile.login);
+    await storage.write(key: 'curso', value: profile.curso);
     await storage.write(key: 'role', value: profile.role);
-    print('[UserService] Dados do usuário salvos com sucesso.');
   }
 
   static Future<List<ManagedUser>> listarUsuarios({

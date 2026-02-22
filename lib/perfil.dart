@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_application_1/login.dart';
+import 'package:flutter_application_1/modifyUser.dart';
 import 'package:flutter_application_1/models/user_profile.dart';
+import 'package:flutter_application_1/models/usuario.dart';
 import 'package:flutter_application_1/user_service.dart';
 
 class PerfilPage extends StatefulWidget {
@@ -41,7 +43,8 @@ class _PerfilPageState extends State<PerfilPage> {
       _storage.read(key: 'nome'),
       _storage.read(key: 'sobrenome'),
       _storage.read(key: 'email'),
-      _storage.read(key: 'cursoId'),
+      _storage.read(key: 'login'),
+      _storage.read(key: 'curso'),
       _storage.read(key: 'role'),
     ]);
 
@@ -54,8 +57,9 @@ class _PerfilPageState extends State<PerfilPage> {
       nome: values[1] ?? '',
       sobrenome: values[2] ?? '',
       email: values[3] ?? '',
-      cursoId: values[4] ?? '',
-      role: values[5] ?? 'user',
+      login: values[4] ?? '',
+      curso: values[5] ?? '',
+      role: values[6] ?? 'user',
     );
   }
 
@@ -130,7 +134,7 @@ class _PerfilPageState extends State<PerfilPage> {
                   const SizedBox(height: 24),
                   _buildInfoCard(perfil),
                   const SizedBox(height: 24),
-                  _buildActionsCard(),
+                  _buildActionsCard(perfil),
                 ],
               ),
             );
@@ -189,8 +193,8 @@ class _PerfilPageState extends State<PerfilPage> {
             ),
             title: const Text('Curso'),
             subtitle: Text(
-              perfil.cursoId.isNotEmpty
-                  ? 'Curso ID: ${perfil.cursoId}'
+              perfil.curso.isNotEmpty
+                  ? perfil.curso
                   : 'Não informado',
             ),
           ),
@@ -210,7 +214,7 @@ class _PerfilPageState extends State<PerfilPage> {
     );
   }
 
-  Widget _buildActionsCard() {
+  Widget _buildActionsCard(UserProfile perfil) {
     final theme = Theme.of(context);
     return Card(
       child: Column(
@@ -219,7 +223,28 @@ class _PerfilPageState extends State<PerfilPage> {
             leading: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
             title: const Text('Editar perfil'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {},
+            onTap: () async {
+              final usuario = Usuario(
+                id: perfil.id,
+                nome: perfil.nome,
+                sobrenome: perfil.sobrenome,
+                email: perfil.email,
+                login: perfil.login,
+                curso: perfil.curso,
+                role: perfil.role,
+              );
+              final updated = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ModifyUserApp(usuario: usuario),
+                ),
+              );
+              if (updated == true && mounted) {
+                setState(() {
+                  _perfilUsuarioFuture = _loadUserData();
+                });
+              }
+            },
           ),
           const Divider(indent: 16, endIndent: 16),
           ListTile(
