@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import 'package:http/http.dart' as http;
 
+import 'package:flutter_application_1/config/api_config.dart';
 import 'package:flutter_application_1/network/safe_http.dart';
 
 class EventFeedItem {
@@ -49,7 +50,7 @@ class EventFeedItem {
 
 class EventService {
   // URL base da API - atualize com o endereço correto do seu backend
-  static const String _baseUrl = 'http://172.171.192.14:8081/unieventos';
+  static String get _baseUrl => ApiConfig.base;
 
   // Headers padrão para as requisições
   static final Map<String, String> _headers = {

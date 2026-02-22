@@ -4,7 +4,8 @@ class UserProfile {
     this.nome = '',
     this.sobrenome = '',
     this.email = '',
-    this.cursoId = '',
+    this.login = '',
+    this.curso = '',
     this.role = 'user',
   });
 
@@ -14,7 +15,9 @@ class UserProfile {
       nome: map['nome']?.toString() ?? '',
       sobrenome: map['sobrenome']?.toString() ?? '',
       email: map['email']?.toString() ?? '',
-      cursoId: map['cursoId']?.toString() ?? '',
+      login: map['login']?.toString() ?? '',
+      // API returns the course name in the 'curso' field
+      curso: map['curso']?.toString() ?? '',
       role: map['role']?.toString() ?? 'user',
     );
   }
@@ -23,7 +26,8 @@ class UserProfile {
   final String nome;
   final String sobrenome;
   final String email;
-  final String cursoId;
+  final String login;
+  final String curso;
   final String role;
 
   String get initials {
