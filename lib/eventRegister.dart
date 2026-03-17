@@ -147,6 +147,16 @@ class _EVRegisterState extends State<EVRegister> {
       return;
     }
 
+    if (_imagemSelecionada == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecione uma imagem para o evento'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -155,15 +165,17 @@ class _EVRegisterState extends State<EVRegister> {
         (c) => c.id == _cursoSelecionadoId,
         orElse: () => _cursos.first,
       );
-      
+
       // Busca ou cria uma categoria com o nome do curso
-      final categoriaId = await _obterOuCriarCategoriaPorCurso(cursoSelecionado.nome);
-      
+      final categoriaId =
+          await _obterOuCriarCategoriaPorCurso(cursoSelecionado.nome);
+
       if (categoriaId == null || categoriaId.isEmpty) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Erro ao obter categoria para o curso selecionado. Tente novamente.'),
+            content: Text(
+                'Erro ao obter categoria para o curso selecionado. Tente novamente.'),
             backgroundColor: Colors.red,
             duration: Duration(seconds: 5),
           ),
@@ -188,7 +200,9 @@ class _EVRegisterState extends State<EVRegister> {
       final dadosEvento = {
         'nomeEvento': _tituloController.text.trim(),
         'descricao': _descricaoController.text.trim(),
-        'categoria': categoriaId.trim(), // ID da categoria (não do curso)
+        'categorias': [
+          categoriaId.trim()
+        ], // Enviando como lista para o backend
         'dateInicio': DateFormat('yyyy-MM-dd').format(_dataInicio!),
         'dateFim': DateFormat('yyyy-MM-dd').format(_dataFim!),
       };
@@ -206,51 +220,6 @@ class _EVRegisterState extends State<EVRegister> {
       if (!mounted) return;
 
       if (resultado['success'] == true) {
-        final eventoId = resultado['eventId'];
-        
-        // Se há imagem e evento foi criado, fazer upload
-        if (_imagemSelecionada != null && eventoId != null) {
-          try {
-            // No Web, usa bytes; em outras plataformas, usa File
-            final uploadResult = kIsWeb && _imagemBytes != null
-                ? await api_service.EventosApi.enviarImagemEvento(
-                    _imagemBytes!,
-                    eventoId,
-                    nomeArquivo: _imagemSelecionada!.name,
-                    mimeTypeString: _imagemSelecionada!.mimeType,
-                  )
-                : await api_service.EventosApi.enviarImagemEvento(
-                    File(_imagemSelecionada!.path),
-                    eventoId,
-                  );
-            
-            if (uploadResult['success'] != true) {
-              // Avisa mas não falha, pois o evento já foi criado
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(uploadResult['message'] ?? 
-                                 uploadResult['error'] ?? 
-                                 'Evento criado, mas houve erro ao enviar imagem'),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
-              }
-            }
-          } catch (e) {
-            // Log do erro mas não bloqueia
-            print('Erro ao enviar imagem: $e');
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Evento criado, mas houve erro ao enviar imagem'),
-                  backgroundColor: Colors.orange,
-                ),
-              );
-            }
-          }
-        }
-        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -258,7 +227,7 @@ class _EVRegisterState extends State<EVRegister> {
               backgroundColor: Colors.green,
             ),
           );
-          // Tenta fazer pop, se não conseguir (porque está em IndexedStack), 
+          // Tenta fazer pop, se não conseguir (porque está em IndexedStack),
           // o usuário pode navegar manualmente para o feed
           if (Navigator.of(context).canPop()) {
             Navigator.of(context).pop(true);
@@ -266,9 +235,9 @@ class _EVRegisterState extends State<EVRegister> {
         }
       } else {
         if (mounted) {
-          final errorMsg = resultado['error'] ?? 
-                          resultado['message'] ?? 
-                          'Erro ao criar evento (${resultado['statusCode'] ?? 'desconhecido'})';
+          final errorMsg = resultado['error'] ??
+              resultado['message'] ??
+              'Erro ao criar evento (${resultado['statusCode'] ?? 'desconhecido'})';
           print('[EVRegister] Erro ao criar evento: $errorMsg');
           print('[EVRegister] Detalhes: ${resultado['details']}');
           ScaffoldMessenger.of(context).showSnackBar(
@@ -301,33 +270,34 @@ class _EVRegisterState extends State<EVRegister> {
   Future<String?> _obterOuCriarCategoriaPorCurso(String nomeCurso) async {
     try {
       print('[EVRegister] Buscando categoria para curso: $nomeCurso');
-      
+
       // Primeiro, tenta buscar categorias existentes
       final categorias = await api_service.CategoriaApi.fetchCategorias();
       print('[EVRegister] Categorias encontradas: ${categorias.length}');
-      
+
       // Procura uma categoria com o mesmo nome do curso
       try {
         final categoriaExistente = categorias.firstWhere(
           (c) => c.nome.toLowerCase() == nomeCurso.toLowerCase(),
         );
-        
+
         // Se encontrou uma categoria com o mesmo nome, usa ela
         if (categoriaExistente.nome.toLowerCase() == nomeCurso.toLowerCase()) {
-          print('[EVRegister] Categoria encontrada: ${categoriaExistente.nome} (ID: ${categoriaExistente.id})');
+          print(
+              '[EVRegister] Categoria encontrada: ${categoriaExistente.nome} (ID: ${categoriaExistente.id})');
           return categoriaExistente.id;
         }
       } catch (_) {
         // Não encontrou categoria com o mesmo nome, continua
         print('[EVRegister] Nenhuma categoria encontrada com o nome do curso');
       }
-      
+
       // Se não encontrou, tenta criar uma nova categoria com o nome do curso
       print('[EVRegister] Tentando criar nova categoria: $nomeCurso');
       final resultado = await UserService.criarCategoria(nomeCurso);
-      
+
       print('[EVRegister] Resultado criar categoria: $resultado');
-      
+
       if (resultado != null && resultado['id'] != null) {
         final categoriaId = resultado['id'] as String;
         if (categoriaId.isNotEmpty) {
@@ -337,15 +307,17 @@ class _EVRegisterState extends State<EVRegister> {
           print('[EVRegister] AVISO: Categoria criada mas ID está vazio!');
         }
       } else {
-        print('[EVRegister] ERRO: Não foi possível criar categoria ou ID não foi retornado');
+        print(
+            '[EVRegister] ERRO: Não foi possível criar categoria ou ID não foi retornado');
       }
-      
+
       // Se não conseguiu criar, tenta usar a primeira categoria disponível como fallback
       if (categorias.isNotEmpty) {
-        print('[EVRegister] Usando primeira categoria como fallback: ${categorias.first.nome} (ID: ${categorias.first.id})');
+        print(
+            '[EVRegister] Usando primeira categoria como fallback: ${categorias.first.nome} (ID: ${categorias.first.id})');
         return categorias.first.id;
       }
-      
+
       print('[EVRegister] Nenhuma categoria disponível');
       return null;
     } catch (e) {
@@ -438,10 +410,12 @@ class _EVRegisterState extends State<EVRegister> {
                               return Align(
                                 alignment: Alignment.centerLeft,
                                 child: Text(
-                                  _cursos.firstWhere(
-                                    (c) => c.id == _cursoSelecionadoId,
-                                    orElse: () => _cursos.first,
-                                  ).nome,
+                                  _cursos
+                                      .firstWhere(
+                                        (c) => c.id == _cursoSelecionadoId,
+                                        orElse: () => _cursos.first,
+                                      )
+                                      .nome,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(color: Colors.black87),
                                 ),
@@ -568,13 +542,13 @@ class _EVRegisterState extends State<EVRegister> {
     );
 
     if (data != null) {
-        setState(() {
-          _dataInicio = DateTime(
-            data.year,
-            data.month,
-            data.day,
-          );
-        });
+      setState(() {
+        _dataInicio = DateTime(
+          data.year,
+          data.month,
+          data.day,
+        );
+      });
     }
   }
 
@@ -587,13 +561,13 @@ class _EVRegisterState extends State<EVRegister> {
     );
 
     if (data != null) {
-        setState(() {
-          _dataFim = DateTime(
-            data.year,
-            data.month,
-            data.day,
-          );
-        });
+      setState(() {
+        _dataFim = DateTime(
+          data.year,
+          data.month,
+          data.day,
+        );
+      });
     }
   }
 }

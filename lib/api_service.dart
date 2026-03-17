@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_application_1/config/api_config.dart';
 import 'package:flutter_application_1/utils/web_checks.dart';
@@ -32,23 +33,28 @@ class UsuarioApi {
   static final _storage = FlutterSecureStorage();
 
   // GET /usuarios - Busca uma lista paginada de usuários
-  static Future<List<Usuario>> fetchUsuarios(int page, int pageSize, String search) async {
+  static Future<List<Usuario>> fetchUsuarios(
+      int page, int pageSize, String search) async {
     final token = await _storage.read(key: 'token');
     if (token == null) throw Exception('Token não encontrado.');
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
-      throw Exception('Mixed content bloqueado no navegador: app https x API http.');
+      throw Exception(
+          'Mixed content bloqueado no navegador: app https x API http.');
     }
 
-    final url = Uri.parse('$_baseUrl?page=$page&size=$pageSize&sortBy=nome&name=$search');
-    final response = await http
-        .get(url, headers: {'Authorization': 'Bearer $token'})
-        .timeout(const Duration(seconds: 15));
+    final url = Uri.parse(
+        '$_baseUrl?page=$page&size=$pageSize&sortBy=nome&name=$search');
+    final response = await http.get(url, headers: {
+      'Authorization': 'Bearer $token'
+    }).timeout(const Duration(seconds: 15));
 
     if (response.statusCode == 200) {
       final data = json.decode(utf8.decode(response.bodyBytes));
-      final List<dynamic> list = data['_embedded']?['usuarioResourceV1List'] ?? [];
-      final usuarios = list.map((item) => Usuario.fromJson(item['user'])).toList();
+      final List<dynamic> list =
+          data['_embedded']?['usuarioResourceV1List'] ?? [];
+      final usuarios =
+          list.map((item) => Usuario.fromJson(item['user'])).toList();
       // Filtra apenas usuários ativos (is_active = true)
       // Usuários desativados não devem ser exibidos na lista
       return usuarios.where((usuario) => usuario.active == true).toList();
@@ -63,24 +69,25 @@ class UsuarioApi {
     if (token == null) return false;
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
-      throw Exception('Mixed content bloqueado no navegador: app https x API http.');
+      throw Exception(
+          'Mixed content bloqueado no navegador: app https x API http.');
     }
 
     final url = Uri.parse(_baseUrl);
-    
+
     try {
       final response = await http
           .post(
             url,
             headers: {
-              'Authorization': 'Bearer $token', 
+              'Authorization': 'Bearer $token',
               'Content-Type': 'application/json; charset=utf-8',
               'Accept': 'application/json',
             },
             body: jsonEncode(dadosUsuario),
           )
           .timeout(const Duration(seconds: 15));
-      
+
       if (response.statusCode == 201 || response.statusCode == 200) {
         return true;
       } else {
@@ -92,12 +99,14 @@ class UsuarioApi {
   }
 
   // PATCH /usuarios/{id} - Atualiza um usuário existente
-  static Future<bool> atualizarUsuario(String usuarioId, Map<String, dynamic> dadosUsuario) async {
+  static Future<bool> atualizarUsuario(
+      String usuarioId, Map<String, dynamic> dadosUsuario) async {
     final token = await _storage.read(key: 'token');
     if (token == null) return false;
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
-      throw Exception('Mixed content bloqueado no navegador: app https x API http.');
+      throw Exception(
+          'Mixed content bloqueado no navegador: app https x API http.');
     }
 
     final url = Uri.parse('$_baseUrl/$usuarioId');
@@ -105,7 +114,10 @@ class UsuarioApi {
       final response = await http
           .patch(
             url,
-            headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json'
+            },
             body: jsonEncode(dadosUsuario),
           )
           .timeout(const Duration(seconds: 15));
@@ -122,17 +134,16 @@ class UsuarioApi {
     if (token == null) return false;
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
-      throw Exception('Mixed content bloqueado no navegador: app https x API http.');
+      throw Exception(
+          'Mixed content bloqueado no navegador: app https x API http.');
     }
 
     final url = Uri.parse('$_baseUrl/$usuarioId');
     try {
-      final response = await http
-          .delete(
-            url,
-            headers: {'Authorization': 'Bearer $token'},
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await http.delete(
+        url,
+        headers: {'Authorization': 'Bearer $token'},
+      ).timeout(const Duration(seconds: 15));
       return response.statusCode == 204 || response.statusCode == 200;
     } catch (e) {
       print("Erro ao deletar usuário: $e");
@@ -147,21 +158,22 @@ class UsuarioApi {
     if (token == null) return null;
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
-      throw Exception('Mixed content bloqueado no navegador: app https x API http.');
+      throw Exception(
+          'Mixed content bloqueado no navegador: app https x API http.');
     }
 
     final url = Uri.parse('$_baseUrl/me');
     try {
-        final response = await http
-            .get(url, headers: {'Authorization': 'Bearer $token'})
-            .timeout(const Duration(seconds: 15));
-        if (response.statusCode == 200) {
-            return json.decode(utf8.decode(response.bodyBytes));
-        }
-        return null;
+      final response = await http.get(url, headers: {
+        'Authorization': 'Bearer $token'
+      }).timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        return json.decode(utf8.decode(response.bodyBytes));
+      }
+      return null;
     } catch (e) {
-        print("Erro ao buscar usuário logado: $e");
-        return null;
+      print("Erro ao buscar usuário logado: $e");
+      return null;
     }
   }
 
@@ -174,20 +186,19 @@ class UsuarioApi {
     }
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
-      throw Exception('Mixed content bloqueado no navegador: app https x API http.');
+      throw Exception(
+          'Mixed content bloqueado no navegador: app https x API http.');
     }
 
     final url = Uri.parse('$_baseUrl/$id');
     try {
-      final response = await http
-          .get(
-            url,
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Accept': 'application/json',
-            },
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final data = json.decode(utf8.decode(response.bodyBytes));
@@ -264,10 +275,12 @@ class UsuarioApi {
       'Teatro',
     ];
 
-    return cursosPreCadastrados.map((nome) => CourseOption(
-      id: nome, // Usar o nome como ID para referência
-      nome: nome,
-    )).toList();
+    return cursosPreCadastrados
+        .map((nome) => CourseOption(
+              id: nome, // Usar o nome como ID para referência
+              nome: nome,
+            ))
+        .toList();
   }
 
   // Método de teste para verificar conectividade com a API
@@ -286,18 +299,20 @@ class UsuarioApi {
     try {
       final url = Uri.parse('$_baseUrl/me');
       print('[UsuarioApi] Testando conectividade com: $url');
-      
-      final response = await http
-          .get(url, headers: {'Authorization': 'Bearer $token'})
-          .timeout(const Duration(seconds: 10));
-      
-      print('[UsuarioApi] Teste de conectividade - Status: ${response.statusCode}');
-      
+
+      final response = await http.get(url, headers: {
+        'Authorization': 'Bearer $token'
+      }).timeout(const Duration(seconds: 10));
+
+      print(
+          '[UsuarioApi] Teste de conectividade - Status: ${response.statusCode}');
+
       if (response.statusCode == 200) {
         print('[UsuarioApi] Teste de conectividade: SUCESSO');
         return true;
       } else {
-        print('[UsuarioApi] Teste de conectividade: FALHOU - ${response.statusCode}');
+        print(
+            '[UsuarioApi] Teste de conectividade: FALHOU - ${response.statusCode}');
         return false;
       }
     } catch (e) {
@@ -313,16 +328,19 @@ class EventosApi {
   static final _storage = FlutterSecureStorage();
 
   // GET /eventos - Busca lista paginada de eventos
-  static Future<List<Evento>> fetchEventos(int page, int pageSize, {String search = ''}) async {
+  static Future<List<Evento>> fetchEventos(int page, int pageSize,
+      {String search = ''}) async {
     // Token opcional - a API não requer autenticação
     final token = await _storage.read(key: 'token');
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
-      throw Exception('Mixed content bloqueado no navegador: app https x API http.');
+      throw Exception(
+          'Mixed content bloqueado no navegador: app https x API http.');
     }
 
-    final url = Uri.parse('$_baseUrl?page=$page&size=$pageSize&sortBy=dateInicio&name=$search');
-    
+    final url = Uri.parse(
+        '$_baseUrl?page=$page&size=$pageSize&sortBy=dateInicio&name=$search');
+
     // Headers condicionais - só adiciona Authorization se o token existir
     final headers = <String, String>{
       'Accept': 'application/json',
@@ -330,22 +348,24 @@ class EventosApi {
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
     }
-    
+
     final response = await http
         .get(url, headers: headers)
         .timeout(const Duration(seconds: 15));
 
     if (response.statusCode == 200) {
       final data = json.decode(utf8.decode(response.bodyBytes));
-      final List<dynamic> list = data['_embedded']?['eventoResourceV1List'] ?? [];
-      final eventos = list.map((item) => Evento.fromJson(item['evento'])).toList();
-      
+      final List<dynamic> list =
+          data['_embedded']?['eventoResourceV1List'] ?? [];
+      final eventos =
+          list.map((item) => Evento.fromJson(item['evento'])).toList();
+
       // Buscar nomes dos criadores e fotos se houver token
       if (token != null && token.isNotEmpty && eventos.isNotEmpty) {
         await _enriquecerNomesCriadores(eventos);
         await _enriquecerFotosEventos(eventos, token);
       }
-      
+
       return eventos;
     } else if (response.statusCode == 404) {
       // API retorna 404 quando não há eventos (EventNotFoundException)
@@ -362,8 +382,8 @@ class EventosApi {
     for (final evento in eventos) {
       final criadorId = evento.criador;
       // Verifica se é um UUID (formato básico: contém hífens e tem comprimento típico)
-      if (criadorId.isNotEmpty && 
-          criadorId.length > 20 && 
+      if (criadorId.isNotEmpty &&
+          criadorId.length > 20 &&
           criadorId.contains('-')) {
         criadoresIds.add(criadorId);
       }
@@ -374,7 +394,8 @@ class EventosApi {
     }
 
     // Busca todos os usuários em paralelo
-    final usuariosFutures = criadoresIds.map((id) => UsuarioApi.buscarUsuarioPorId(id));
+    final usuariosFutures =
+        criadoresIds.map((id) => UsuarioApi.buscarUsuarioPorId(id));
     final usuariosResults = await Future.wait(usuariosFutures);
 
     // Cria mapa de ID -> nome completo
@@ -383,8 +404,8 @@ class EventosApi {
       final id = criadoresIds.elementAt(i);
       final usuario = usuariosResults[i];
       if (usuario != null) {
-        final nomeCompleto = usuario.displayName.isNotEmpty 
-            ? usuario.displayName 
+        final nomeCompleto = usuario.displayName.isNotEmpty
+            ? usuario.displayName
             : (usuario.nome.isNotEmpty ? usuario.nome : id);
         nomesCriadores[id] = nomeCompleto;
       } else {
@@ -398,10 +419,10 @@ class EventosApi {
     for (int i = 0; i < eventos.length; i++) {
       final evento = eventos[i];
       final criadorId = evento.criador;
-      
+
       // Se o criador é um UUID e temos o nome, substitui
-      if (criadorId.isNotEmpty && 
-          criadorId.length > 20 && 
+      if (criadorId.isNotEmpty &&
+          criadorId.length > 20 &&
           criadorId.contains('-') &&
           nomesCriadores.containsKey(criadorId)) {
         final nomeCriador = nomesCriadores[criadorId]!;
@@ -426,7 +447,8 @@ class EventosApi {
   }
 
   // Enriquece os eventos com as URLs das fotos
-  static Future<void> _enriquecerFotosEventos(List<Evento> eventos, String token) async {
+  static Future<void> _enriquecerFotosEventos(
+      List<Evento> eventos, String token) async {
     if (eventos.isEmpty) return;
 
     // Coleta todos os IDs únicos de eventos
@@ -435,7 +457,8 @@ class EventosApi {
 
     try {
       final limite = ids.length > 200 ? ids.length : 200;
-      final url = Uri.parse('${ApiConfig.base}/fotos?page=0&size=$limite&sortBy=id');
+      final url =
+          Uri.parse('${ApiConfig.base}/fotos?page=0&size=$limite&sortBy=id');
       final response = await http.get(
         url,
         headers: {
@@ -449,7 +472,7 @@ class EventosApi {
         print('[EventosApi] Nenhuma foto encontrada (404 - esperado)');
         return;
       }
-      
+
       if (response.statusCode != 200) {
         print('[EventosApi] Erro ao buscar fotos: ${response.statusCode}');
         return; // Falha silenciosa
@@ -464,9 +487,9 @@ class EventosApi {
       if (decoded is Map<String, dynamic>) {
         final embedded = decoded['_embedded'];
         if (embedded is Map<String, dynamic>) {
-          final candidato = embedded['fotoResourceV1List'] ?? 
-                           embedded['fotoList'] ?? 
-                           embedded['foto'];
+          final candidato = embedded['fotoResourceV1List'] ??
+              embedded['fotoList'] ??
+              embedded['foto'];
           if (candidato is List) {
             listaFotos.addAll(candidato);
           }
@@ -483,20 +506,24 @@ class EventosApi {
       final Map<String, String> fotosMap = {};
       for (final item in listaFotos) {
         if (item is! Map<String, dynamic>) continue;
-        
+
         final foto = item['foto'] is Map<String, dynamic>
             ? item['foto'] as Map<String, dynamic>
             : item;
-        
-        final alvo = _stringOuNuloFoto(foto['alvo']) ?? _stringOuNuloFoto(item['alvo']) ?? '';
+
+        final alvo = _stringOuNuloFoto(foto['alvo']) ??
+            _stringOuNuloFoto(item['alvo']) ??
+            '';
         if (alvo.toUpperCase() != 'EVENTO') continue;
-        
-        final idAlvo = _stringOuNuloFoto(foto['idAlvo']) ?? _stringOuNuloFoto(item['idAlvo']);
+
+        final idAlvo = _stringOuNuloFoto(foto['idAlvo']) ??
+            _stringOuNuloFoto(item['idAlvo']);
         if (idAlvo == null || !ids.contains(idAlvo)) continue;
-        
-        final path = _stringOuNuloFoto(foto['path']) ?? _stringOuNuloFoto(item['path']);
+
+        final path =
+            _stringOuNuloFoto(foto['path']) ?? _stringOuNuloFoto(item['path']);
         if (path == null || path.isEmpty) continue;
-        
+
         // Resolve o path para URL completa
         final urlCompleta = _resolverPathFoto(path);
         fotosMap[idAlvo] = urlCompleta;
@@ -541,87 +568,88 @@ class EventosApi {
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
       return trimmed;
     }
-    final base = Uri.parse(ApiConfig.base.endsWith('/') ? ApiConfig.base : '${ApiConfig.base}/');
+    final base = Uri.parse(
+        ApiConfig.base.endsWith('/') ? ApiConfig.base : '${ApiConfig.base}/');
     final sanitized = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
     return base.resolve(sanitized).toString();
   }
-  
-  // POST /eventos - Cadastra um novo evento
-  static Future<Map<String, dynamic>> criarEvento(Map<String, dynamic> dadosEvento, [dynamic imagem]) async {
+
+  // POST /eventos - Cadastra um novo evento via Multipart (dados + foto)
+  static Future<Map<String, dynamic>> criarEvento(
+      Map<String, dynamic> dadosEvento,
+      [dynamic imagem]) async {
     final token = await _storage.read(key: 'token');
-    if (token == null) {
-      return {
-        'success': false,
-        'error': 'Token não encontrado. Faça login novamente.',
-      };
-    }
+    if (token == null)
+      return {'success': false, 'error': 'Token não encontrado.'};
 
-    if (WebChecks.isMixedContent(ApiConfig.base)) {
-      throw Exception('Mixed content bloqueado no navegador: app https x API http.');
-    }
-
-    final url = Uri.parse(_baseUrl);
     try {
-      // Log do payload sendo enviado
-      print('[EventosApi] POST $url');
-      print('[EventosApi] Payload: ${jsonEncode(dadosEvento)}');
-      
-      final response = await http
-          .post(
-            url,
-            headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
-            body: jsonEncode(dadosEvento),
-          )
-          .timeout(const Duration(seconds: 15));
+      final request = http.MultipartRequest('POST', Uri.parse(_baseUrl));
+      request.headers['Authorization'] = 'Bearer $token';
 
-      final responseBody = utf8.decode(response.bodyBytes);
-      print('[EventosApi] Status: ${response.statusCode}');
-      print('[EventosApi] Response: $responseBody');
+      // Parte 1: JSON do evento
+      request.files.add(http.MultipartFile.fromString(
+        'dados',
+        jsonEncode(dadosEvento),
+        contentType: MediaType('application', 'json'),
+      ));
 
-      if (response.statusCode == 201) {
-        // Extrair ID do evento do header Location ou do body
-        String? eventId = _extractEventIdFromHeaders(response.headers);
-        
-        // Se não encontrou no header, tenta no body
-        if (eventId == null && responseBody.isNotEmpty) {
-          try {
-            final data = jsonDecode(responseBody);
-            eventId = _extractEventIdFromBody(data);
-          } catch (_) {
-            // Body não é JSON válido, ignora
-          }
+      // Parte 2: Arquivo da foto
+      if (imagem != null) {
+        if (kIsWeb && imagem is XFile) {
+          final bytes = await imagem.readAsBytes();
+          request.files.add(http.MultipartFile.fromBytes('foto', bytes,
+              filename: imagem.name,
+              contentType: _mimeTypeForPath(imagem.name)));
+        } else if (imagem is File) {
+          request.files.add(await http.MultipartFile.fromPath(
+              'foto', imagem.path,
+              contentType: _mimeTypeForPath(imagem.path)));
+        } else if (imagem is XFile) {
+          request.files.add(await http.MultipartFile.fromPath(
+              'foto', imagem.path,
+              contentType: _mimeTypeForPath(imagem.name)));
         }
-
-        return {
-          'success': true,
-          'eventId': eventId,
-        };
-      } else {
-        // Tenta extrair mensagem de erro do body
-        String errorMessage = 'Erro ao criar evento';
-        try {
-          final errorData = jsonDecode(responseBody);
-          errorMessage = errorData['message'] ?? 
-                         errorData['error'] ?? 
-                         errorData['detail'] ??
-                         errorMessage;
-        } catch (_) {
-          errorMessage = responseBody.isNotEmpty 
-              ? responseBody 
-              : 'Erro ${response.statusCode}';
-        }
-        
-        return {
-          'success': false,
-          'error': errorMessage,
-          'statusCode': response.statusCode,
-        };
       }
-    } catch (e) {
+
+      final response = await http.Response.fromStream(
+          await request.send().timeout(const Duration(seconds: 20)));
+      final body = utf8.decode(response.bodyBytes);
+      print('[EventosApi] Status: ${response.statusCode}');
+      print('[EventosApi] Response Body: $body');
+
+      dynamic decodedBody;
+      try {
+        decodedBody = body.isNotEmpty ? jsonDecode(body) : null;
+      } catch (e) {
+        print('[EventosApi] Erro ao decodificar JSON: $e');
+        decodedBody = body;
+      }
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        print('[EventosApi] Headers recebidos: ${response.headers}');
+
+        // Tenta extrair ID do header Location primeiro (case-insensitive)
+        String? eventId;
+        response.headers.forEach((key, value) {
+          if (key.toLowerCase() == 'location') {
+            eventId = _extractEventIdFromHeaders({key: value});
+          }
+        });
+
+        if (eventId == null) {
+          eventId = _extractEventIdFromBody(decodedBody);
+        }
+
+        print('[EventosApi] ID Extraído: $eventId');
+        return {'success': true, 'eventId': eventId};
+      }
       return {
         'success': false,
-        'error': 'Erro de conexão: ${e.toString()}',
+        'error': _extractMessage(decodedBody) ?? 'Erro ${response.statusCode}',
+        'details': decodedBody
       };
+    } catch (e) {
+      return {'success': false, 'error': 'Erro de conexão: $e'};
     }
   }
 
@@ -630,7 +658,8 @@ class EventosApi {
     final location = headers['location'] ?? headers['Location'];
     if (location == null || location.isEmpty) return null;
     final sanitized = location.split('?').first;
-    final segments = sanitized.split('/').where((segment) => segment.isNotEmpty).toList();
+    final segments =
+        sanitized.split('/').where((segment) => segment.isNotEmpty).toList();
     return segments.isNotEmpty ? segments.last : null;
   }
 
@@ -655,7 +684,7 @@ class EventosApi {
   // POST /fotos - Envia imagem para um evento
   // Aceita File (mobile/desktop) ou Uint8List (Web)
   static Future<Map<String, dynamic>> enviarImagemEvento(
-    dynamic arquivo, 
+    dynamic arquivo,
     String eventoId, {
     String? nomeArquivo,
     String? mimeTypeString,
@@ -669,11 +698,12 @@ class EventosApi {
     }
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
-      throw Exception('Mixed content bloqueado no navegador: app https x API http.');
+      throw Exception(
+          'Mixed content bloqueado no navegador: app https x API http.');
     }
 
     final url = Uri.parse('${ApiConfig.base}/fotos');
-    
+
     try {
       final request = http.MultipartRequest('POST', url);
       request.headers.addAll({
@@ -726,7 +756,7 @@ class EventosApi {
 
       final streamed = await request.send();
       final responseText = await streamed.stream.bytesToString();
-      
+
       dynamic data;
       try {
         data = responseText.isNotEmpty ? jsonDecode(responseText) : null;
@@ -799,25 +829,27 @@ class EventosApi {
 class CategoriaApi {
   static final String _baseUrl = ApiConfig.categorias();
   static final _storage = FlutterSecureStorage();
-  
+
   // GET /categorias - Busca lista de categorias
   static Future<List<Categoria>> fetchCategorias() async {
     final token = await _storage.read(key: 'token');
     if (token == null) throw Exception('Token não encontrado.');
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
-      throw Exception('Mixed content bloqueado no navegador: app https x API http.');
+      throw Exception(
+          'Mixed content bloqueado no navegador: app https x API http.');
     }
 
     // Supondo que queremos todas as categorias, podemos usar um size grande.
     final url = Uri.parse('$_baseUrl?size=100');
-    final response = await http
-        .get(url, headers: {'Authorization': 'Bearer $token'})
-        .timeout(const Duration(seconds: 15));
+    final response = await http.get(url, headers: {
+      'Authorization': 'Bearer $token'
+    }).timeout(const Duration(seconds: 15));
 
     if (response.statusCode == 200) {
       final data = json.decode(utf8.decode(response.bodyBytes));
-      final List<dynamic> list = data['_embedded']?['categoriaResourceV1List'] ?? [];
+      final List<dynamic> list =
+          data['_embedded']?['categoriaResourceV1List'] ?? [];
       return list.map((item) => Categoria.fromJson(item['categoria'])).toList();
     } else {
       throw Exception('Falha ao carregar categorias: ${response.statusCode}');
@@ -829,7 +861,7 @@ class CategoriaApi {
 class CursoApi {
   static const String _baseUrl = '${ApiConfig.base}/cursos';
   static final _storage = FlutterSecureStorage();
-  
+
   // GET /cursos - Lista todos os cursos disponíveis
   static Future<List<Map<String, dynamic>>> listarCursos() async {
     final token = await _storage.read(key: 'token');
@@ -844,12 +876,10 @@ class CursoApi {
     }
 
     try {
-      final response = await http
-          .get(
-            Uri.parse(_baseUrl),
-            headers: {'Authorization': 'Bearer $token'},
-          )
-          .timeout(const Duration(seconds: 10));
+      final response = await http.get(
+        Uri.parse(_baseUrl),
+        headers: {'Authorization': 'Bearer $token'},
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final List<dynamic> cursos = jsonDecode(response.body);
