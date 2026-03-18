@@ -15,10 +15,11 @@ import 'package:flutter_application_1/models/user_profile.dart';
 class UserService {
   // A URL base da API para facilitar futuras manutenções.
   static const String _baseUrl = ApiConfig.base;
+  static const String _usuariosPath = '/usuarios';
 
   // O método agora é mais robusto e lida com mais cenários de erro.
-  /// Busca o usuário logado (GET /usuarios/me) e salva no storage.
-  static Future<String?> buscarUsuario() async {
+  /// Busca lista de categorias simplificada
+  static Future<List<String>> listarCategoriasNomes() async {
     final storage = FlutterSecureStorage();
     final token = await storage.read(key: 'token');
 

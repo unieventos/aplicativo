@@ -192,13 +192,14 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
       final usuarios = managedUsers
           .where((mu) =>
               mu.active == true && !_usuariosDesativadosCache.contains(mu.id))
-          .map((mu) => Usuario(
+          .map<Usuario>((mu) => Usuario(
                 id: mu.id,
                 nome: mu.nome,
                 sobrenome: mu.sobrenome,
                 email: mu.email,
                 login: mu.login,
-                curso: mu.cursoDisplay,
+                cursoId: 0,
+                cursoNome: mu.cursoDisplay,
                 role: mu.role,
                 active: mu.active,
               ))
@@ -247,13 +248,14 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
       final usuariosDaApi = managedUsers
           .where((mu) =>
               mu.active == false) // Filtra apenas inativos para garantir
-          .map((mu) => Usuario(
+          .map<Usuario>((mu) => Usuario(
                 id: mu.id,
                 nome: mu.nome,
                 sobrenome: mu.sobrenome,
                 email: mu.email,
                 login: mu.login,
-                curso: mu.cursoDisplay,
+                cursoId: 0,
+                cursoNome: mu.cursoDisplay,
                 role: mu.role,
                 active: mu.active, // Usa o campo active real da API
               ))
@@ -467,6 +469,11 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
         bottom: _isAdmin
             ? TabBar(
                 controller: _tabController,
+                tabs: const [
+                  Tab(text: 'Cursos'),
+                  Tab(text: 'Ativos'),
+                  Tab(text: 'Inativos'),
+                ],
                 labelColor: Colors.black87,
                 unselectedLabelColor: Colors.grey[600],
                 indicatorColor: Theme.of(context).primaryColor,
@@ -474,109 +481,20 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
                 ),
-                filled: true,
-                fillColor: Colors.white,
-              ),
-            ),
-          ),
-          // Lista paginada
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () => Future.sync(() => _pagingController.refresh()),
-              child: PagedListView<int, Usuario>(
-                pagingController: _pagingController,
-                builderDelegate: PagedChildBuilderDelegate<Usuario>(
-                  // Widget a ser exibido para cada item da lista
-                  itemBuilder: (context, usuario, index) => _UsuarioListItem(
-                    usuario: usuario,
-                    onDelete: () async {
-                      bool confirm = await showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: Text('Confirmação'),
-                          content: Text('Tem certeza que deseja deletar este usuário?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: Text('Cancelar'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              child: Text('Deletar', style: TextStyle(color: Colors.red)),
-                            ),
-                          ],
-                        ),
-                      ) ?? false;
-
-                      if (confirm) {
-                        try {
-                          bool success = await UsuarioApi.deletarUsuario(usuario.id);
-                          if (success) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Usuário deletado com sucesso')),
-                            );
-                            _pagingController.refresh();
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Erro ao deletar usuário')),
-                            );
-                          }
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Erro: ${e.toString()}')),
-                          );
-                        }
-                      }
-                    },
-                    onModify: () async {
-                      // CORREÇÃO: Navega para a tela de modificar
-                      final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => ModifyUserApp(usuario: usuario)));
-                      if (result == true) {
-                        _pagingController.refresh();
-                      }
-                    },
-                  ),
-                  // Widgets para os diferentes estados da lista (carregando, erro, vazia)
-                  firstPageProgressIndicatorBuilder: (_) => Center(child: CircularProgressIndicator()),
-                  newPageProgressIndicatorBuilder: (_) => Center(child: CircularProgressIndicator()),
-                  noItemsFoundIndicatorBuilder: (_) => Center(child: Text("Nenhum usuário encontrado.")),
-                  firstPageErrorIndicatorBuilder: (_) => Center(child: Text("Erro ao carregar usuários.")),
-                ),
-                tabs: const [
-                  Tab(text: 'Cursos'),
-                  Tab(text: 'Usuários Ativos'),
-                  Tab(text: 'Usuários Desativados'),
-                ],
               )
             : null,
       ),
-      // Botão flutuante para adicionar novo usuário
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          // CORREÇÃO: Navega para a tela de registro
-          final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => RegisterScreen(role: 'admin')));
-          if (result == true) {
-            _pagingController.refresh();
-          }
-        },
-        icon: Icon(Icons.add),
-        label: Text("Novo Usuário"),
-        backgroundColor: Theme.of(context).primaryColor, // Usa a cor do tema
-        foregroundColor: Colors.white,
-      );
-    }
-    // Mostra o botão apenas na aba de usuários ativos (índice 1)
-    if (_tabController.index == 1) {
-      return FloatingActionButton.extended(
-        onPressed: _abrirCadastroUsuario,
-        icon: Icon(Icons.person_add_alt_1_outlined),
-        label: Text('Novo Usuário'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-      );
-    }
-    return null;
+      body: _buildBody(),
+      floatingActionButton: _tabController.index == 1 && _isAdmin
+          ? FloatingActionButton.extended(
+              onPressed: _abrirCadastroUsuario,
+              icon: Icon(Icons.person_add_alt_1_outlined),
+              label: Text('Novo Usuário'),
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.white,
+            )
+          : null,
+    );
   }
 
   Widget _buildBody() {

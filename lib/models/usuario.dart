@@ -8,6 +8,9 @@ class Usuario {
   final int cursoId;
   final String cursoNome;
 
+  final String role;
+  final bool active;
+
   Usuario({
     required this.id,
     required this.nome,
@@ -16,7 +19,14 @@ class Usuario {
     required this.login,
     required this.cursoId,
     this.cursoNome = '',
+    this.role = '',
+    this.active = true,
   });
+
+  String get displayName => nome.isNotEmpty ? '$nome $sobrenome'.trim() : (login.isNotEmpty ? login : 'Usuário');
+  String get initials => nome.isNotEmpty ? nome[0].toUpperCase() : (login.isNotEmpty ? login[0].toUpperCase() : 'U');
+  String get cursoDisplay => cursoNome.isNotEmpty ? cursoNome : 'Não informado';
+  String get curso => cursoNome;
 
   /// Constrói um Usuário a partir de um JSON de resposta.
   factory Usuario.fromJson(Map<String, dynamic> json) {
@@ -27,6 +37,9 @@ class Usuario {
       email: json['email'] ?? '',
       login: json['login'] ?? '',
       cursoId: json['cursoId'] ?? 0,
+      cursoNome: json['cursoNome'] ?? json['curso'] ?? '',
+      role: json['role'] ?? '',
+      active: _parseActive(json),
     );
   }
 

@@ -140,6 +140,21 @@ class _SearchPageState extends State<SearchPage> {
     });
   }
 
+  Future<void> _carregarCursos() async {
+    try {
+      final cursos = await UsuarioApi.listarCursos();
+      if (!mounted) return;
+      setState(() {
+        _cursos = cursos;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Falha ao carregar cursos: $e')),
+      );
+    }
+  }
+
   // Função que busca os dados da API
   /// Busca eventos com paginação e termo de busca, atualizando o PagingController.
   Future<void> _fetchPage(int pageKey, String query) async {
@@ -280,7 +295,7 @@ class _SearchPageState extends State<SearchPage> {
               layout: EventoCardLayout.list,
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Evento: ${evento.nome}')),
+                  SnackBar(content: Text('Evento: ${evento.titulo}')),
                 );
               },
             ),

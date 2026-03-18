@@ -17,12 +17,12 @@ class ModifyUserApp extends StatefulWidget {
 class _ModifyUserAppState extends State<ModifyUserApp> {
   final _formKey = GlobalKey<FormState>();
 
-  // Controllers para os campos do formulário.
   late TextEditingController _nomeController;
   late TextEditingController _sobrenomeController;
   late TextEditingController _emailController;
   late TextEditingController _loginController;
   late TextEditingController _senhaController;
+  
   bool _isLoadingCursos = false;
   List<CourseOption> _cursos = const [];
   String? _cursoSelecionadoId;
@@ -30,7 +30,6 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
   bool _isLoading = false;
   bool _obscureText = true;
 
-  // Lista de roles disponíveis
   static const List<Map<String, String>> _rolesDisponiveis = [
     {'value': 'ADMIN', 'label': 'Administrador'},
     {'value': 'GESTOR', 'label': 'Gestor'},
@@ -41,42 +40,40 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
   void initState() {
     super.initState();
     _nomeController = TextEditingController(text: widget.usuario.nome);
-    _sobrenomeController = TextEditingController(
-      text: widget.usuario.sobrenome,
-    );
+    _sobrenomeController = TextEditingController(text: widget.usuario.sobrenome);
     _emailController = TextEditingController(text: widget.usuario.email);
     _loginController = TextEditingController(text: widget.usuario.login);
+    _senhaController = TextEditingController();
+    _roleSelecionado = widget.usuario.role.isNotEmpty ? widget.usuario.role.toUpperCase() : 'COLABORADOR';
     
     _carregarCursos();
   }
 
   Future<void> _carregarCursos() async {
+    setState(() => _isLoadingCursos = true);
     try {
-      final cursosAPI = await CursosApi.fetchCursos();
-      if (mounted) {
-        setState(() {
-          _listaDeCursos = cursosAPI;
-          _isLoadingCursos = false;
+      final cursos = await UsuarioApi.listarCursos();
+      if (!mounted) return;
+      setState(() {
+        _cursos = cursos;
+        _cursoSelecionadoId = null;
 
-          int cid = widget.usuario.cursoId;
-          
-          if (cid == 0 && widget.usuario.cursoNome.isNotEmpty) {
-            final cursoEncontrado = _listaDeCursos.firstWhere(
-              (c) => c.nome.toLowerCase() == widget.usuario.cursoNome.toLowerCase(), 
-              orElse: () => Curso(id: 0, nome: '')
-            );
-            if (cursoEncontrado.id != 0) {
-              cid = cursoEncontrado.id;
-            }
+        if (widget.usuario.curso.isNotEmpty) {
+          final match = _cursos.firstWhere(
+            (curso) => curso.nome.toLowerCase() == widget.usuario.curso.toLowerCase(),
+            orElse: () => CourseOption(id: '', nome: ''),
+          );
+          if (match.id.isNotEmpty) {
+            _cursoSelecionadoId = match.id;
           }
-
-          if (cid != 0 && !_listaDeCursos.any((c) => c.id == cid)) {
-            _listaDeCursos.add(Curso(id: cid, nome: widget.usuario.cursoNome.isNotEmpty ? widget.usuario.cursoNome : "Curso $cid (Atual)"));
-          }
-          _cursoSelecionadoId = _listaDeCursos.any((c) => c.id == cid) ? cid : null;
-        });
-      }
+        }
+      });
     } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Falha ao carregar cursos: $e'))
+      );
+    } finally {
       if (mounted) {
         setState(() => _isLoadingCursos = false);
       }
@@ -92,74 +89,11 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     _senhaController.dispose();
     super.dispose();
   }
-  
-  // Função para salvar as alterações, agora conectada à API.
+
   Future<void> _salvarAlteracoes() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
-    
-    // Monta o mapa de dados para enviar à API, conforme o Swagger (usando PATCH).
-    final dadosParaAtualizar = {
-      "nome": _nomeController.text.trim(),
-      "sobrenome": _sobrenomeController.text.trim(),
-      "email": _emailController.text.trim(),
-      "login": _loginController.text.trim(),
-      "cursoId": _cursoSelecionadoId,
-      // Envia a senha apenas se o campo não estiver vazio.
-      if (_senhaController.text.isNotEmpty) "senha": _senhaController.text,
-    };
-    
-    // Chama o método da API para atualizar o usuário.
-    final sucesso = await UsuarioApi.atualizarUsuario(widget.usuario.id, dadosParaAtualizar);
 
-  Future<void> _carregarCursos() async {
-    setState(() => _isLoadingCursos = true);
-    try {
-      final cursos = await api_service.UsuarioApi.listarCursos();
-      if (!mounted) return;
-      setState(() {
-        _cursos = cursos;
-        if (_cursos.isEmpty) {
-          _cursoSelecionadoId = null;
-        } else if (_cursoSelecionadoId != null &&
-            !_cursos.any((c) => c.id == _cursoSelecionadoId)) {
-          _cursoSelecionadoId = null;
-        }
-
-        if ((_cursoSelecionadoId == null || _cursoSelecionadoId!.isEmpty) &&
-            widget.usuario.curso.isNotEmpty) {
-          final match = _cursos.firstWhere(
-            (curso) =>
-                curso.nome.toLowerCase() == widget.usuario.curso.toLowerCase(),
-            orElse: () => CourseOption(id: '', nome: ''),
-          );
-          if (match.id.isNotEmpty) {
-            _cursoSelecionadoId = match.id;
-          }
-        }
-      });
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Falha ao carregar cursos: $e')));
-    } finally {
-      if (mounted) {
-        setState(() => _isLoadingCursos = false);
-      }
-    }
-  }
-
-  // Função para lidar com o salvamento das alterações.
-  Future<void> _salvarAlteracoes() async {
-    // Valida o formulário antes de continuar.
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    // Monta o payload apenas com os campos que foram alterados ou que têm valor
     final payload = <String, dynamic>{
       'nome': _nomeController.text.trim(),
       'sobrenome': _sobrenomeController.text.trim(),
@@ -167,39 +101,30 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
       'role': _roleSelecionado ?? 'COLABORADOR',
     };
 
-    // Adiciona login apenas se foi alterado e não está vazio
     final loginAtualizado = _loginController.text.trim();
     if (loginAtualizado.isNotEmpty && loginAtualizado != widget.usuario.login) {
       payload['login'] = loginAtualizado;
     }
 
-    // Adiciona curso apenas se foi selecionado um curso diferente
     if (_cursoSelecionadoId != null && _cursoSelecionadoId!.isNotEmpty) {
       try {
         final cursoSelecionado = _cursos.firstWhere(
           (curso) => curso.id == _cursoSelecionadoId,
         );
-        final nomeCurso = cursoSelecionado.nome;
-        // Só adiciona se o curso foi alterado
-        if (nomeCurso != widget.usuario.curso) {
-          payload['curso'] = nomeCurso; // API espera o nome do curso, não o ID
-        }
-      } catch (e) {
-        // Se o curso não for encontrado na lista, mas foi selecionado, envia o nome original
+        payload['curso'] = cursoSelecionado.nome;
+      } catch (_) {
         if (widget.usuario.curso.isNotEmpty) {
           payload['curso'] = widget.usuario.curso;
         }
       }
     }
 
-    // Adiciona senha apenas se foi preenchida
     if (_senhaController.text.isNotEmpty) {
       payload['senha'] = _senhaController.text;
     }
 
     try {
-      // Usa UserService que tem melhor tratamento de erros e filtragem de campos vazios
-      final sucesso = await UserService.atualizarUsuario(
+      final sucesso = await UsuarioApi.atualizarUsuario(
         widget.usuario.id,
         payload,
       );
@@ -217,26 +142,9 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
       }
     } catch (e) {
       if (!mounted) return;
-      
-      // Trata erros de CORS especificamente
-      final errorMessage = e.toString().toLowerCase();
-      String mensagemErro;
-      
-      if (errorMessage.contains('cors') || 
-          errorMessage.contains('cross-origin') ||
-          errorMessage.contains('networkerror') ||
-          errorMessage.contains('access-control-allow-methods')) {
-        mensagemErro = 'Erro de CORS: O backend precisa permitir o método PATCH nas configurações de CORS. Entre em contato com o administrador do sistema.';
-      } else {
-        mensagemErro = 'Erro ao atualizar usuário: $e';
-      }
-      
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(mensagemErro),
-          duration: const Duration(seconds: 5),
+          content: Text('Erro ao atualizar usuário: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -245,6 +153,77 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Widget _buildCursoDropdown() {
+    if (_isLoadingCursos) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+          color: Colors.grey.shade50,
+        ),
+        child: Row(
+          children: const [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Text('Carregando cursos...'),
+          ],
+        ),
+      );
+    }
+
+    return DropdownButtonFormField<String>(
+      value: _cursoSelecionadoId,
+      decoration: const InputDecoration(
+        labelText: 'Curso (opcional)',
+        prefixIcon: Icon(Icons.school_outlined),
+        helperText: 'Deixe sem seleção para manter o curso atual',
+      ),
+      items: [
+        const DropdownMenuItem<String>(
+          value: null,
+          child: Text('Manter curso atual'),
+        ),
+        ..._cursos.map(
+          (curso) => DropdownMenuItem(value: curso.id, child: Text(curso.nome)),
+        ),
+      ],
+      onChanged: (value) => setState(() => _cursoSelecionadoId = value),
+    );
+  }
+
+  Widget _buildRoleDropdown() {
+    return DropdownButtonFormField<String>(
+      value: _roleSelecionado,
+      decoration: const InputDecoration(
+        labelText: 'Perfil de acesso',
+        prefixIcon: Icon(Icons.admin_panel_settings_outlined),
+      ),
+      isExpanded: true,
+      items: _rolesDisponiveis.map(
+        (role) => DropdownMenuItem(
+          value: role['value'],
+          child: Text(role['label']!),
+        ),
+      ).toList(),
+      onChanged: (value) {
+        if (value != null) {
+          setState(() => _roleSelecionado = value);
+        }
+      },
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Selecione um perfil de acesso';
+        }
+        return null;
+      },
+    );
   }
 
   @override
@@ -266,13 +245,9 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
                       children: [
                         CircleAvatar(
                           radius: 40,
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.primary,
+                          backgroundColor: Theme.of(context).colorScheme.primary,
                           child: Text(
-                            widget.usuario.nome.isNotEmpty
-                                ? widget.usuario.nome[0].toUpperCase()
-                                : 'U',
+                            widget.usuario.initials,
                             style: const TextStyle(
                               fontSize: 28,
                               color: Colors.white,
@@ -286,14 +261,12 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
                             children: [
                               Text(
                                 'Editando ${widget.usuario.displayName}',
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w600),
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
                               ),
                               const SizedBox(height: 6),
                               Text(
                                 'ID: ${widget.usuario.id}',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: Colors.grey[600]),
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
                               ),
                             ],
                           ),
@@ -370,18 +343,13 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _obscureText
-                                ? Icons.visibility_off
-                                : Icons.visibility,
+                            _obscureText ? Icons.visibility_off : Icons.visibility,
                           ),
-                          onPressed: () =>
-                              setState(() => _obscureText = !_obscureText),
+                          onPressed: () => setState(() => _obscureText = !_obscureText),
                         ),
                       ),
                       validator: (value) {
-                        if (value != null &&
-                            value.isNotEmpty &&
-                            value.length < 6) {
+                        if (value != null && value.isNotEmpty && value.length < 6) {
                           return 'Senha deve ter pelo menos 6 caracteres';
                         }
                         return null;
@@ -396,9 +364,7 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
                               height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation(
-                                  Colors.white,
-                                ),
+                                valueColor: AlwaysStoppedAnimation(Colors.white),
                               ),
                             )
                           : const Icon(Icons.save_outlined),
@@ -409,145 +375,10 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
                   ],
                 ),
               ),
-              SizedBox(height: 32),
-              
-              TextFormField(controller: _nomeController, decoration: InputDecoration(labelText: "Nome"), validator: (v) => v!.isEmpty ? 'O nome não pode ser vazio' : null),
-              SizedBox(height: 16),
-              
-              TextFormField(controller: _sobrenomeController, decoration: InputDecoration(labelText: "Sobrenome"), validator: (v) => v!.isEmpty ? 'O sobrenome não pode ser vazio' : null),
-              SizedBox(height: 16),
-              
-              TextFormField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(labelText: "E-mail"),
-                validator: (v) => (v!.isEmpty || !v.contains('@')) ? 'Email inválido' : null,
-              ),
-              SizedBox(height: 16),
-              
-              TextFormField(
-                controller: _loginController,
-                decoration: InputDecoration(labelText: "Login"),
-                validator: (v) => v!.isEmpty ? 'O login não pode ser vazio' : null,
-              ),
-              SizedBox(height: 16),
-              
-              DropdownButtonFormField<int>(
-                value: _cursoSelecionadoId,
-                decoration: InputDecoration(labelText: _isLoadingCursos ? "Carregando cursos..." : "Selecione o Curso"),
-                items: _listaDeCursos.map((curso) => DropdownMenuItem(value: curso.id, child: Text(curso.nome))).toList(),
-                onChanged: _isLoadingCursos ? null : (value) => setState(() => _cursoSelecionadoId = value),
-                validator: (v) => v == null ? 'Selecione um curso' : null,
-              ),
-              SizedBox(height: 16),
-              
-              TextFormField(
-                controller: _senhaController,
-                obscureText: _obscureText,
-                decoration: InputDecoration(
-                  labelText: "Nova Senha (opcional)",
-                  helperText: "Deixe em branco para não alterar a senha",
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscureText ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setState(() => _obscureText = !_obscureText),
-                  )
-                ),
-              ),
-              SizedBox(height: 32),
-              
-              ElevatedButton(
-                onPressed: _isLoading ? null : _salvarAlteracoes,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: _isLoading
-                    ? SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-                    : Text("SALVAR ALTERAÇÕES"),
-              ),
-            ],
+            ),
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildCursoDropdown() {
-    if (_isLoadingCursos) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade200),
-          color: Colors.grey.shade50,
-        ),
-        child: Row(
-          children: const [
-            SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            SizedBox(width: 12),
-            Text('Carregando cursos...'),
-          ],
-        ),
-      );
-    }
-
-    return DropdownButtonFormField<String>(
-      value: _cursoSelecionadoId,
-      decoration: const InputDecoration(
-        labelText: 'Curso (opcional)',
-        prefixIcon: Icon(Icons.school_outlined),
-        helperText: 'Deixe sem seleção para manter o curso atual',
-      ),
-      items: [
-        const DropdownMenuItem<String>(
-          value: null,
-          child: Text('Manter curso atual'),
-        ),
-        ..._cursos
-            .map(
-              (curso) =>
-                  DropdownMenuItem(value: curso.id, child: Text(curso.nome)),
-            )
-            .toList(),
-      ],
-      onChanged: (value) => setState(() => _cursoSelecionadoId = value),
-    );
-  }
-
-  Widget _buildRoleDropdown() {
-    return DropdownButtonFormField<String>(
-      value: _roleSelecionado,
-      decoration: const InputDecoration(
-        labelText: 'Perfil de acesso',
-        prefixIcon: Icon(Icons.admin_panel_settings_outlined),
-      ),
-      isExpanded: true,
-      items: _rolesDisponiveis
-          .map(
-            (role) => DropdownMenuItem(
-              value: role['value'],
-              child: Text(role['label']!),
-            ),
-          )
-          .toList(),
-      onChanged: (value) {
-        if (value != null) {
-          setState(() {
-            _roleSelecionado = value;
-          });
-        }
-      },
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Selecione um perfil de acesso';
-        }
-        return null;
-      },
     );
   }
 }

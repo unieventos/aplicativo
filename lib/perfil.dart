@@ -3,21 +3,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_application_1/login.dart';
 import 'package:flutter_application_1/modifyUser.dart';
 import 'package:flutter_application_1/models/usuario.dart';
-
-class PerfilUsuario {
-  final String id, nome, sobrenome, email, curso, role, login;
-  final int cursoId;
-  PerfilUsuario({
-    this.id = '',
-    this.nome = '',
-    this.sobrenome = '',
-    this.email = '',
-    this.curso = 'Não informado',
-    this.role = 'user',
-    this.login = '',
-    this.cursoId = 0,
-  });
-}
+import 'package:flutter_application_1/user_service.dart';
+import 'package:flutter_application_1/models/user_profile.dart';
 
 class PerfilPage extends StatefulWidget {
   const PerfilPage({super.key});
@@ -47,7 +34,7 @@ class _PerfilPageState extends State<PerfilPage> {
       return cached;
     }
 
-    return const UserProfile(nome: 'Usuário');
+      return const UserProfile(nome: 'Usuário');
   }
 
   Future<UserProfile?> _loadCachedProfile() async {
@@ -61,15 +48,13 @@ class _PerfilPageState extends State<PerfilPage> {
       _storage.read(key: 'id'),
       _storage.read(key: 'login'),
     ]);
-    return PerfilUsuario(
-      nome: values[0] ?? 'Usuário',
-      sobrenome: values[1] ?? '',
-      email: values[2] ?? 'email@nao.informado',
-      curso: values[3] ?? 'Não informado', // O backend já traz o nome do curso no login!
-      role: values[4] ?? 'user',
-      id: values[5] ?? '',
-      login: values[6] ?? '',
-      cursoId: int.tryParse(values[3] ?? '0') ?? 0,
+    return UserProfile(
+      id: values[0] ?? '',
+      nome: values[1] ?? 'Usuário',
+      sobrenome: values[2] ?? '',
+      email: values[3] ?? 'email@nao.informado',
+      role: values[5] ?? 'user',
+      cursoId: values[4] ?? '0',
     );
   }
 
@@ -129,22 +114,21 @@ class _PerfilPageState extends State<PerfilPage> {
 
           final perfil = snapshot.data!;
           
-          return RefreshIndicator(
-            onRefresh: () async {
-              setState(() { _perfilUsuarioFuture = _loadUserData(); });
-            },
-            child: ListView(
-              padding: const EdgeInsets.all(16.0),
-              children: [
-                _buildHeader(perfil),
-                SizedBox(height: 24),
-                _buildInfoCard(perfil),
-                SizedBox(height: 24),
-                _buildActionsCard(perfil),
-              ],
-            ),
-          );
-        },
+            return RefreshIndicator(
+              onRefresh: () async {
+                setState(() { _perfilUsuarioFuture = _loadUserData(); });
+              },
+              child: ListView(
+                padding: const EdgeInsets.all(16.0),
+                children: [
+                  _buildHeader(perfil),
+                  const SizedBox(height: 24),
+                  _buildActionsCard(perfil),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -186,24 +170,25 @@ class _PerfilPageState extends State<PerfilPage> {
     );
   }
   
-  Widget _buildActionsCard(PerfilUsuario perfil) {
+  Widget _buildActionsCard(UserProfile perfil) {
+    final theme = Theme.of(context);
     return Card(
        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
        child: Column(
          children: [
             ListTile(
               leading: Icon(Icons.edit_outlined, color: Colors.blue.shade700),
-              title: Text("Editar Perfil"),
-              trailing: Icon(Icons.arrow_forward_ios, size: 16),
+              title: const Text("Editar Perfil"),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               onTap: () async {
                 final usuario = Usuario(
                   id: perfil.id,
                   nome: perfil.nome,
                   sobrenome: perfil.sobrenome,
                   email: perfil.email,
-                  login: perfil.login,
-                  cursoId: perfil.cursoId,
-                  cursoNome: perfil.curso, // Novo campo
+                  login: '',
+                  cursoId: int.tryParse(perfil.cursoId) ?? 0,
+                  cursoNome: 'Não informado',
                 );
                 final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => ModifyUserApp(usuario: usuario)));
                 if (result == true) {
@@ -211,51 +196,38 @@ class _PerfilPageState extends State<PerfilPage> {
                 }
               },
             ),
-            title: const Text('Curso'),
-            subtitle: Text(
-              perfil.cursoId.isNotEmpty
-                  ? 'Curso ID: ${perfil.cursoId}'
-                  : 'Não informado',
+            const Divider(indent: 16, endIndent: 16),
+            ListTile(
+              leading: Icon(Icons.school_outlined, color: theme.colorScheme.primary),
+              title: const Text('Curso'),
+              subtitle: Text(
+                perfil.cursoId != '0' && perfil.cursoId.isNotEmpty
+                    ? 'Curso ID: ${perfil.cursoId}'
+                    : 'Não informado',
+              ),
             ),
-          ),
-          const Divider(indent: 16, endIndent: 16),
-          ListTile(
-            leading: Icon(
-              Icons.admin_panel_settings_outlined,
-              color: theme.colorScheme.primary,
+            const Divider(indent: 16, endIndent: 16),
+            ListTile(
+              leading: Icon(
+                Icons.admin_panel_settings_outlined,
+                color: theme.colorScheme.primary,
+              ),
+              title: const Text('Nível de acesso'),
+              subtitle: Text(
+                perfil.role.isNotEmpty ? perfil.role.toUpperCase() : 'USER',
+              ),
             ),
-            title: const Text('Nível de acesso'),
-            subtitle: Text(
-              perfil.role.isNotEmpty ? perfil.role.toUpperCase() : 'USER',
+            const Divider(indent: 16, endIndent: 16),
+            ListTile(
+              leading: Icon(Icons.logout, color: theme.colorScheme.primary),
+              title: Text(
+                'Sair',
+                style: TextStyle(color: theme.colorScheme.primary),
+              ),
+              onTap: _logout,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionsCard() {
-    final theme = Theme.of(context);
-    return Card(
-      child: Column(
-        children: [
-          ListTile(
-            leading: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
-            title: const Text('Editar perfil'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {},
-          ),
-          const Divider(indent: 16, endIndent: 16),
-          ListTile(
-            leading: Icon(Icons.logout, color: theme.colorScheme.primary),
-            title: Text(
-              'Sair',
-              style: TextStyle(color: theme.colorScheme.primary),
-            ),
-            onTap: _logout,
-          ),
-        ],
-      ),
+         ],
+       ),
     );
   }
 }
