@@ -33,10 +33,6 @@ class AuthService {
       }
       final url = Uri.parse(ApiConfig.authLogin());
       
-      // LOG DE DEBUG: Mostra exatamente o que está sendo enviado.
-      // Muito útil para encontrar problemas.
-      print('[AuthService] Enviando requisição para: $url');
-      print('[AuthService] Body: $body');
 
       // POST com timeout e logs básicos
       final response = await http

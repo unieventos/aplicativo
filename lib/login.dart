@@ -44,6 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (token != null && mounted) {
         await _storage.write(key: 'token', value: token);
+        await _storage.write(key: 'login', value: _emailController.text.trim()); // Salva o login digitado
         await _storage.write(key: 'permanecerLogado', value: _permanecerLogado.toString());
         // O role será definido pelo UserService.buscarUsuario() após login
         

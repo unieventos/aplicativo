@@ -105,13 +105,51 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
                   // Widget a ser exibido para cada item da lista
                   itemBuilder: (context, usuario, index) => _UsuarioListItem(
                     usuario: usuario,
-                    onDelete: () {
-                      // TODO: Adicionar lógica para deletar usuário
-                      // Após deletar, chame _pagingController.refresh() para atualizar a lista
+                    onDelete: () async {
+                      bool confirm = await showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: Text('Confirmação'),
+                          content: Text('Tem certeza que deseja deletar este usuário?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: Text('Cancelar'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: Text('Deletar', style: TextStyle(color: Colors.red)),
+                            ),
+                          ],
+                        ),
+                      ) ?? false;
+
+                      if (confirm) {
+                        try {
+                          bool success = await UsuarioApi.deletarUsuario(usuario.id);
+                          if (success) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Usuário deletado com sucesso')),
+                            );
+                            _pagingController.refresh();
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Erro ao deletar usuário')),
+                            );
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Erro: ${e.toString()}')),
+                          );
+                        }
+                      }
                     },
-                    onModify: () {
+                    onModify: () async {
                       // CORREÇÃO: Navega para a tela de modificar
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => ModifyUserApp(usuario: usuario)));
+                      final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => ModifyUserApp(usuario: usuario)));
+                      if (result == true) {
+                        _pagingController.refresh();
+                      }
                     },
                   ),
                   // Widgets para os diferentes estados da lista (carregando, erro, vazia)
@@ -126,10 +164,14 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage> {
         ],
       ),
       // Botão flutuante para adicionar novo usuário
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
+        onPressed: () async {
           // CORREÇÃO: Navega para a tela de registro
-          Navigator.push(context, MaterialPageRoute(builder: (context) => RegisterScreen(role: 'admin')));
+          final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => RegisterScreen(role: 'admin')));
+          if (result == true) {
+            _pagingController.refresh();
+          }
         },
         icon: Icon(Icons.add),
         label: Text("Novo Usuário"),

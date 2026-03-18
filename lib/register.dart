@@ -1,13 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/api_service.dart'; // Importa a sua classe de API
 
-// --- MODELO DE DADOS PARA CURSO (Exemplo) ---
-// O ideal é que este modelo e a lista abaixo venham da sua API.
-class Curso {
-  final int id;
-  final String nome;
-  Curso({required this.id, required this.nome});
-}
+import 'package:flutter_application_1/models/curso.dart';
+
 
 // --- TELA DE CADASTRO DE USUÁRIO FINALIZADA ---
 class RegisterScreen extends StatefulWidget {
@@ -29,23 +24,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _senhaController = TextEditingController();
   final _confirmarSenhaController = TextEditingController();
   
-  // Lista de cursos estática para preencher o dropdown.
-  // No futuro, você pode buscar esta lista da sua API no initState.
-  final List<Curso> _listaDeCursos = [
-    Curso(id: 1, nome: "Ciência da Computação"),
-    Curso(id: 2, nome: "Engenharia"),
-    Curso(id: 3, nome: "Direito"),
-    Curso(id: 4, nome: "Odontologia"),
-    Curso(id: 5, nome: "Enfermagem"),
-    Curso(id: 6, nome: "Pastoral"),
-  ];
-  
-  // Variável para armazenar o ID do curso selecionado.
+  List<Curso> _listaDeCursos = [];
+  bool _isLoadingCursos = true;
   int? _cursoSelecionadoId;
   
   bool _isLoading = false;
   bool _obscureSenha = true;
   bool _obscureConfirmarSenha = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarCursos();
+  }
+
+  Future<void> _carregarCursos() async {
+    try {
+      final cursosAPI = await CursosApi.fetchCursos();
+      if (mounted) {
+        setState(() {
+          _listaDeCursos = cursosAPI;
+          _isLoadingCursos = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingCursos = false);
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -117,13 +124,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
               
               // --- DROPDOWN CORRIGIDO PARA USAR ID ---
               DropdownButtonFormField<int>(
-                decoration: InputDecoration(labelText: "Selecione o Curso"),
+                decoration: InputDecoration(labelText: _isLoadingCursos ? "Carregando cursos..." : "Selecione o Curso"),
                 value: _cursoSelecionadoId,
                 items: _listaDeCursos.map((curso) {
                   // O valor de cada item é o ID, mas o que é exibido é o Nome.
                   return DropdownMenuItem(value: curso.id, child: Text(curso.nome));
                 }).toList(),
-                onChanged: (value) {
+                onChanged: _isLoadingCursos ? null : (value) {
                   setState(() {
                     _cursoSelecionadoId = value;
                   });

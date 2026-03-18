@@ -14,6 +14,7 @@ import 'package:flutter_application_1/utils/web_checks.dart';
 // Modelos centralizados
 import 'package:flutter_application_1/models/usuario.dart';
 import 'package:flutter_application_1/models/evento.dart';
+import 'package:flutter_application_1/models/curso.dart';
 
 /// Modelo para Categoria (baseado no Swagger do backend).
 class Categoria {
@@ -45,7 +46,7 @@ class UsuarioApi {
       throw Exception('Mixed content bloqueado no navegador: app https x API http.');
     }
 
-    final url = Uri.parse('$_baseUrl?page=$page&size=$pageSize&sortBy=nome&name=$search');
+    final url = Uri.parse('$_baseUrl?page=$page&size=$pageSize&sortBy=nome&name=$search&active=true');
     final response = await http
         .get(url, headers: {'Authorization': 'Bearer $token'})
         .timeout(const Duration(seconds: 15));
@@ -242,6 +243,59 @@ class CategoriaApi {
       return list.map((item) => Categoria.fromJson(item['categoria'])).toList();
     } else {
       throw Exception('Falha ao carregar categorias: ${response.statusCode}');
+    }
+  }
+}
+
+/// Operações de API relacionadas a Cursos.
+class CursosApi {
+  static final String _baseUrl = ApiConfig.cursos();
+  static final _storage = FlutterSecureStorage();
+
+  /// GET /cursos — Retorna lista paginada de cursos.
+  static Future<List<Curso>> fetchCursos([int page = 0, int pageSize = 100]) async {
+    final token = await _storage.read(key: 'token');
+    if (token == null) throw Exception('Token não encontrado.');
+
+    if (WebChecks.isMixedContent(ApiConfig.base)) {
+      throw Exception('Mixed content bloqueado no navegador: app https x API http.');
+    }
+
+    final url = Uri.parse('$_baseUrl?page=$page&size=$pageSize');
+    try {
+      final response = await http
+          .get(url, headers: {'Authorization': 'Bearer $token'})
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(utf8.decode(response.bodyBytes));
+        
+        final embedded = data['_embedded'];
+        if (embedded != null && embedded is Map) {
+          // Procura a chave interna que contem 'curso' ou 'course' no nome
+          final listKey = embedded.keys.firstWhere(
+            (k) {
+               final str = k.toString().toLowerCase();
+               return str.contains('curso') || str.contains('course');
+            }, 
+            orElse: () => ''
+          );
+
+          if (listKey.isNotEmpty) {
+            final List<dynamic> list = embedded[listKey] ?? [];
+            return list.map((item) {
+              final cursoData = item['curso'] ?? item['course'] ?? item;
+              return Curso.fromJson(cursoData);
+            }).toList();
+          }
+        }
+        return [];
+      } else {
+        throw Exception('Falha ao carregar cursos: ${response.statusCode}');
+      }
+    } catch (e) {
+      print("Erro ao fetchCursos: $e");
+      return [];
     }
   }
 }

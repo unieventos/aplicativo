@@ -12,6 +12,7 @@ class ApiConfig {
   );
 
   static String usuarios() => '$base/usuarios';
+  static String cursos() => '$base/cursos';
   static String eventos() => '$base/eventos';
   static String categorias() => '$base/categorias';
   static String authLogin() => '$base/auth/login';

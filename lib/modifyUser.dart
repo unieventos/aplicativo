@@ -2,12 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/models/usuario.dart'; // Modelo Usuario centralizado
 import 'package:flutter_application_1/api_service.dart'; // Importa a sua classe de API
 
-// Modelo de Curso (exemplo, para lidar com ID e Nome)
-class Curso {
-  final int id;
-  final String nome;
-  Curso({required this.id, required this.nome});
-}
+import 'package:flutter_application_1/models/curso.dart'; // Importa o modelo Curso
 
 class ModifyUserApp extends StatefulWidget {
   final Usuario usuario;
@@ -23,18 +18,16 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
   late TextEditingController _nomeController;
   late TextEditingController _sobrenomeController;
   late TextEditingController _emailController;
+  late TextEditingController _loginController;
   final _senhaController = TextEditingController();
   
   int? _cursoSelecionadoId;
   bool _isLoading = false;
   bool _obscureText = true;
   
-  // Lista de cursos de exemplo. No mundo real, esta lista viria da API.
-  final List<Curso> _listaDeCursos = [
-    Curso(id: 1, nome: "Ciência da Computação"),
-    Curso(id: 2, nome: "Engenharia"),
-    Curso(id: 3, nome: "Direito"),
-  ];
+  List<Curso> _listaDeCursos = [];
+
+  bool _isLoadingCursos = true;
 
   @override
   void initState() {
@@ -42,7 +35,42 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     _nomeController = TextEditingController(text: widget.usuario.nome);
     _sobrenomeController = TextEditingController(text: widget.usuario.sobrenome);
     _emailController = TextEditingController(text: widget.usuario.email);
-    _cursoSelecionadoId = widget.usuario.cursoId;
+    _loginController = TextEditingController(text: widget.usuario.login);
+    
+    _carregarCursos();
+  }
+
+  Future<void> _carregarCursos() async {
+    try {
+      final cursosAPI = await CursosApi.fetchCursos();
+      if (mounted) {
+        setState(() {
+          _listaDeCursos = cursosAPI;
+          _isLoadingCursos = false;
+
+          int cid = widget.usuario.cursoId;
+          
+          if (cid == 0 && widget.usuario.cursoNome.isNotEmpty) {
+            final cursoEncontrado = _listaDeCursos.firstWhere(
+              (c) => c.nome.toLowerCase() == widget.usuario.cursoNome.toLowerCase(), 
+              orElse: () => Curso(id: 0, nome: '')
+            );
+            if (cursoEncontrado.id != 0) {
+              cid = cursoEncontrado.id;
+            }
+          }
+
+          if (cid != 0 && !_listaDeCursos.any((c) => c.id == cid)) {
+            _listaDeCursos.add(Curso(id: cid, nome: widget.usuario.cursoNome.isNotEmpty ? widget.usuario.cursoNome : "Curso $cid (Atual)"));
+          }
+          _cursoSelecionadoId = _listaDeCursos.any((c) => c.id == cid) ? cid : null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingCursos = false);
+      }
+    }
   }
 
   @override
@@ -50,6 +78,7 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     _nomeController.dispose();
     _sobrenomeController.dispose();
     _emailController.dispose();
+    _loginController.dispose();
     _senhaController.dispose();
     super.dispose();
   }
@@ -64,6 +93,7 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
       "nome": _nomeController.text.trim(),
       "sobrenome": _sobrenomeController.text.trim(),
       "email": _emailController.text.trim(),
+      "login": _loginController.text.trim(),
       "cursoId": _cursoSelecionadoId,
       // Envia a senha apenas se o campo não estiver vazio.
       if (_senhaController.text.isNotEmpty) "senha": _senhaController.text,
@@ -128,11 +158,18 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
               ),
               SizedBox(height: 16),
               
+              TextFormField(
+                controller: _loginController,
+                decoration: InputDecoration(labelText: "Login"),
+                validator: (v) => v!.isEmpty ? 'O login não pode ser vazio' : null,
+              ),
+              SizedBox(height: 16),
+              
               DropdownButtonFormField<int>(
                 value: _cursoSelecionadoId,
-                decoration: InputDecoration(labelText: "Selecione o Curso"),
+                decoration: InputDecoration(labelText: _isLoadingCursos ? "Carregando cursos..." : "Selecione o Curso"),
                 items: _listaDeCursos.map((curso) => DropdownMenuItem(value: curso.id, child: Text(curso.nome))).toList(),
-                onChanged: (value) => setState(() => _cursoSelecionadoId = value),
+                onChanged: _isLoadingCursos ? null : (value) => setState(() => _cursoSelecionadoId = value),
                 validator: (v) => v == null ? 'Selecione um curso' : null,
               ),
               SizedBox(height: 16),
