@@ -10,7 +10,25 @@ void main() async {
   }
   final token = jsonDecode(resp.body)['token'];
   
-  final usuariosUrl = Uri.parse('http://172.171.192.14:8081/unieventos/usuarios?page=0&size=1');
-  final respUsers = await http.get(usuariosUrl, headers: {'Authorization': 'Bearer $token'});
-  print("Users JSON: ${respUsers.body}");
+  final usuariosUrl = Uri.parse('http://172.171.192.14:8081/unieventos/usuarios');
+  final payload = {
+    "curso": "Administração",
+    "email": "muriloliro@gmail.com",
+    "login": "murilo",
+    "nome": "mu",
+    "role": "ADMIN",
+    "senha": "murilo123",
+    "sobrenome": "rilo"
+  };
+  
+  final respUsers = await http.post(
+    usuariosUrl, 
+    headers: {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json'
+    },
+    body: jsonEncode(payload)
+  );
+  print("Status: ${respUsers.statusCode}");
+  print("Body: ${respUsers.body}");
 }
