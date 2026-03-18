@@ -1,9 +1,20 @@
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_application_1/api_service.dart';
+
+import 'package:flutter_application_1/api_service.dart' as api_service;
+import 'package:flutter_application_1/models/course_option.dart';
+import 'package:flutter_application_1/user_service.dart';
 
 /// Tela de cadastro de evento (formulário + envio para API).
 class EVRegister extends StatefulWidget {
+  const EVRegister({super.key});
+
   @override
   _EVRegisterState createState() => _EVRegisterState();
 }
@@ -12,53 +23,316 @@ class _EVRegisterState extends State<EVRegister> {
   final _formKey = GlobalKey<FormState>();
 
   final _tituloController = TextEditingController();
-  final _detalhesController = TextEditingController();
 
-  String? _setorSelecionado;
+  String? _cursoSelecionadoId;
+  List<CourseOption> _cursos = [];
   DateTime? _dataInicio;
   DateTime? _dataFim;
-
+  final ImagePicker _imagePicker = ImagePicker();
+  XFile? _imagemSelecionada;
+  Uint8List? _imagemBytes; // Para armazenar bytes da imagem no Web
+  final TextEditingController _descricaoController = TextEditingController();
   bool _isLoading = false;
+  String? _userRole;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarCursos();
+    _carregarRole();
+  }
 
   @override
   void dispose() {
     _tituloController.dispose();
-    _detalhesController.dispose();
+    _descricaoController.dispose();
     super.dispose();
   }
 
-  /// Valida o formulário e envia os dados do evento para a API.
+  Future<void> _carregarCursos() async {
+    try {
+      final cursos = await api_service.UsuarioApi.listarCursos();
+      if (!mounted) return;
+      setState(() {
+        _cursos = cursos;
+        if (_cursos.isNotEmpty) {
+          _cursoSelecionadoId = _cursos.first.id;
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Falha ao carregar cursos: $e')));
+    }
+  }
+
+  Future<void> _carregarRole() async {
+    try {
+      final storage = FlutterSecureStorage();
+      final role = await storage.read(key: 'user_role');
+      if (!mounted) return;
+      setState(() {
+        _userRole = role;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Falha ao carregar perfil: $e')));
+    }
+  }
+
+  Future<void> _selecionarImagem() async {
+    try {
+      final XFile? imagem = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 80,
+      );
+      if (imagem != null) {
+        // No Web, precisamos ler os bytes para exibir a imagem
+        if (kIsWeb) {
+          final bytes = await imagem.readAsBytes();
+          setState(() {
+            _imagemSelecionada = imagem;
+            _imagemBytes = bytes;
+          });
+        } else {
+          setState(() {
+            _imagemSelecionada = imagem;
+            _imagemBytes = null; // Não necessário em outras plataformas
+          });
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao selecionar imagem: $e')));
+    }
+  }
+
   Future<void> _publicarEvento() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (_cursoSelecionadoId == null || _cursoSelecionadoId!.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Selecione um curso')));
+      return;
+    }
+
+    if (_dataInicio == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecione a data de início')),
+      );
+      return;
+    }
+
+    if (_dataFim == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Selecione a data de fim')));
+      return;
+    }
+
+    if (_dataFim!.isBefore(_dataInicio!)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('A data de fim deve ser posterior à data de início'),
+        ),
+      );
+      return;
+    }
+
+    if (_imagemSelecionada == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecione uma imagem para o evento'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
-    final dadosDoEvento = {
-      'titulo': _tituloController.text,
-      'setor': _setorSelecionado,
-      'detalhes': _detalhesController.text,
-      'dataInicio': _dataInicio?.toIso8601String(),
-      'dataFim': _dataFim?.toIso8601String(),
-    };
-
-    final sucesso = await EventosApi.criarEvento(dadosDoEvento);
-
-    if (!mounted) return;
-    if (sucesso) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Evento publicado com sucesso!'), backgroundColor: Colors.green),
+    try {
+      // Busca o nome do curso selecionado
+      final cursoSelecionado = _cursos.firstWhere(
+        (c) => c.id == _cursoSelecionadoId,
+        orElse: () => _cursos.first,
       );
-      _formKey.currentState?.reset();
-      setState(() {
-        _tituloController.clear();
-        _detalhesController.clear();
-        _setorSelecionado = null;
-        _dataInicio = null;
-        _dataFim = null;
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao publicar evento. Tente novamente.'), backgroundColor: Colors.red),
+
+      // Busca ou cria uma categoria com o nome do curso
+      final categoriaId =
+          await _obterOuCriarCategoriaPorCurso(cursoSelecionado.nome);
+
+      if (categoriaId == null || categoriaId.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Erro ao obter categoria para o curso selecionado. Tente novamente.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+          ),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // Valida se o ID da categoria é válido (não vazio e não é apenas espaços)
+      if (categoriaId.trim().isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('ID de categoria inválido. Tente novamente.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final dadosEvento = {
+        'nomeEvento': _tituloController.text.trim(),
+        'descricao': _descricaoController.text.trim(),
+        'categorias': [
+          categoriaId.trim()
+        ], // Enviando como lista para o backend
+        'dateInicio': DateFormat('yyyy-MM-dd').format(_dataInicio!),
+        'dateFim': DateFormat('yyyy-MM-dd').format(_dataFim!),
+      };
+
+      print('[EVRegister] Criando evento com dados: $dadosEvento');
+      print('[EVRegister] Categoria ID: $categoriaId');
+
+      final resultado = await api_service.EventosApi.criarEvento(
+        dadosEvento,
+        _imagemSelecionada,
       );
+
+      print('[EVRegister] Resultado: $resultado');
+
+      if (!mounted) return;
+
+      if (resultado['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Evento criado com sucesso!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Tenta fazer pop, se não conseguir (porque está em IndexedStack),
+          // o usuário pode navegar manualmente para o feed
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop(true);
+          }
+        }
+      } else {
+        if (mounted) {
+          final errorMsg = resultado['error'] ??
+              resultado['message'] ??
+              'Erro ao criar evento (${resultado['statusCode'] ?? 'desconhecido'})';
+          print('[EVRegister] Erro ao criar evento: $errorMsg');
+          print('[EVRegister] Detalhes: ${resultado['details']}');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMsg),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(
+        SnackBar(
+          content: Text('Erro inesperado: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  // Busca uma categoria existente pelo nome do curso, ou cria uma nova se não existir
+  Future<String?> _obterOuCriarCategoriaPorCurso(String nomeCurso) async {
+    try {
+      print('[EVRegister] Buscando categoria para curso: $nomeCurso');
+
+      // Primeiro, tenta buscar categorias existentes
+      final categorias = await api_service.CategoriaApi.fetchCategorias();
+      print('[EVRegister] Categorias encontradas: ${categorias.length}');
+
+      // Procura uma categoria com o mesmo nome do curso
+      try {
+        final categoriaExistente = categorias.firstWhere(
+          (c) => c.nome.toLowerCase() == nomeCurso.toLowerCase(),
+        );
+
+        // Se encontrou uma categoria com o mesmo nome, usa ela
+        if (categoriaExistente.nome.toLowerCase() == nomeCurso.toLowerCase()) {
+          print(
+              '[EVRegister] Categoria encontrada: ${categoriaExistente.nome} (ID: ${categoriaExistente.id})');
+          return categoriaExistente.id;
+        }
+      } catch (_) {
+        // Não encontrou categoria com o mesmo nome, continua
+        print('[EVRegister] Nenhuma categoria encontrada com o nome do curso');
+      }
+
+      // Se não encontrou, tenta criar uma nova categoria com o nome do curso
+      print('[EVRegister] Tentando criar nova categoria: $nomeCurso');
+      final resultado = await UserService.criarCategoria(nomeCurso);
+
+      print('[EVRegister] Resultado criar categoria: $resultado');
+
+      if (resultado != null && resultado['id'] != null) {
+        final categoriaId = resultado['id'] as String;
+        if (categoriaId.isNotEmpty) {
+          print('[EVRegister] Categoria criada com sucesso: ID $categoriaId');
+          return categoriaId;
+        } else {
+          print('[EVRegister] AVISO: Categoria criada mas ID está vazio!');
+        }
+      } else {
+        print(
+            '[EVRegister] ERRO: Não foi possível criar categoria ou ID não foi retornado');
+      }
+
+      // Se não conseguiu criar, tenta usar a primeira categoria disponível como fallback
+      if (categorias.isNotEmpty) {
+        print(
+            '[EVRegister] Usando primeira categoria como fallback: ${categorias.first.nome} (ID: ${categorias.first.id})');
+        return categorias.first.id;
+      }
+
+      print('[EVRegister] Nenhuma categoria disponível');
+      return null;
+    } catch (e) {
+      print('[EVRegister] Erro ao obter/criar categoria: $e');
+      // Em caso de erro, tenta buscar categorias novamente e usar a primeira
+      try {
+        final categorias = await api_service.CategoriaApi.fetchCategorias();
+        if (categorias.isNotEmpty) {
+          print('[EVRegister] Fallback: usando primeira categoria disponível');
+          return categorias.first.id;
+        }
+      } catch (e2) {
+        print('[EVRegister] Erro no fallback: $e2');
+      }
+      return null;
     }
     setState(() => _isLoading = false);
   }
@@ -66,155 +340,299 @@ class _EVRegisterState extends State<EVRegister> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Cadastrar Novo Evento'),
-        automaticallyImplyLeading: false,
-        centerTitle: false,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildImagePicker(),
-              SizedBox(height: 24),
-              TextFormField(
-                controller: _tituloController,
-                decoration: InputDecoration(labelText: 'Título do Evento'),
-                validator: (v) => v!.isEmpty ? 'O título é obrigatório' : null,
-              ),
-              SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: _setorSelecionado,
-                decoration: InputDecoration(labelText: 'Selecione o Setor/Curso'),
-                items: ['Pastoral', 'Odontologia', 'Enfermagem', 'Ciência da Computação']
-                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                    .toList(),
-                onChanged: (value) => setState(() => _setorSelecionado = value),
-                validator: (v) => v == null ? 'Selecione uma categoria' : null,
-              ),
-              SizedBox(height: 16),
-              TextFormField(
-                controller: _detalhesController,
-                maxLines: 5,
-                decoration: InputDecoration(labelText: 'Detalhes do Evento', alignLabelWithHint: true),
-                validator: (v) => v!.isEmpty ? 'Os detalhes são obrigatórios' : null,
-              ),
-              SizedBox(height: 24),
-              _buildDatePicker(),
-              SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: () {},
-                icon: Icon(Icons.upload_file_outlined),
-                label: Text('Anexar Arquivos (Opcional)'),
-                style: OutlinedButton.styleFrom(minimumSize: Size(double.infinity, 48)),
-              ),
-              SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _publicarEvento,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
-                  minimumSize: Size(double.infinity, 50),
-                  padding: EdgeInsets.symmetric(vertical: 16),
+      appBar: AppBar(title: const Text('Cadastrar evento'), centerTitle: false),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _SectionTitle('Informações básicas'),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: _tituloController,
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(
+                            labelText: 'Título do evento',
+                            prefixIcon: Icon(Icons.event_outlined),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Título é obrigatório';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _descricaoController,
+                          minLines: 3,
+                          maxLines: 5,
+                          decoration: const InputDecoration(
+                            labelText: 'Descrição',
+                            alignLabelWithHint: true,
+                            prefixIcon: Icon(Icons.description_outlined),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Descrição é obrigatória';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: _cursoSelecionadoId,
+                          decoration: const InputDecoration(
+                            labelText: 'Curso',
+                            prefixIcon: Icon(Icons.school_outlined),
+                          ),
+                          isExpanded: true,
+                          items: _cursos
+                              .map(
+                                (curso) => DropdownMenuItem(
+                                  value: curso.id,
+                                  child: Text(
+                                    curso.nome,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          selectedItemBuilder: (context) {
+                            return _cursos.map((curso) {
+                              return Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  _cursos
+                                      .firstWhere(
+                                        (c) => c.id == _cursoSelecionadoId,
+                                        orElse: () => _cursos.first,
+                                      )
+                                      .nome,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(color: Colors.black87),
+                                ),
+                              );
+                            }).toList();
+                          },
+                          onChanged: (value) =>
+                              setState(() => _cursoSelecionadoId = value),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Selecione um curso';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                child: _isLoading
-                    ? SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-                    : Text('PUBLICAR EVENTO'),
-              ),
-            ],
+                const SizedBox(height: 24),
+                _SectionTitle('Cronograma'),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      children: [
+                        _DateTile(
+                          label: 'Data de início',
+                          value: _dataInicio,
+                          onTap: _selecionarDataInicio,
+                        ),
+                        const SizedBox(height: 12),
+                        _DateTile(
+                          label: 'Data de término',
+                          value: _dataFim,
+                          onTap: _selecionarDataFim,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _SectionTitle('Imagem e divulgação'),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _selecionarImagem,
+                          icon: const Icon(Icons.image_outlined),
+                          label: Text(
+                            _imagemSelecionada == null
+                                ? 'Selecionar imagem'
+                                : 'Trocar imagem',
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        if (_imagemSelecionada != null)
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: kIsWeb && _imagemBytes != null
+                                ? Image.memory(
+                                    _imagemBytes!,
+                                    height: 180,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                  )
+                                : Image.file(
+                                    File(_imagemSelecionada!.path),
+                                    height: 180,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                  ),
+                          )
+                        else
+                          Container(
+                            height: 120,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              color: Colors.grey.shade100,
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: const Center(
+                              child: Text('Nenhuma imagem selecionada'),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _publicarEvento,
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation(Colors.white),
+                          ),
+                        )
+                      : const Icon(Icons.check_circle_outline),
+                  label: Text(_isLoading ? 'Publicando...' : 'Publicar evento'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildImagePicker() {
-    return GestureDetector(
-      onTap: () {},
+  Future<void> _selecionarDataInicio() async {
+    final DateTime? data = await showDatePicker(
+      context: context,
+      initialDate: _dataInicio ?? DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(Duration(days: 365)),
+    );
+
+    if (data != null) {
+      setState(() {
+        _dataInicio = DateTime(
+          data.year,
+          data.month,
+          data.day,
+        );
+      });
+    }
+  }
+
+  Future<void> _selecionarDataFim() async {
+    final DateTime? data = await showDatePicker(
+      context: context,
+      initialDate: _dataFim ?? (_dataInicio ?? DateTime.now()),
+      firstDate: _dataInicio ?? DateTime.now(),
+      lastDate: DateTime.now().add(Duration(days: 365)),
+    );
+
+    if (data != null) {
+      setState(() {
+        _dataFim = DateTime(
+          data.year,
+          data.month,
+          data.day,
+        );
+      });
+    }
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+    );
+  }
+}
+
+class _DateTile extends StatelessWidget {
+  const _DateTile({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  final String label;
+  final DateTime? value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        height: 200,
         width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade400),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Row(
           children: [
-            Icon(Icons.camera_alt_outlined, size: 50, color: Colors.grey[600]),
-            SizedBox(height: 8),
-            Text('Clique para adicionar uma imagem', style: TextStyle(color: Colors.grey[700])),
+            const Icon(Icons.calendar_today_outlined),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: textTheme.labelMedium),
+                const SizedBox(height: 4),
+                Text(
+                  value != null
+                      ? DateFormat('dd/MM/yyyy').format(value!)
+                      : 'Selecionar',
+                  style: textTheme.bodyMedium,
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
-
-  Widget _buildDatePicker() {
-    return FormField<DateTime>(
-      validator: (value) {
-        if (_dataInicio == null) {
-          return 'A data de início é obrigatória.';
-        }
-        return null;
-      },
-      builder: (FormFieldState<DateTime> state) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () async {
-                      DateTime? picked = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now(),
-                        firstDate: DateTime.now().subtract(Duration(days: 30)),
-                        lastDate: DateTime.now().add(Duration(days: 365)),
-                      );
-                      if (picked != null) setState(() => _dataInicio = picked);
-                    },
-                    child: InputDecorator(
-                      decoration: InputDecoration(labelText: 'Data de Início', errorText: state.errorText),
-                      child: Text(_dataInicio == null ? 'Selecionar' : DateFormat('dd/MM/yyyy').format(_dataInicio!)),
-                    ),
-                  ),
-                ),
-                SizedBox(width: 16),
-                Expanded(
-                  child: InkWell(
-                    onTap: () async {
-                      DateTime? picked = await showDatePicker(
-                        context: context,
-                        initialDate: _dataInicio ?? DateTime.now(),
-                        firstDate: _dataInicio ?? DateTime.now().subtract(Duration(days: 30)),
-                        lastDate: DateTime.now().add(Duration(days: 365)),
-                      );
-                      if (picked != null) setState(() => _dataFim = picked);
-                    },
-                    child: InputDecorator(
-                      decoration: InputDecoration(labelText: 'Data de Fim (Opcional)'),
-                      child: Text(_dataFim == null ? 'Selecionar' : DateFormat('dd/MM/yyyy').format(_dataFim!)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            if (state.hasError)
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0, left: 12.0),
-                child: Text(state.errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
-              ),
-          ],
-        );
-      },
-    );
-  }
 }
-
-// API de eventos centralizada em lib/api_service.dart

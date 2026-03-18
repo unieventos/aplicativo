@@ -20,13 +20,15 @@ class PerfilUsuario {
 }
 
 class PerfilPage extends StatefulWidget {
+  const PerfilPage({super.key});
+
   @override
   _PerfilPageState createState() => _PerfilPageState();
 }
 
 class _PerfilPageState extends State<PerfilPage> {
-  final _storage = FlutterSecureStorage();
-  late Future<PerfilUsuario> _perfilUsuarioFuture;
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  late Future<UserProfile> _perfilUsuarioFuture;
 
   @override
   void initState() {
@@ -34,8 +36,23 @@ class _PerfilPageState extends State<PerfilPage> {
     _perfilUsuarioFuture = _loadUserData();
   }
 
-  Future<PerfilUsuario> _loadUserData() async {
+  Future<UserProfile> _loadUserData() async {
+    final profile = await UserService.obterPerfil(persistLocally: true);
+    if (profile != null) {
+      return profile;
+    }
+
+    final cached = await _loadCachedProfile();
+    if (cached != null) {
+      return cached;
+    }
+
+    return const UserProfile(nome: 'Usuário');
+  }
+
+  Future<UserProfile?> _loadCachedProfile() async {
     final values = await Future.wait([
+      _storage.read(key: 'id'),
       _storage.read(key: 'nome'),
       _storage.read(key: 'sobrenome'),
       _storage.read(key: 'email'),
@@ -63,10 +80,16 @@ class _PerfilPageState extends State<PerfilPage> {
         title: Text("Confirmar Logout"),
         content: Text("Tem certeza que deseja sair?"),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text("Cancelar")),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text("Cancelar"),
+          ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text("Sair", style: TextStyle(color: Theme.of(context).primaryColor)),
+            child: Text(
+              "Sair",
+              style: TextStyle(color: Theme.of(context).primaryColor),
+            ),
           ),
         ],
       ),
@@ -86,22 +109,23 @@ class _PerfilPageState extends State<PerfilPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Meu Perfil"),
+        title: const Text('Meu perfil'),
         automaticallyImplyLeading: false,
         centerTitle: false,
       ),
-      body: FutureBuilder<PerfilUsuario>(
-        future: _perfilUsuarioFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text("Erro ao carregar dados."));
-          }
-          if (!snapshot.hasData) {
-            return Center(child: Text("Nenhum dado encontrado."));
-          }
+      body: SafeArea(
+        child: FutureBuilder<UserProfile>(
+          future: _perfilUsuarioFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return const Center(child: Text('Erro ao carregar dados.'));
+            }
+            if (!snapshot.hasData) {
+              return const Center(child: Text('Nenhum dado encontrado.'));
+            }
 
           final perfil = snapshot.data!;
           
@@ -125,42 +149,36 @@ class _PerfilPageState extends State<PerfilPage> {
     );
   }
 
-  Widget _buildHeader(PerfilUsuario perfil) {
-    return Column(
-      children: [
-        CircleAvatar(
-          radius: 50,
-          backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
-          child: Text(
-            perfil.nome.isNotEmpty ? perfil.nome[0].toUpperCase() : 'U',
-            style: TextStyle(fontSize: 48, color: Theme.of(context).primaryColor),
-          ),
-        ),
-        SizedBox(height: 12),
-        Text('${perfil.nome} ${perfil.sobrenome}', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-        SizedBox(height: 4),
-        Text(perfil.email, style: TextStyle(fontSize: 16, color: Colors.grey[600])),
-      ],
-    );
-  }
-
-  Widget _buildInfoCard(PerfilUsuario perfil) {
+  Widget _buildHeader(UserProfile perfil) {
+    final theme = Theme.of(context);
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
         child: Column(
           children: [
-            ListTile(
-              leading: Icon(Icons.school_outlined, color: Theme.of(context).primaryColor),
-              title: Text("Curso"),
-              subtitle: Text(perfil.curso, style: TextStyle(fontSize: 16, color: Colors.black87)),
+            CircleAvatar(
+              radius: 48,
+              backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+              child: Text(
+                perfil.initials,
+                style: TextStyle(
+                  fontSize: 40,
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
-            Divider(indent: 16, endIndent: 16),
-            ListTile(
-              leading: Icon(Icons.admin_panel_settings_outlined, color: Theme.of(context).primaryColor),
-              title: Text("Nível de Acesso"),
-              subtitle: Text(perfil.role.toUpperCase(), style: TextStyle(fontSize: 16, color: Colors.black87)),
+            const SizedBox(height: 16),
+            Text(
+              perfil.fullName.isNotEmpty ? perfil.fullName : 'Usuário',
+              style: theme.textTheme.titleLarge,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              perfil.email.isNotEmpty ? perfil.email : 'email@nao.informado',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: Colors.grey[600],
+              ),
             ),
           ],
         ),
@@ -193,14 +211,51 @@ class _PerfilPageState extends State<PerfilPage> {
                 }
               },
             ),
-            Divider(indent: 16, endIndent: 16),
-            ListTile(
-              leading: Icon(Icons.logout, color: Theme.of(context).primaryColor),
-              title: Text("Sair", style: TextStyle(color: Theme.of(context).primaryColor)),
-              onTap: _logout,
+            title: const Text('Curso'),
+            subtitle: Text(
+              perfil.cursoId.isNotEmpty
+                  ? 'Curso ID: ${perfil.cursoId}'
+                  : 'Não informado',
             ),
-         ],
-       ),
+          ),
+          const Divider(indent: 16, endIndent: 16),
+          ListTile(
+            leading: Icon(
+              Icons.admin_panel_settings_outlined,
+              color: theme.colorScheme.primary,
+            ),
+            title: const Text('Nível de acesso'),
+            subtitle: Text(
+              perfil.role.isNotEmpty ? perfil.role.toUpperCase() : 'USER',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionsCard() {
+    final theme = Theme.of(context);
+    return Card(
+      child: Column(
+        children: [
+          ListTile(
+            leading: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
+            title: const Text('Editar perfil'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () {},
+          ),
+          const Divider(indent: 16, endIndent: 16),
+          ListTile(
+            leading: Icon(Icons.logout, color: theme.colorScheme.primary),
+            title: Text(
+              'Sair',
+              style: TextStyle(color: theme.colorScheme.primary),
+            ),
+            onTap: _logout,
+          ),
+        ],
+      ),
     );
   }
 }

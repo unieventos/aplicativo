@@ -33,8 +33,6 @@ class AuthService {
       }
       final url = Uri.parse(ApiConfig.authLogin());
       
-
-      // POST com timeout e logs básicos
       final response = await http
           .post(
         url,
@@ -50,7 +48,7 @@ class AuthService {
         
         // VALIDAÇÃO: Verifica se a resposta contém a chave 'token'.
         if (responseBody != null && responseBody['token'] != null) {
-          print('[AuthService] Login bem-sucedido. Token recebido.');
+          print('[AuthService] Usuário entrou com sucesso.');
           return responseBody['token'];
         } else {
           // Se a resposta for 200, mas o JSON não tiver o formato esperado.

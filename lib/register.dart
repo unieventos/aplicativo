@@ -6,15 +6,41 @@ import 'package:flutter_application_1/models/curso.dart';
 
 // --- TELA DE CADASTRO DE USUÁRIO FINALIZADA ---
 class RegisterScreen extends StatefulWidget {
-  final String role;
-  RegisterScreen({required this.role});
+  const RegisterScreen({super.key, this.role});
+
+  final String? role;
 
   @override
   _RegisterScreenState createState() => _RegisterScreenState();
 }
 
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+    );
+  }
+}
+
 class _RegisterScreenState extends State<RegisterScreen> {
-  final _formKey = GlobalKey<FormState>();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  final TextEditingController _nomeController = TextEditingController();
+  final TextEditingController _sobrenomeController = TextEditingController();
+  final TextEditingController _loginController = TextEditingController();
+  final TextEditingController _roleController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _senhaController = TextEditingController();
+  final TextEditingController _confirmarSenhaController =
+      TextEditingController();
 
   final _nomeController = TextEditingController();
   final _sobrenomeController = TextEditingController();
@@ -31,6 +57,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   bool _obscureSenha = true;
   bool _obscureConfirmarSenha = true;
+  bool _isLoadingCursos = false;
+  List<CourseOption> _cursos = const [];
+
+  // Lista de roles disponíveis
+  static const List<Map<String, String>> _rolesDisponiveis = [
+    {'value': 'ADMIN', 'label': 'Administrador'},
+    {'value': 'GESTOR', 'label': 'Gestor'},
+    {'value': 'COLABORADOR', 'label': 'Colaborador'},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Define o role inicial se fornecido, senão usa COLABORADOR como padrão
+    _roleSelecionado = widget.role ?? 'COLABORADOR';
+    _roleController.text = _roleSelecionado ?? '';
+    _carregarCursos();
+  }
 
   @override
   void initState() {
@@ -66,43 +110,117 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  // Função de cadastro conectada à API.
-  Future<void> _cadastrarUsuario() async {
+  Future<void> _carregarCursos() async {
+    setState(() => _isLoadingCursos = true);
+    try {
+      final cursos = await api_service.UsuarioApi.listarCursos();
+      if (!mounted) return;
+      setState(() {
+        _cursos = cursos;
+        if (_cursos.isNotEmpty) {
+          _cursoSelecionadoId = _cursos.first.id;
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Falha ao carregar cursos: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingCursos = false);
+      }
+    }
+  }
+
+  // Função para criar o usuário, agora conectada à API.
+  Future<void> _criarUsuario() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (_cursoSelecionadoId == null || _cursoSelecionadoId!.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Selecione um curso')));
+      return;
+    }
+
     setState(() => _isLoading = true);
-    
-    // Monta o mapa de dados para enviar à API, conforme o Swagger.
+
+    // Monta o mapa de dados para enviar à API
     final dadosParaCriar = {
-      "login": _loginController.text.trim(),
-      "cursoId": _cursoSelecionadoId, // CORREÇÃO: Enviando o ID do curso.
-      "email": _emailController.text.trim(),
-      "senha": _senhaController.text,
       "nome": _nomeController.text.trim(),
       "sobrenome": _sobrenomeController.text.trim(),
-      "role": _roleController.text.trim()
+      "login": _loginController.text.trim(),
+      "email": _emailController.text.trim(),
+      "senha": _senhaController.text,
+      "role": _roleSelecionado ?? 'COLABORADOR',
+      "curso": _cursoSelecionadoId!,
     };
-    // Atenção: O Swagger de criação não mostra 'cursoId', mas o de atualização sim.
-    // Estou assumindo que o de criação também aceita. Se não, a chave pode ser 'curso' com o nome.
 
-    final sucesso = await UsuarioApi.criarUsuario(dadosParaCriar);
+    try {
+      final sucesso = await api_service.UsuarioApi.criarUsuario(dadosParaCriar);
 
-    if (mounted) {
-      if (sucesso) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Usuário criado com sucesso!"), backgroundColor: Colors.green));
-        Navigator.of(context).pop(true);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro ao criar usuário."), backgroundColor: Colors.red));
+      if (mounted) {
+        if (sucesso) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Usuário criado com sucesso!')),
+          );
+          Navigator.of(
+            context,
+          ).pop(true); // Retorna 'true' para atualizar a lista anterior.
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Erro ao criar usuário.')),
+          );
+        }
       }
-      setState(() => _isLoading = false);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro inesperado: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  // Função para testar conectividade com a API.
+  Future<void> _testarConectividade() async {
+    try {
+      final conectado = await api_service.UsuarioApi.testarConectividade();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              conectado ? 'Conectado com sucesso!' : 'Falha na conexão',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao testar conectividade: $e')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: Text("Criar Novo Usuário"),
+        title: const Text('Cadastrar usuário'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.wifi_tethering_outlined),
+            onPressed: _testarConectividade,
+            tooltip: 'Testar conectividade',
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -145,34 +263,216 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   labelText: "Senha",
                   suffixIcon: IconButton(icon: Icon(_obscureSenha ? Icons.visibility_off : Icons.visibility), onPressed: () => setState(() => _obscureSenha = !_obscureSenha)),
                 ),
-                validator: (v) => (v!.isEmpty || v.length < 6) ? 'A senha deve ter no mínimo 6 caracteres' : null,
-              ),
-              SizedBox(height: 16),
-              TextFormField(
-                controller: _confirmarSenhaController,
-                obscureText: _obscureConfirmarSenha,
-                decoration: InputDecoration(
-                  labelText: "Confirmar Senha",
-                  suffixIcon: IconButton(icon: Icon(_obscureConfirmarSenha ? Icons.visibility_off : Icons.visibility), onPressed: () => setState(() => _obscureConfirmarSenha = !_obscureConfirmarSenha)),
+                const SizedBox(height: 24),
+                _SectionTitle('Acesso à plataforma'),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: _loginController,
+                          decoration: const InputDecoration(
+                            labelText: 'Login',
+                            prefixIcon: Icon(Icons.badge_outlined),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Login é obrigatório';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _buildRoleDropdown(),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _senhaController,
+                          obscureText: _obscureSenha,
+                          decoration: InputDecoration(
+                            labelText: 'Senha provisória',
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscureSenha
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                              ),
+                              onPressed: () => setState(
+                                () => _obscureSenha = !_obscureSenha,
+                              ),
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Senha é obrigatória';
+                            }
+                            if (value.length < 6) {
+                              return 'Senha deve ter pelo menos 6 caracteres';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _confirmarSenhaController,
+                          obscureText: _obscureConfirmarSenha,
+                          decoration: InputDecoration(
+                            labelText: 'Confirmar senha',
+                            prefixIcon: const Icon(Icons.lock_reset_outlined),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscureConfirmarSenha
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                              ),
+                              onPressed: () => setState(
+                                () => _obscureConfirmarSenha =
+                                    !_obscureConfirmarSenha,
+                              ),
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Confirmação de senha é obrigatória';
+                            }
+                            if (value != _senhaController.text) {
+                              return 'Senhas não coincidem';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                validator: (v) => (v != _senhaController.text) ? 'As senhas não coincidem' : null,
-              ),
-              SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _cadastrarUsuario,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 16),
+                const SizedBox(height: 32),
+                ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _criarUsuario,
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation(Colors.white),
+                          ),
+                        )
+                      : const Icon(Icons.save_alt_outlined),
+                  label: Text(_isLoading ? 'Enviando...' : 'Criar usuário'),
                 ),
-                child: _isLoading
-                    ? SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-                    : Text("CADASTRAR"),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildCursoDropdown() {
+    if (_isLoadingCursos) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+          color: Colors.grey.shade50,
+        ),
+        child: Row(
+          children: const [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Text('Carregando cursos...'),
+          ],
+        ),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Detecta telas pequenas (menores que 453 pixels)
+        final bool isSmallScreen = constraints.maxWidth < 453;
+        
+    return DropdownButtonFormField<String>(
+      value: _cursoSelecionadoId,
+          decoration: InputDecoration(
+        labelText: 'Curso',
+            // Remove o ícone em telas pequenas para evitar overflow
+            prefixIcon: isSmallScreen ? null : const Icon(Icons.school_outlined),
+            // Reduz padding em telas pequenas para economizar espaço
+            contentPadding: isSmallScreen
+                ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
+                : const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      ),
+          isExpanded: true,
+      items: _cursos
+          .map(
+            (curso) =>
+                DropdownMenuItem(value: curso.id, child: Text(curso.nome)),
+          )
+          .toList(),
+          selectedItemBuilder: (context) {
+            return _cursos.map((curso) {
+              return Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _cursos.firstWhere(
+                    (c) => c.id == _cursoSelecionadoId,
+                    orElse: () => _cursos.isNotEmpty ? _cursos.first : curso,
+                  ).nome,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.black87),
+                ),
+              );
+            }).toList();
+          },
+      onChanged: (value) => setState(() => _cursoSelecionadoId = value),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return "Selecione um curso";
+        }
+        return null;
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildRoleDropdown() {
+    return DropdownButtonFormField<String>(
+      value: _roleSelecionado,
+      decoration: const InputDecoration(
+        labelText: 'Perfil de acesso',
+        prefixIcon: Icon(Icons.admin_panel_settings_outlined),
+      ),
+      isExpanded: true,
+      items: _rolesDisponiveis
+          .map(
+            (role) => DropdownMenuItem(
+              value: role['value'],
+              child: Text(role['label']!),
+            ),
+          )
+          .toList(),
+      onChanged: (value) {
+        if (value != null) {
+          setState(() {
+            _roleSelecionado = value;
+            _roleController.text = value;
+          });
+        }
+      },
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Selecione um perfil de acesso';
+        }
+        return null;
+      },
     );
   }
 }
