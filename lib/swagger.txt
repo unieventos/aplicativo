@@ -1,0 +1,1317 @@
+/unieventos/v3/api-docs
+
+OpenAPI definition
+
+v0
+
+Explore
+
+OAS 3.1
+
+/unieventos/v3/api-docs
+
+Servers
+
+http://172.171.192.14/unieventos - Generated server url
+
+usuario-controller
+GET
+
+/usuarios
+
+Parameters
+
+Try it out
+
+Name
+
+Description
+
+page
+
+Default value : 0
+
+integer($int32)
+(query)
+
+size
+integer($int32)
+(query)
+
+sortBy
+string
+(query)
+
+name
+string
+(query)
+
+Responses
+
+0
+Default value : 10
+10
+Default value : id
+id
+Default value :
+name
+
+Code
+
+Description
+
+Links
+
+200
+
+OK
+
+No links
+
+Media type
+
+*/*
+Controls Accept header.
+
+Example Value
+
+Schema
+
+"profile": "string",
+"name": "string",
+"templated": true
+},
+"additionalProp2": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+"type": "string",
+"deprecation": "string",
+"profile": "string",
+"name": "string",
+"templated": true
+},
+"additionalProp3": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+"type": "string",
+"deprecation": "string",
+"profile": "string",
+"name": "string",
+"templated": true
+}
+}
+}
+
+POST
+
+/usuarios Cadastrar novo usuário
+
+Cadastrar um novo usuário na plataforma.
+
+Parameters
+
+Try it out
+
+No parameters
+
+Request body required
+
+Example Value
+
+Schema
+
+application/json
+
+{
+"login": "string",
+"curso": "string",
+"email": "string",
+"senha": "string",
+"nome": "string",
+"sobrenome": "string",
+"role": "string"
+}
+
+Responses
+
+Code
+
+Description
+
+Links
+
+201
+
+Usuario criado com sucesso
+
+No links
+
+Media type
+
+*/*
+Controls Accept header.
+
+Example Value
+
+Schema
+
+{}
+
+Parâmetros inválidos para criação do usuário
+
+400
+
+No links
+
+Media type
+
+*/*
+Example Value
+
+Schema
+
+{}
+
+GET
+
+/usuarios/{id} Busca usuario por ID
+
+Retorna os dados completos da entidade correspondente ao ID.
+
+Parameters
+
+Try it out
+
+Name
+
+Description
+
+id * required
+
+id
+
+string
+(path)
+
+Responses
+
+Code
+
+Description
+
+Links
+
+200
+
+Usuario encontrado
+
+No links
+
+Media type
+
+*/*
+Controls Accept header.
+
+Example Value
+
+Schema
+
+{
+"user": {
+"id": "string",
+"nome": "string",
+"sobrenome": "string",
+"email": "string",
+"cursoId": 0
+},
+"_links": {
+"additionalProp1": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+"type": "string",
+"deprecation": "string",
+"profile": "string",
+"name": "string",
+"templated": true
+},
+"additionalProp2": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+"type": "string",
+"deprecation": "string",
+
+400
+
+Id de usuário inválido
+Media type
+
+*/*
+Example Value
+
+Schema
+
+No links
+
+"nome": "string",
+"sobrenome": "string",
+"email": "string",
+"cursoId": 0
+},
+"_links": {
+"additionalProp1": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+"type": "string",
+"deprecation": "string",
+"profile": "string",
+"name": "string",
+"templated": true
+},
+"additionalProp2": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+"type": "string",
+"deprecation": "string",
+"profile": "string",
+"name": "string",
+"templated": true
+},
+
+404
+
+Usuario não encontrado
+Media type
+
+*/*
+Example Value
+
+Schema
+
+{
+"user": {
+"id": "string",
+"nome": "string",
+"sobrenome": "string",
+"email": "string",
+"cursoId": 0
+},
+"_links": {
+"additionalProp1": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+"type": "string",
+"deprecation": "string",
+"profile": "string",
+"name": "string",
+"templated": true
+},
+"additionalProp2": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+"type": "string",
+"deprecation": "string",
+
+No links
+
+DELETE
+
+/usuarios/{id} Inativar um usuário
+
+Inativar um usuário na plataforma.
+
+Parameters
+
+Name
+
+Try it out
+
+Description
+
+id * required
+
+id
+
+string
+(path)
+
+Responses
+
+Code
+
+Description
+
+Links
+
+204
+
+Usuario inativado com sucesso
+
+No links
+
+Media type
+
+*/*
+Controls Accept header.
+
+Example Value
+
+Schema
+
+{}
+
+PATCH
+
+/usuarios/{id} Atualizar um usuário
+
+GET
+
+/usuarios/me
+
+foto-controller
+GET
+
+/fotos
+
+POST
+
+/fotos
+
+GET
+
+/fotos/{id}
+
+evento-controller
+GET
+
+/eventos
+
+Parameters
+
+Try it out
+
+Name
+
+Description
+
+page
+
+Default value : 0
+
+integer($int32)
+(query)
+
+size
+
+Default value : 10
+
+integer($int32)
+(query)
+
+sortBy
+string
+(query)
+
+name
+string
+(query)
+
+0
+
+10
+Default value : id
+id
+Default value :
+name
+
+Responses
+
+Code
+
+Description
+
+Links
+
+200
+
+Eventos encontrados
+
+No links
+
+Media type
+
+*/*
+Controls Accept header.
+
+Example Value
+
+400
+
+Schema
+"usuario": [
+"string"
+]
+},
+"role": {
+"id": 0,
+"name": "string"
+},
+"email": "string",
+"senha": "string",
+"nome": "string",
+"sobrenome": "string",
+"active": true,
+"eventosPermissao": [
+{
+"id": "string",
+"nomeEvento": "string",
+"descricao": "string",
+"dateInicio": "2025-09-19",
+"dateFim": "2025-09-19",
+"usuarioCriador": "string",
+"usuariosPermissao": [
+"string"
+],
+"eventoCategoria": [
+{
+
+Parametro evento inválido
+Media type
+
+*/*
+Example Value
+
+Schema
+
+{
+"_embedded": {
+"eventoResourceV1List": [
+{
+"evento": {
+"id": "string",
+"nomeEvento": "string",
+"descricao": "string",
+"dateInicio": "2025-09-19",
+"dateFim": "2025-09-19",
+"usuarioCriador": "string",
+"usuariosPermissao": [
+{
+"id": "string",
+"login": "string",
+"curso": {
+"id": 0,
+"nome": "string",
+"usuario": [
+
+No links
+
+"string"
+]
+},
+"role": {
+"id": 0,
+"name": "string"
+
+Eventos não encontrados
+
+404
+
+No links
+
+Media type
+
+*/*
+Example Value
+
+Schema
+
+{
+"_embedded": {
+"eventoResourceV1List": [
+{
+"evento": {
+"id": "string",
+"nomeEvento": "string",
+"descricao": "string",
+"dateInicio": "2025-09-19",
+"dateFim": "2025-09-19",
+"usuarioCriador": "string",
+"usuariosPermissao": [
+{
+"id": "string",
+"login": "string",
+"curso": {
+"id": 0,
+"nome": "string",
+"usuario": [
+"string"
+]
+},
+"role": {
+"id": 0,
+"name": "string"
+
+POST
+
+/eventos
+
+Parameters
+
+Try it out
+
+No parameters
+
+Request body required
+
+Example Value
+
+Schema
+
+{
+"nomeEvento": "string",
+"descricao": "string",
+"dateInicio": "2025-09-19",
+
+application/json
+
+"dateFim": "2025-09-19",
+"categoria": "string"
+}
+
+Responses
+
+Code
+
+Description
+
+Links
+
+201
+
+Evento registrado com sucesso
+
+No links
+
+Media type
+
+*/*
+Controls Accept header.
+
+Example Value
+
+Schema
+
+{}
+
+Parametro evento inválido
+
+400
+
+No links
+
+Media type
+
+*/*
+Example Value
+
+Schema
+
+{}
+
+GET
+
+/eventos/{id}
+
+Parameters
+
+Name
+
+id * required
+string
+(path)
+
+Try it out
+
+Description
+
+id
+
+Responses
+
+Code
+
+Description
+
+Links
+
+200
+
+Evento encontrado
+
+No links
+
+Media type
+
+*/*
+Controls Accept header.
+
+Example Value
+
+Schema
+"nomeCategoria": "string",
+"eventoCategoria": [
+"string"
+]
+}
+]
+
+}
+]
+}
+]
+},
+"_links": {
+"additionalProp1": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+"type": "string",
+"deprecation": "string",
+"profile": "string",
+"name": "string",
+"templated": true
+},
+"additionalProp2": {
+"href": "string",
+"hreflang": "string",
+
+400
+
+Parametro evento inválido
+Media type
+
+*/*
+Example Value
+
+Schema
+
+{
+"evento": {
+"id": "string",
+"nomeEvento": "string",
+"descricao": "string",
+"dateInicio": "2025-09-19",
+"dateFim": "2025-09-19",
+"usuarioCriador": "string",
+"usuariosPermissao": [
+{
+
+No links
+
+"id": "string",
+"login": "string",
+"curso": {
+"id": 0,
+"nome": "string",
+"usuario": [
+"string"
+]
+},
+"role": {
+"id": 0,
+"name": "string"
+},
+"email": "string",
+"senha": "string",
+
+Evento não encontrado
+
+404
+
+No links
+
+Media type
+
+*/*
+Example Value
+
+Schema
+
+{
+"evento": {
+"id": "string",
+"nomeEvento": "string",
+"descricao": "string",
+"dateInicio": "2025-09-19",
+"dateFim": "2025-09-19",
+"usuarioCriador": "string",
+"usuariosPermissao": [
+{
+"id": "string",
+"login": "string",
+"curso": {
+"id": 0,
+"nome": "string",
+"usuario": [
+"string"
+]
+},
+"role": {
+"id": 0,
+"name": "string"
+},
+"email": "string",
+"senha": "string",
+
+categoria-controller
+GET
+
+/categorias
+
+Parameters
+
+Try it out
+
+Name
+
+Description
+
+page
+
+Default value : 0
+
+integer($int32)
+
+0
+
+(query)
+
+size
+
+Default value : 10
+
+integer($int32)
+
+10
+
+(query)
+
+sortBy
+
+Default value : id
+
+string
+
+id
+
+(query)
+
+name
+
+Default value :
+
+string
+
+name
+
+(query)
+
+Responses
+
+Code
+
+Description
+
+Links
+
+200
+
+Categorias encontradas
+
+No links
+
+Media type
+
+*/*
+Controls Accept header.
+
+Example Value
+
+Schema
+
+{
+"_embedded": {
+"categoriaResourceV1List": [
+{
+"categoria": {
+"id": "string",
+"nomeCategoria": "string"
+},
+"_links": {
+"additionalProp1": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+"type": "string",
+"deprecation": "string",
+"profile": "string",
+"name": "string",
+"templated": true
+},
+
+"additionalProp2": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+"type": "string",
+"deprecation": "string",
+
+400
+
+Parametro categorias inválido
+
+No links
+
+Media type
+
+*/*
+Example Value
+
+Schema
+
+"name": "string",
+"templated": true
+},
+"additionalProp3": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+"type": "string",
+"deprecation": "string",
+"profile": "string",
+"name": "string",
+"templated": true
+}
+}
+}
+]
+},
+"_links": {
+"additionalProp1": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+"type": "string",
+"deprecation": "string",
+"profile": "string",
+
+404
+
+Categorias não encontradas
+Media type
+
+*/*
+Example Value
+
+Schema
+
+{
+"_embedded": {
+"categoriaResourceV1List": [
+{
+"categoria": {
+"id": "string",
+"nomeCategoria": "string"
+},
+"_links": {
+"additionalProp1": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+
+No links
+
+"type": "string",
+"deprecation": "string",
+"profile": "string",
+"name": "string",
+"templated": true
+},
+"additionalProp2": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+"type": "string",
+"deprecation": "string",
+
+POST
+
+/categorias
+
+Parameters
+
+Try it out
+
+No parameters
+
+Request body required
+
+Example Value
+
+application/json
+
+Schema
+
+{
+"nomeCategoria": "string"
+}
+
+Responses
+
+Code
+
+Description
+
+Links
+
+201
+
+Categoria registrada com sucesso
+
+No links
+
+Media type
+
+*/*
+Controls Accept header.
+
+Example Value
+
+Schema
+
+{}
+
+400
+
+Categoria evento inválido
+
+No links
+
+Media type
+
+*/*
+Example Value
+
+Schema
+
+{}
+
+GET
+
+/categorias/{id}
+
+Parameters
+
+Name
+
+Try it out
+
+Description
+
+id * required
+
+id
+
+string
+(path)
+
+Responses
+
+Code
+
+Description
+
+Links
+
+200
+
+Categorias encontradas
+
+No links
+
+Media type
+
+*/*
+Controls Accept header.
+
+Example Value
+
+Schema
+
+{
+"categoria": {
+"id": "string",
+"nomeCategoria": "string"
+},
+"_links": {
+"additionalProp1": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+"type": "string",
+"deprecation": "string",
+
+"profile": "string",
+"name": "string",
+"templated": true
+},
+"additionalProp2": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+"type": "string",
+"deprecation": "string",
+"profile": "string",
+"name": "string",
+
+400
+
+Parametro categorias inválido
+
+No links
+
+Media type
+
+*/*
+Example Value
+
+Schema
+
+{
+"categoria": {
+"id": "string",
+"nomeCategoria": "string"
+},
+"_links": {
+"additionalProp1": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+"type": "string",
+"deprecation": "string",
+"profile": "string",
+"name": "string",
+"templated": true
+},
+"additionalProp2": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+"type": "string",
+"deprecation": "string",
+"profile": "string",
+"name": "string",
+"templated": true
+
+404
+
+Categorias não encontradas
+Media type
+
+*/*
+Example Value
+
+Schema
+
+{
+"categoria": {
+"id": "string",
+"nomeCategoria": "string"
+},
+"_links": {
+
+No links
+
+"additionalProp1": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+"type": "string",
+"deprecation": "string",
+"profile": "string",
+"name": "string",
+"templated": true
+},
+"additionalProp2": {
+"href": "string",
+"hreflang": "string",
+"title": "string",
+"type": "string",
+"deprecation": "string",
+"profile": "string",
+"name": "string",
+
+auth-controller
+POST
+
+/auth/login
+
+Parameters
+
+Try it out
+
+No parameters
+
+Request body required
+
+Example Value
+
+application/json
+
+Schema
+
+{
+"login": "string",
+"password": "string",
+"stayLogged": true
+}
+
+Responses
+
+Code
+
+Description
+
+Links
+
+200
+
+OK
+
+No links
+
+Media type
+
+*/*
+Controls Accept header.
+
+Example Value
+
+Schema
+
+{}
+
+Schemas
+
+CreateUserRecord
+
+Expand all object
+
+CreateFotoRecord
+
+Expand all object
+
+CreateEventRecord
+
+Expand all object
+
+CreateCategoriaRecord
+
+AuthRequest
+
+Expand all object
+
+Expand all object
+
+CollectionModelUsuarioResourceV1
+
+UsuarioDTOV1
+
+Expand all object
+
+UsuarioResourceV1
+
+UsuarioDTOV2
+
+Expand all object
+
+Expand all object
+
+UsuarioResourceV2
+
+Expand all object
+
+CollectionModelFotoResourceV1
+
+FotoDTOV1
+
+Expand all object
+
+Expand all object
+
+FotoResourceV1
+
+Categoria
+
+Expand all object
+
+Expand all object
+
+Expand all object
+
+CollectionModelEventoResourceV1
+
+Curso
+
+Expand all object
+
+Evento
+
+Expand all object
+
+Expand all object
+
+EventoDTOV1
+
+Expand all object
+
+EventoResourceV1
+
+Role
+
+Usuario
+
+Expand all object
+
+Expand all object
+
+Expand all object
+
+CategoriaDTOV1
+
+Expand all object
+
+CategoriaResourceV1
+
+Expand all object
+
+CollectionModelCategoriaResourceV1
+
+Link
+
+Links
+
+Expand all object
+
+Expand all object
+
+Expand all object
+
+

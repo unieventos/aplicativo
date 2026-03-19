@@ -4,6 +4,7 @@ class UserProfile {
     this.nome = '',
     this.sobrenome = '',
     this.email = '',
+    this.login = '',
     this.cursoId = '',
     this.role = 'user',
   });
@@ -14,6 +15,7 @@ class UserProfile {
       nome: map['nome']?.toString() ?? '',
       sobrenome: map['sobrenome']?.toString() ?? '',
       email: map['email']?.toString() ?? '',
+      login: map['login']?.toString() ?? map['username']?.toString() ?? map['user']?['login']?.toString() ?? map['usuario']?['login']?.toString() ?? '',
       cursoId: map['cursoId']?.toString() ?? '',
       role: map['role']?.toString() ?? 'user',
     );
@@ -23,6 +25,7 @@ class UserProfile {
   final String nome;
   final String sobrenome;
   final String email;
+  final String login;
   final String cursoId;
   final String role;
 

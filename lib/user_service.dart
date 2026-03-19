@@ -507,8 +507,21 @@ class UserService {
         final decoded = jsonDecode(body);
         if (decoded is Map<String, dynamic> &&
             decoded['user'] is Map<String, dynamic>) {
-          final profile =
+          var profile =
               UserProfile.fromMap(decoded['user'] as Map<String, dynamic>);
+
+          if (profile.login.isEmpty) {
+            final cachedLogin = await storage.read(key: 'login') ?? '';
+            profile = UserProfile(
+              id: profile.id,
+              nome: profile.nome,
+              sobrenome: profile.sobrenome,
+              email: profile.email,
+              login: cachedLogin,
+              cursoId: profile.cursoId,
+              role: profile.role,
+            );
+          }
 
           if (persistLocally) {
             await _persistProfile(storage, profile);
@@ -542,6 +555,9 @@ class UserService {
     await storage.write(key: 'email', value: profile.email);
     await storage.write(key: 'cursoId', value: profile.cursoId);
     await storage.write(key: 'role', value: profile.role);
+    if (profile.login.isNotEmpty) {
+      await storage.write(key: 'login', value: profile.login);
+    }
     print('[UserService] Dados do usuário salvos com sucesso.');
   }
 

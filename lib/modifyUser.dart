@@ -98,13 +98,9 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
       'nome': _nomeController.text.trim(),
       'sobrenome': _sobrenomeController.text.trim(),
       'email': _emailController.text.trim(),
+      'login': _loginController.text.trim(),
       'role': _roleSelecionado ?? 'COLABORADOR',
     };
-
-    final loginAtualizado = _loginController.text.trim();
-    if (loginAtualizado.isNotEmpty && loginAtualizado != widget.usuario.login) {
-      payload['login'] = loginAtualizado;
-    }
 
     if (_cursoSelecionadoId != null && _cursoSelecionadoId!.isNotEmpty) {
       try {
@@ -307,10 +303,15 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
                     TextFormField(
                       controller: _loginController,
                       decoration: const InputDecoration(
-                        labelText: 'Login (opcional)',
+                        labelText: 'Login',
                         prefixIcon: Icon(Icons.person_outline),
-                        helperText: 'Nome de usuário para login - deixe vazio para manter o atual',
                       ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'O login não pode ser vazio';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
                     TextFormField(

@@ -50,7 +50,7 @@ class ManagedUser {
       nome: (json['nome'] ?? '').toString(),
       sobrenome: (json['sobrenome'] ?? '').toString(),
       email: (json['email'] ?? '').toString(),
-      login: (json['login'] ?? '').toString(),
+      login: (json['login'] ?? json['username'] ?? json['user']?['login'] ?? json['usuario']?['login'] ?? '').toString(),
       cursoId: cursoId,
       cursoNome: cursoNome,
       role: roleValue,

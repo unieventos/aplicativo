@@ -35,7 +35,7 @@ class Usuario {
       nome: json['nome'] ?? '',
       sobrenome: json['sobrenome'] ?? '',
       email: json['email'] ?? '',
-      login: json['login'] ?? '',
+      login: json['login'] ?? json['username'] ?? json['user']?['login'] ?? json['usuario']?['login'] ?? '',
       cursoId: json['cursoId'] ?? 0,
       cursoNome: json['cursoNome'] ?? json['curso'] ?? '',
       role: json['role'] ?? '',

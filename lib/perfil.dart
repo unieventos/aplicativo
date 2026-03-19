@@ -55,6 +55,7 @@ class _PerfilPageState extends State<PerfilPage> {
       email: values[3] ?? 'email@nao.informado',
       role: values[5] ?? 'user',
       cursoId: values[4] ?? '0',
+      login: values[7] ?? '',
     );
   }
 
@@ -186,7 +187,7 @@ class _PerfilPageState extends State<PerfilPage> {
                   nome: perfil.nome,
                   sobrenome: perfil.sobrenome,
                   email: perfil.email,
-                  login: '',
+                  login: perfil.login,
                   cursoId: int.tryParse(perfil.cursoId) ?? 0,
                   cursoNome: 'Não informado',
                 );
