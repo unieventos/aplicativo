@@ -4,6 +4,7 @@ import 'package:flutter_application_1/api_service.dart'; // Importa a sua classe
 
 import 'package:flutter_application_1/models/course_option.dart';
 import 'package:flutter_application_1/user_service.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ModifyUserApp extends StatefulWidget {
   final Usuario usuario;
@@ -23,6 +24,9 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
   late TextEditingController _loginController;
   late TextEditingController _senhaController;
   
+  bool _isAdmin = false;
+  bool _isEditingSelf = false;
+
   bool _isLoadingCursos = false;
   List<CourseOption> _cursos = const [];
   String? _cursoSelecionadoId;
@@ -47,6 +51,19 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     _roleSelecionado = widget.usuario.role.isNotEmpty ? widget.usuario.role.toUpperCase() : 'COLABORADOR';
     
     _carregarCursos();
+    _verificarPermissao();
+  }
+
+  Future<void> _verificarPermissao() async {
+    const storage = FlutterSecureStorage();
+    final role = await storage.read(key: 'role');
+    final myId = await storage.read(key: 'id');
+    if (mounted) {
+      setState(() {
+        _isAdmin = (role?.toUpperCase() == 'ADMIN');
+        _isEditingSelf = (myId == widget.usuario.id);
+      });
+    }
   }
 
   Future<void> _carregarCursos() async {
@@ -334,8 +351,10 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
                     const SizedBox(height: 16),
                     _buildCursoDropdown(),
                     const SizedBox(height: 16),
-                    _buildRoleDropdown(),
-                    const SizedBox(height: 16),
+                    if (_isAdmin && !_isEditingSelf) ...[
+                      _buildRoleDropdown(),
+                      const SizedBox(height: 16),
+                    ],
                     TextFormField(
                       controller: _senhaController,
                       obscureText: _obscureText,
