@@ -186,6 +186,10 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
         apenasAtivos: true,
       );
       
+      // Verifica se é a última página baseado no tamanho retornado pela API
+      // antes da filtragem local
+      final isLastPage = managedUsers.length < 10;
+      
       // Converte ManagedUser para Usuario
       // Usa o campo active real do ManagedUser para garantir que apenas usuários ativos apareçam
       // Filtra também usuários que estão no cache de desativados (desativações locais recentes)
@@ -205,10 +209,6 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
               ))
           .toList();
 
-      // Verifica se é a última página baseado no tamanho retornado pela API
-      // Se a API retornou menos de 10 itens, não há mais páginas
-      final isLastPage = managedUsers.length < 10;
-      
       if (isLastPage) {
         _pagingControllerAtivos.appendLastPage(usuarios);
       } else {
@@ -235,13 +235,15 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
 
   Future<void> _fetchUsuariosDesativadosPage(int pageKey) async {
     try {
-      // Busca apenas usuários inativos da API usando o parâmetro apenasAtivos: false
       final managedUsers = await UsuarioApi.fetchUsuarios(
         pageKey,
         10,
         _usuarioBuscaDesativadosAtual,
         apenasAtivos: false, // Busca apenas usuários inativos
       );
+      
+      final isLastPage = managedUsers.length < 10;
+      
       // Converte ManagedUser para Usuario
       // A API já deve retornar apenas usuários inativos quando apenasAtivos: false
       // Mas ainda filtra para garantir que apenas inativos apareçam
@@ -271,7 +273,6 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
       // Por enquanto, apenas usa os da API para evitar múltiplas chamadas
       final usuarios = usuariosDaApi;
 
-      final isLastPage = usuarios.length < 10;
       if (isLastPage) {
         _pagingControllerDesativados.appendLastPage(usuarios);
       } else {
@@ -494,6 +495,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
               foregroundColor: Colors.white,
             )
           : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 

@@ -190,6 +190,7 @@ class _PerfilPageState extends State<PerfilPage> {
                   login: perfil.login,
                   cursoId: int.tryParse(perfil.cursoId) ?? 0,
                   cursoNome: 'Não informado',
+                  role: perfil.role,
                 );
                 final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => ModifyUserApp(usuario: usuario)));
                 if (result == true) {

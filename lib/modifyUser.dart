@@ -48,8 +48,12 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     _emailController = TextEditingController(text: widget.usuario.email);
     _loginController = TextEditingController(text: widget.usuario.login);
     _senhaController = TextEditingController();
-    _roleSelecionado = widget.usuario.role.isNotEmpty ? widget.usuario.role.toUpperCase() : 'COLABORADOR';
-    
+    final userRole = widget.usuario.role.toUpperCase();
+    if (_rolesDisponiveis.any((r) => r['value'] == userRole)) {
+      _roleSelecionado = userRole;
+    } else {
+      _roleSelecionado = 'COLABORADOR';
+    }    
     _carregarCursos();
     _verificarPermissao();
   }
@@ -116,8 +120,11 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
       'sobrenome': _sobrenomeController.text.trim(),
       'email': _emailController.text.trim(),
       'login': _loginController.text.trim(),
-      'role': _roleSelecionado ?? 'COLABORADOR',
     };
+
+    if (_isAdmin && !_isEditingSelf) {
+      payload['role'] = _roleSelecionado ?? 'COLABORADOR';
+    }
 
     if (_cursoSelecionadoId != null && _cursoSelecionadoId!.isNotEmpty) {
       try {

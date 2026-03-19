@@ -580,6 +580,8 @@ class UserService {
         'size': '$size',
         'sortBy': sortBy,
         if (search.isNotEmpty) 'name': search,
+        if (apenasAtivos != null) 'active': apenasAtivos.toString(),
+        if (apenasAtivos != null) 'ativo': apenasAtivos.toString(),
       },
     );
 
@@ -647,14 +649,6 @@ class UserService {
               .map(ManagedUser.fromApi)
               .toList();
           
-          // Filtra conforme solicitado
-          if (apenasAtivos == true) {
-            return usuarios.where((usuario) => usuario.active == true).toList();
-          } else if (apenasAtivos == false) {
-            return usuarios.where((usuario) => usuario.active == false).toList();
-          }
-          
-          // Se apenasAtivos for null, retorna todos
           return usuarios;
         }
       }
