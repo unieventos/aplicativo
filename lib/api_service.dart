@@ -366,11 +366,53 @@ class EventosApi {
       final eventos =
           list.map((item) => Evento.fromJson(item['evento'])).toList();
 
-      // Buscar nomes dos criadores e fotos se houver token
+      // Buscar nomes dos criadores se houver token
       if (token != null && token.isNotEmpty && eventos.isNotEmpty) {
         await _enriquecerNomesCriadores(eventos);
-        await _enriquecerFotosEventos(eventos, token);
       }
+
+      // NOVO: Busca as fotos (binário) antes de exibir na tela
+      final String baseUrlEventos = ApiConfig.eventos();
+      final headers = <String, String>{};
+      if (token != null && token.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      await Future.wait(eventos.asMap().entries.map((entry) async {
+        final index = entry.key;
+        final evento = entry.value;
+
+        if (evento.id.isNotEmpty) {
+          Uint8List? fetchedBytes;
+          try {
+            final urlFoto = Uri.parse('$baseUrlEventos/${evento.id}/fotos/download');
+            final response = await http.get(urlFoto, headers: headers).timeout(const Duration(seconds: 10));
+            
+            if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+               fetchedBytes = response.bodyBytes;
+            }
+          } catch(e) {
+             print('[EventosApi] Erro ao buscar foto para evento ${evento.id}: $e');
+          }
+          
+          eventos[index] = Evento(
+            id: evento.id,
+            titulo: evento.titulo,
+            descricao: evento.descricao,
+            autor: evento.autor,
+            criador: evento.criador,
+            cursoAutor: evento.cursoAutor,
+            autorAvatarUrl: evento.autorAvatarUrl,
+            imagemUrl: '$baseUrlEventos/${evento.id}/fotos/download',
+            imagemBytes: fetchedBytes,
+            data: evento.data,
+            inicio: evento.inicio,
+            fim: evento.fim,
+            categoria: evento.categoria,
+            participantes: evento.participantes,
+          );
+        }
+      }));
 
       return eventos;
     } else if (response.statusCode == 404) {
@@ -452,133 +494,7 @@ class EventosApi {
     }
   }
 
-  // Enriquece os eventos com as URLs das fotos
-  static Future<void> _enriquecerFotosEventos(
-      List<Evento> eventos, String token) async {
-    if (eventos.isEmpty) return;
 
-    // Coleta todos os IDs únicos de eventos
-    final ids = eventos.map((e) => e.id).where((id) => id.isNotEmpty).toSet();
-    if (ids.isEmpty) return;
-
-    try {
-      final limite = ids.length > 200 ? ids.length : 200;
-      final url =
-          Uri.parse('${ApiConfig.base}/fotos?page=0&size=$limite&sortBy=id');
-      final response = await http.get(
-        url,
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(const Duration(seconds: 15));
-
-      // 404 é esperado quando não há fotos, não é um erro
-      if (response.statusCode == 404) {
-        print('[EventosApi] Nenhuma foto encontrada (404 - esperado)');
-        return;
-      }
-
-      if (response.statusCode != 200) {
-        print('[EventosApi] Erro ao buscar fotos: ${response.statusCode}');
-        return; // Falha silenciosa
-      }
-
-      final bodyText = utf8.decode(response.bodyBytes);
-      final decoded = bodyText.isNotEmpty ? jsonDecode(bodyText) : null;
-      if (decoded == null) return;
-
-      // Extrai lista de fotos
-      final List<dynamic> listaFotos = [];
-      if (decoded is Map<String, dynamic>) {
-        final embedded = decoded['_embedded'];
-        if (embedded is Map<String, dynamic>) {
-          final candidato = embedded['fotoResourceV1List'] ??
-              embedded['fotoList'] ??
-              embedded['foto'];
-          if (candidato is List) {
-            listaFotos.addAll(candidato);
-          }
-        }
-        final content = decoded['content'];
-        if (content is List) {
-          listaFotos.addAll(content);
-        }
-      } else if (decoded is List) {
-        listaFotos.addAll(decoded);
-      }
-
-      // Cria mapa de ID do evento -> URL da foto
-      final Map<String, String> fotosMap = {};
-      for (final item in listaFotos) {
-        if (item is! Map<String, dynamic>) continue;
-
-        final foto = item['foto'] is Map<String, dynamic>
-            ? item['foto'] as Map<String, dynamic>
-            : item;
-
-        final alvo = _stringOuNuloFoto(foto['alvo']) ??
-            _stringOuNuloFoto(item['alvo']) ??
-            '';
-        if (alvo.toUpperCase() != 'EVENTO') continue;
-
-        final idAlvo = _stringOuNuloFoto(foto['idAlvo']) ??
-            _stringOuNuloFoto(item['idAlvo']);
-        if (idAlvo == null || !ids.contains(idAlvo)) continue;
-
-        final path =
-            _stringOuNuloFoto(foto['path']) ?? _stringOuNuloFoto(item['path']);
-        if (path == null || path.isEmpty) continue;
-
-        // Resolve o path para URL completa
-        final urlCompleta = _resolverPathFoto(path);
-        fotosMap[idAlvo] = urlCompleta;
-      }
-
-      // Atualiza os eventos com as URLs das fotos
-      for (int i = 0; i < eventos.length; i++) {
-        final evento = eventos[i];
-        if (fotosMap.containsKey(evento.id)) {
-          // Recria o evento com a URL da foto
-          eventos[i] = Evento(
-            id: evento.id,
-            titulo: evento.titulo,
-            descricao: evento.descricao,
-            autor: evento.autor,
-            criador: evento.criador,
-            cursoAutor: evento.cursoAutor,
-            autorAvatarUrl: evento.autorAvatarUrl,
-            imagemUrl: fotosMap[evento.id]!,
-            data: evento.data,
-            inicio: evento.inicio,
-            fim: evento.fim,
-            categoria: evento.categoria,
-            participantes: evento.participantes,
-          );
-        }
-      }
-    } catch (e) {
-      // Falha silenciosa - não bloqueia a exibição dos eventos
-      print('[EventosApi] Erro ao buscar fotos: $e');
-    }
-  }
-
-  static String? _stringOuNuloFoto(dynamic valor) {
-    if (valor == null) return null;
-    if (valor is String) return valor.isEmpty ? null : valor;
-    return valor.toString();
-  }
-
-  static String _resolverPathFoto(String path) {
-    final trimmed = path.trim();
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-      return trimmed;
-    }
-    final base = Uri.parse(
-        ApiConfig.base.endsWith('/') ? ApiConfig.base : '${ApiConfig.base}/');
-    final sanitized = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
-    return base.resolve(sanitized).toString();
-  }
 
   // POST /eventos - Cadastra um novo evento via Multipart (dados + foto)
   static Future<Map<String, dynamic>> criarEvento(

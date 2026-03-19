@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 /// Modelo de Evento conforme retorno do backend.
 ///
 /// Observação: a API pode variar os nomes de campos de data
@@ -11,6 +13,7 @@ class Evento {
   final String cursoAutor;
   final String autorAvatarUrl;
   final String imagemUrl;
+  final Uint8List? imagemBytes;
   final DateTime data;
   final DateTime inicio;
   final DateTime fim;
@@ -26,6 +29,7 @@ class Evento {
     required this.cursoAutor,
     required this.autorAvatarUrl,
     required this.imagemUrl,
+    this.imagemBytes,
     required this.data,
     required this.inicio,
     required this.fim,
@@ -69,6 +73,7 @@ class Evento {
       cursoAutor: json['cursoAutor'] ?? json['curso'] ?? 'Curso não informado',
       autorAvatarUrl: json['autorAvatarUrl'] ?? json['avatarUrl'] ?? '',
       imagemUrl: json['imagemUrl'] ?? json['imagem'] ?? '',
+      imagemBytes: null,
       data: dataRaw is String ? (DateTime.tryParse(dataRaw) ?? DateTime.now()) : DateTime.now(),
       inicio: inicioRaw is String ? (DateTime.tryParse(inicioRaw) ?? DateTime.now()) : DateTime.now(),
       fim: fimRaw is String ? (DateTime.tryParse(fimRaw) ?? DateTime.now()) : DateTime.now(),
