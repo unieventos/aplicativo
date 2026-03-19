@@ -40,6 +40,8 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     {'value': 'COLABORADOR', 'label': 'Colaborador'},
   ];
 
+  late List<Map<String, String>> _rolesDisponiveisList;
+
   @override
   void initState() {
     super.initState();
@@ -49,10 +51,16 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     _loginController = TextEditingController(text: widget.usuario.login);
     _senhaController = TextEditingController();
     final userRole = widget.usuario.role.toUpperCase();
-    if (_rolesDisponiveis.any((r) => r['value'] == userRole)) {
-      _roleSelecionado = userRole;
+    _rolesDisponiveisList = List.from(_rolesDisponiveis);
+    if (userRole.isNotEmpty) {
+      if (_rolesDisponiveisList.any((r) => r['value'] == userRole)) {
+        _roleSelecionado = userRole;
+      } else {
+        _rolesDisponiveisList.add({'value': userRole, 'label': userRole});
+        _roleSelecionado = userRole;
+      }
     } else {
-      _roleSelecionado = 'COLABORADOR';
+      _roleSelecionado = null;
     }    
     _carregarCursos();
     _verificarPermissao();
@@ -123,7 +131,11 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     };
 
     if (_isAdmin && !_isEditingSelf) {
-      payload['role'] = _roleSelecionado ?? 'COLABORADOR';
+      if (_roleSelecionado != null) {
+        payload['role'] = _roleSelecionado;
+      } else if (widget.usuario.role.isNotEmpty) {
+        payload['role'] = widget.usuario.role;
+      }
     }
 
     if (_cursoSelecionadoId != null && _cursoSelecionadoId!.isNotEmpty) {
@@ -222,26 +234,25 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     return DropdownButtonFormField<String>(
       value: _roleSelecionado,
       decoration: const InputDecoration(
-        labelText: 'Perfil de acesso',
+        labelText: 'Perfil de acesso (opcional)',
         prefixIcon: Icon(Icons.admin_panel_settings_outlined),
+        helperText: 'Deixe sem alteração para manter o perfil atual',
       ),
       isExpanded: true,
-      items: _rolesDisponiveis.map(
-        (role) => DropdownMenuItem(
-          value: role['value'],
-          child: Text(role['label']!),
+      items: [
+        const DropdownMenuItem<String>(
+          value: null,
+          child: Text('Manter perfil atual'),
         ),
-      ).toList(),
+        ..._rolesDisponiveisList.map(
+          (role) => DropdownMenuItem(
+            value: role['value'],
+            child: Text(role['label']!),
+          ),
+        ),
+      ],
       onChanged: (value) {
-        if (value != null) {
-          setState(() => _roleSelecionado = value);
-        }
-      },
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Selecione um perfil de acesso';
-        }
-        return null;
+        setState(() => _roleSelecionado = value);
       },
     );
   }
