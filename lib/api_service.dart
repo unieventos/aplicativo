@@ -344,8 +344,9 @@ class EventosApi {
           'Mixed content bloqueado no navegador: app https x API http.');
     }
 
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
     final url = Uri.parse(
-        '$_baseUrl?page=$page&size=$pageSize&sortBy=dateInicio&name=$search');
+        '$_baseUrl?page=$page&size=$pageSize&sortBy=dateInicio&name=$search&_t=$timestamp');
 
     // Headers condicionais - só adiciona Authorization se o token existir
     final headers = <String, String>{
@@ -519,16 +520,16 @@ class EventosApi {
       if (imagem != null) {
         if (kIsWeb && imagem is XFile) {
           final bytes = await imagem.readAsBytes();
-          request.files.add(http.MultipartFile.fromBytes('foto', bytes,
+          request.files.add(http.MultipartFile.fromBytes('fotos', bytes,
               filename: imagem.name,
               contentType: _mimeTypeForPath(imagem.name)));
         } else if (imagem is File) {
           request.files.add(await http.MultipartFile.fromPath(
-              'foto', imagem.path,
+              'fotos', imagem.path,
               contentType: _mimeTypeForPath(imagem.path)));
         } else if (imagem is XFile) {
           request.files.add(await http.MultipartFile.fromPath(
-              'foto', imagem.path,
+              'fotos', imagem.path,
               contentType: _mimeTypeForPath(imagem.name)));
         }
       }
@@ -649,7 +650,7 @@ class EventosApi {
           mimeType = _mimeTypeForPath(nomeArquivo ?? 'imagem.jpg');
         }
         request.files.add(http.MultipartFile.fromBytes(
-          'foto',
+          'fotos',
           arquivo,
           filename: nomeArquivo ?? 'imagem.jpg',
           contentType: mimeType,
@@ -658,7 +659,7 @@ class EventosApi {
         // Em outras plataformas, usa File
         mimeType = _mimeTypeForPath(arquivo.path);
         request.files.add(await http.MultipartFile.fromPath(
-          'foto',
+          'fotos',
           arquivo.path,
           contentType: mimeType,
         ));
@@ -763,7 +764,8 @@ class CategoriaApi {
     }
 
     // Supondo que queremos todas as categorias, podemos usar um size grande.
-    final url = Uri.parse('$_baseUrl?size=100');
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final url = Uri.parse('$_baseUrl?size=100&_t=$timestamp');
     final response = await http.get(url, headers: {
       'Authorization': 'Bearer $token'
     }).timeout(const Duration(seconds: 15));
