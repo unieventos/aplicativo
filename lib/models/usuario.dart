@@ -82,4 +82,28 @@ class Usuario {
       'active': active,
     };
   }
+
+  Usuario copyWith({
+    String? id,
+    String? nome,
+    String? sobrenome,
+    String? email,
+    String? login,
+    int? cursoId,
+    String? cursoNome,
+    String? role,
+    bool? active,
+  }) {
+    return Usuario(
+      id: id ?? this.id,
+      nome: nome ?? this.nome,
+      sobrenome: sobrenome ?? this.sobrenome,
+      email: email ?? this.email,
+      login: login ?? this.login,
+      cursoId: cursoId ?? this.cursoId,
+      cursoNome: cursoNome ?? this.cursoNome,
+      role: role ?? this.role,
+      active: active ?? this.active,
+    );
+  }
 }

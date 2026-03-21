@@ -59,6 +59,10 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
   // Cache local de status de usuários (em memória)
   // Armazena IDs de usuários que foram desativados/ativados nesta sessão
   final Set<String> _usuariosDesativadosCache = <String>{};
+  final Set<String> _usuariosAtivadosCache = <String>{};
+  // Cache de objetos de usuários para inserção imediata nas listas
+  final List<Usuario> _usuariosRecentementeAtivados = [];
+  final List<Usuario> _usuariosRecentementeDesativados = [];
 
   @override
   void initState() {
@@ -185,17 +189,20 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
         _usuarioBuscaAtivosAtual,
         apenasAtivos: true,
       );
-      
+
       // Verifica se é a última página baseado no tamanho retornado pela API
       // antes da filtragem local
       final isLastPage = managedUsers.length < 10;
-      
+
       // Converte ManagedUser para Usuario
       // Usa o campo active real do ManagedUser para garantir que apenas usuários ativos apareçam
       // Filtra também usuários que estão no cache de desativados (desativações locais recentes)
+      // Inclui usuários que estão no cache de ativados (ativações locais recentes)
       final usuarios = managedUsers
           .where((mu) =>
-              mu.active == true && !_usuariosDesativadosCache.contains(mu.id))
+              (mu.active == true || _usuariosAtivadosCache.contains(mu.id)) &&
+              !_usuariosDesativadosCache.contains(mu.id) &&
+              !_usuariosRecentementeAtivados.any((ru) => ru.id == mu.id))
           .map<Usuario>((mu) => Usuario(
                 id: mu.id,
                 nome: mu.nome,
@@ -205,9 +212,15 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
                 cursoId: 0,
                 cursoNome: mu.cursoDisplay,
                 role: mu.role,
-                active: mu.active,
+                active:
+                    _usuariosAtivadosCache.contains(mu.id) ? true : mu.active,
               ))
           .toList();
+
+      if (pageKey == 0) {
+        // Prende usuários recentemente ativados no topo para feedback instantâneo
+        usuarios.insertAll(0, _usuariosRecentementeAtivados);
+      }
 
       if (isLastPage) {
         _pagingControllerAtivos.appendLastPage(usuarios);
@@ -241,15 +254,18 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
         _usuarioBuscaDesativadosAtual,
         apenasAtivos: false, // Busca apenas usuários inativos
       );
-      
+
       final isLastPage = managedUsers.length < 10;
-      
+
       // Converte ManagedUser para Usuario
       // A API já deve retornar apenas usuários inativos quando apenasAtivos: false
       // Mas ainda filtra para garantir que apenas inativos apareçam
+      // Filtra também usuários que estão no cache de ativados (ativações locais recentes)
       final usuariosDaApi = managedUsers
           .where((mu) =>
-              mu.active == false) // Filtra apenas inativos para garantir
+              mu.active == false &&
+              !_usuariosAtivadosCache.contains(mu.id) &&
+              !_usuariosRecentementeDesativados.any((ru) => ru.id == mu.id))
           .map<Usuario>((mu) => Usuario(
                 id: mu.id,
                 nome: mu.nome,
@@ -259,9 +275,16 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
                 cursoId: 0,
                 cursoNome: mu.cursoDisplay,
                 role: mu.role,
-                active: mu.active, // Usa o campo active real da API
+                active: _usuariosDesativadosCache.contains(mu.id)
+                    ? false
+                    : mu.active,
               ))
           .toList();
+
+      if (pageKey == 0) {
+        // Prende usuários recentemente desativados no topo para feedback instantâneo
+        usuariosDaApi.insertAll(0, _usuariosRecentementeDesativados);
+      }
 
       // Adiciona usuários do cache local que ainda não foram retornados pela API
       // (caso de desativações recentes que ainda não foram sincronizadas)
@@ -314,15 +337,19 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
 
     // Remove o usuário da lista de desativados localmente primeiro
     final itemListDesativados = _pagingControllerDesativados.itemList;
+    Usuario? usuarioParaAtivar;
     if (itemListDesativados != null) {
-      final itemListAtualizada =
-          itemListDesativados.where((u) => u.id != userId).toList();
-      _pagingControllerDesativados.itemList = itemListAtualizada;
+      final index = itemListDesativados.indexWhere((u) => u.id == userId);
+      if (index != -1) {
+        usuarioParaAtivar = itemListDesativados[index];
+        final itemListAtualizada =
+            itemListDesativados.where((u) => u.id != userId).toList();
+        _pagingControllerDesativados.itemList = itemListAtualizada;
+      }
     }
 
     try {
-      final sucesso =
-          await UserService.atualizarUsuario(userId, {'active': true});
+      final sucesso = await api_service.UsuarioApi.reativarUsuario(userId);
       if (!mounted) return;
 
       if (sucesso) {
@@ -330,12 +357,26 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
           const SnackBar(content: Text('Usuário ativado com sucesso')),
         );
 
-        // Remove do cache de usuários desativados para feedback imediato
-        // O cache será limpo após o refresh que buscará o status real da API
+        // Atualiza os caches locais para feedback imediato
         _usuariosDesativadosCache.remove(userId);
+        _usuariosAtivadosCache.add(userId);
 
-        // Recarrega ambas as listas: remove dos desativados e adiciona aos ativos
-        // A API agora retorna o campo active correto, então o cache é apenas para feedback imediato
+        // Armazena o objeto para inserção imediata na outra lista
+        if (usuarioParaAtivar != null) {
+          final usuarioAtivado = usuarioParaAtivar.copyWith(active: true);
+          _usuariosRecentementeAtivados.add(usuarioAtivado);
+
+          // Tenta atualizar a lista de ativos sem refresh total primeiro
+          final itemListAtivos = _pagingControllerAtivos.itemList;
+          if (itemListAtivos != null) {
+            _pagingControllerAtivos.itemList = [
+              usuarioAtivado,
+              ...itemListAtivos
+            ];
+          }
+        }
+
+        // Recarrega ambas as listas para sincronizar com o backend
         _pagingControllerAtivos.refresh();
         _pagingControllerDesativados.refresh();
       } else {
@@ -386,10 +427,15 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
 
     // Remove o usuário da lista de ativos localmente primeiro para atualização imediata
     final itemListAtivos = _pagingControllerAtivos.itemList;
+    Usuario? usuarioParaDesativar;
     if (itemListAtivos != null) {
-      final itemListAtualizada =
-          itemListAtivos.where((u) => u.id != userId).toList();
-      _pagingControllerAtivos.itemList = itemListAtualizada;
+      final index = itemListAtivos.indexWhere((u) => u.id == userId);
+      if (index != -1) {
+        usuarioParaDesativar = itemListAtivos[index];
+        final itemListAtualizada =
+            itemListAtivos.where((u) => u.id != userId).toList();
+        _pagingControllerAtivos.itemList = itemListAtualizada;
+      }
     }
 
     dynamic resultado = await UsuarioApi.deletarUsuario(userId);
@@ -414,12 +460,26 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
         const SnackBar(content: Text('Usuário desativado com sucesso')),
       );
 
-      // Adiciona ao cache de usuários desativados para feedback imediato
-      // O cache será limpo após o refresh que buscará o status real da API
+      // Atualiza os caches locais para feedback imediato
+      _usuariosAtivadosCache.remove(userId);
       _usuariosDesativadosCache.add(userId);
 
-      // Recarrega ambas as listas: remove dos ativos e adiciona aos desativados
-      // A API agora retorna o campo active correto, então o cache é apenas para feedback imediato
+      // Armazena o objeto para inserção imediata na outra lista
+      if (usuarioParaDesativar != null) {
+        final usuarioDesativado = usuarioParaDesativar.copyWith(active: false);
+        _usuariosRecentementeDesativados.add(usuarioDesativado);
+
+        // Tenta atualizar a lista de desativados sem refresh total primeiro
+        final itemListDesativados = _pagingControllerDesativados.itemList;
+        if (itemListDesativados != null) {
+          _pagingControllerDesativados.itemList = [
+            usuarioDesativado,
+            ...itemListDesativados
+          ];
+        }
+      }
+
+      // Recarrega ambas as listas
       _pagingControllerAtivos.refresh();
       _pagingControllerDesativados.refresh();
     } else {

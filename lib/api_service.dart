@@ -44,7 +44,10 @@ class UsuarioApi {
   /// - page: índice da página (0-based)
   /// - pageSize: tamanho da página
   /// - search: filtro por nome
-  static Future<List<Usuario>> fetchUsuarios(int page, int pageSize, String search) async {
+  /// - active: se true, traz apenas ativos; se false, apenas inativos.
+  static Future<List<Usuario>> fetchUsuarios(
+      int page, int pageSize, String search,
+      {bool? apenasAtivos}) async {
     final token = await _storage.read(key: 'token');
     if (token == null) throw Exception('Token não encontrado.');
 
@@ -53,10 +56,16 @@ class UsuarioApi {
           'Mixed content bloqueado no navegador: app https x API http.');
     }
 
-    final url = Uri.parse('$_baseUrl?page=$page&size=$pageSize&sortBy=nome&name=$search&active=true');
-    final response = await http
-        .get(url, headers: {'Authorization': 'Bearer $token'})
-        .timeout(const Duration(seconds: 15));
+    String urlString =
+        '$_baseUrl?page=$page&size=$pageSize&sortBy=nome&name=$search';
+    if (apenasAtivos != null) {
+      urlString += '&active=$apenasAtivos';
+    }
+
+    final url = Uri.parse(urlString);
+    final response = await http.get(url, headers: {
+      'Authorization': 'Bearer $token'
+    }).timeout(const Duration(seconds: 15));
 
     if (response.statusCode == 200) {
       final data = json.decode(utf8.decode(response.bodyBytes));
@@ -64,9 +73,8 @@ class UsuarioApi {
           data['_embedded']?['usuarioResourceV1List'] ?? [];
       final usuarios =
           list.map((item) => Usuario.fromJson(item['user'])).toList();
-      // Filtra apenas usuários ativos (is_active = true)
-      // Usuários desativados não devem ser exibidos na lista
-      return usuarios.where((usuario) => usuario.active == true).toList();
+
+      return usuarios;
     } else {
       throw Exception('Falha ao carregar usuários: ${response.statusCode}');
     }
@@ -104,7 +112,8 @@ class UsuarioApi {
   }
 
   /// PATCH /usuarios/{id} — Atualiza um usuário existente (parcial).
-  static Future<bool> atualizarUsuario(String usuarioId, Map<String, dynamic> dadosUsuario) async {
+  static Future<bool> atualizarUsuario(
+      String usuarioId, Map<String, dynamic> dadosUsuario) async {
     final token = await _storage.read(key: 'token');
     if (token == null) return false;
 
@@ -134,9 +143,10 @@ class UsuarioApi {
   }
 
   /// DELETE /usuarios/{id} — Inativa/Remove um usuário.
-  static Future<bool> deletarUsuario(String usuarioId) async {
+  static Future<Map<String, dynamic>> deletarUsuario(String usuarioId) async {
     final token = await _storage.read(key: 'token');
-    if (token == null) return false;
+    if (token == null)
+      return {'sucesso': false, 'mensagem': 'Token não encontrado.'};
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
       throw Exception(
@@ -145,16 +155,57 @@ class UsuarioApi {
 
     final url = Uri.parse('$_baseUrl/$usuarioId');
     try {
-      final response = await http
-          .delete(
-            url,
-            headers: {'Authorization': 'Bearer $token'},
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await http.delete(
+        url,
+        headers: {'Authorization': 'Bearer $token'},
+      ).timeout(const Duration(seconds: 15));
+
       // Alguns backends retornam 204 (No Content), outros 200 (OK).
-      return response.statusCode == 204 || response.statusCode == 200;
+      if (response.statusCode == 204 || response.statusCode == 200) {
+        return {'sucesso': true};
+      }
+      return {'sucesso': false, 'mensagem': 'Erro ${response.statusCode}'};
     } catch (e) {
       print("Erro ao deletar usuário: $e");
+      return {'sucesso': false, 'mensagem': e.toString()};
+    }
+  }
+
+  /// PATCH /usuarios/{id}?action=active — Reativa um usuário.
+  static Future<bool> reativarUsuario(String usuarioId) async {
+    final token = await _storage.read(key: 'token');
+    if (token == null) return false;
+
+    if (WebChecks.isMixedContent(ApiConfig.base)) {
+      throw Exception(
+          'Mixed content bloqueado no navegador: app https x API http.');
+    }
+
+    final url = Uri.parse('$_baseUrl/$usuarioId?action=active');
+    try {
+      print('[UsuarioApi] Tentando reativar usuário (PATCH): $url');
+      final response = await http
+          .patch(
+            url,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json'
+            },
+            body: jsonEncode(
+                {}), // Enviando corpo vazio para evitar erro 500 em alguns backends
+          )
+          .timeout(const Duration(seconds: 15));
+
+      print('[UsuarioApi] Resposta reativação: ${response.statusCode}');
+      if (response.body.isNotEmpty) {
+        print('[UsuarioApi] Body reativação: ${response.body}');
+      }
+
+      return response.statusCode == 204 ||
+          response.statusCode == 200 ||
+          response.statusCode == 201;
+    } catch (e) {
+      print("[UsuarioApi] Erro ao reativar usuário: $e");
       return false;
     }
   }
@@ -336,7 +387,8 @@ class EventosApi {
 
   /// GET /eventos — Retorna lista paginada de eventos.
   /// Parâmetros de busca podem variar no backend (ex.: name, titulo, etc.).
-  static Future<List<Evento>> fetchEventos(int page, int pageSize, {String search = ''}) async {
+  static Future<List<Evento>> fetchEventos(int page, int pageSize,
+      {String search = ''}) async {
     final token = await _storage.read(key: 'token');
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
@@ -386,16 +438,20 @@ class EventosApi {
         if (evento.id.isNotEmpty) {
           Uint8List? fetchedBytes;
           try {
-            final urlFoto = Uri.parse('$baseUrlEventos/${evento.id}/fotos/download');
-            final response = await http.get(urlFoto, headers: headers).timeout(const Duration(seconds: 10));
-            
+            final urlFoto =
+                Uri.parse('$baseUrlEventos/${evento.id}/fotos/download');
+            final response = await http
+                .get(urlFoto, headers: headers)
+                .timeout(const Duration(seconds: 10));
+
             if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-               fetchedBytes = response.bodyBytes;
+              fetchedBytes = response.bodyBytes;
             }
-          } catch(e) {
-             print('[EventosApi] Erro ao buscar foto para evento ${evento.id}: $e');
+          } catch (e) {
+            print(
+                '[EventosApi] Erro ao buscar foto para evento ${evento.id}: $e');
           }
-          
+
           eventos[index] = Evento(
             id: evento.id,
             titulo: evento.titulo,
@@ -494,8 +550,6 @@ class EventosApi {
       }
     }
   }
-
-
 
   // POST /eventos - Cadastra um novo evento via Multipart (dados + foto)
   static Future<Map<String, dynamic>> criarEvento(
@@ -757,7 +811,7 @@ class CategoriaApi {
   static Future<List<Categoria>> fetchCategorias() async {
     final token = await _storage.read(key: 'token');
     if (token == null) throw Exception('Token não encontrado.');
-    
+
     if (WebChecks.isMixedContent(ApiConfig.base)) {
       throw Exception(
           'Mixed content bloqueado no navegador: app https x API http.');
