@@ -297,23 +297,7 @@ class EventoCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Icon(
-                    Icons.chevron_right,
-                    color: Colors.grey.shade400,
-                    size: 24,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${evento.participantes} participantes',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
+              // Participantes e seta removidos conforme solicitado
             ],
           ),
         ),

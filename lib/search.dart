@@ -32,6 +32,9 @@ class _SearchPageState extends State<SearchPage> {
   CourseOption? _selectedCourse;
   List<CourseOption> _cursos = [];
 
+  Categoria? _selectedCategoria;
+  List<Categoria> _categorias = [];
+
   // Constantes de período
   static const List<String> _dateFilters = [
     'Todas as datas',
@@ -41,89 +44,15 @@ class _SearchPageState extends State<SearchPage> {
     'Personalizado...'
   ];
 
-  // Mock list
-  final List<Evento> _mockEventos = [
-    Evento(
-      id: '1',
-      titulo: 'evento de ciências da computação',
-      descricao: '',
-      autor: '',
-      criador: '',
-      cursoAutor: 'Ciência da Computação',
-      autorAvatarUrl: '',
-      imagemUrl: '',
-      data: DateTime(2025, 9, 18),
-      inicio: DateTime(2025, 9, 18, 0, 0),
-      fim: DateTime(2025, 9, 30, 0, 0),
-      categoria: 'Geral',
-      participantes: 0,
-    ),
-    Evento(
-      id: '2',
-      titulo: 'evento',
-      descricao: '',
-      autor: '',
-      criador: '',
-      cursoAutor: 'Design',
-      autorAvatarUrl: '',
-      imagemUrl: '',
-      data: DateTime(2025, 9, 19),
-      inicio: DateTime(2025, 9, 19, 0, 0),
-      fim: DateTime(2025, 9, 30, 0, 0),
-      categoria: 'Geral',
-      participantes: 0,
-    ),
-    Evento(
-      id: '3',
-      titulo: 'teste',
-      descricao: '',
-      autor: '',
-      criador: '',
-      cursoAutor: 'Odontologia',
-      autorAvatarUrl: '',
-      imagemUrl: '',
-      data: DateTime(2025, 9, 19),
-      inicio: DateTime(2025, 9, 19, 0, 0),
-      fim: DateTime(2025, 9, 19, 0, 0),
-      categoria: 'Geral',
-      participantes: 0,
-    ),
-    Evento(
-      id: '4',
-      titulo: 'programação',
-      descricao: '',
-      autor: '',
-      criador: '',
-      cursoAutor: 'Ciência da Computação',
-      autorAvatarUrl: '',
-      imagemUrl: '',
-      data: DateTime(2025, 9, 19),
-      inicio: DateTime(2025, 9, 19, 0, 0),
-      fim: DateTime(2025, 9, 30, 0, 0),
-      categoria: 'Geral',
-      participantes: 0,
-    ),
-    Evento(
-      id: '5',
-      titulo: 'evento teste 1122',
-      descricao: '',
-      autor: '',
-      criador: '',
-      cursoAutor: 'História',
-      autorAvatarUrl: '',
-      imagemUrl: '',
-      data: DateTime(2025, 9, 19),
-      inicio: DateTime(2025, 9, 19, 0, 0),
-      fim: DateTime(2025, 9, 26, 0, 0),
-      categoria: 'Geral',
-      participantes: 0,
-    ),
-  ];
+  bool _isLoadingAll = false;
+  List<Evento> _allEventos = [];
+  bool _hasFetchedAll = false;
 
   @override
   void initState() {
     super.initState();
     _carregarCursos();
+    _carregarCategorias();
     // Adiciona o listener para o PagingController, que chama a API
     _pagingController.addPageRequestListener((pageKey) {
       _fetchPage(pageKey, _searchController.text);
@@ -155,15 +84,56 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
+  Future<void> _carregarCategorias() async {
+    try {
+      final categorias = await CategoriaApi.fetchCategorias();
+      if (!mounted) return;
+      setState(() {
+        _categorias = categorias;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Falha ao carregar categorias: $e')),
+      );
+    }
+  }
+
+  Future<void> _fetchAllEventos() async {
+    if (_hasFetchedAll || _isLoadingAll) return;
+    _isLoadingAll = true;
+    try {
+      // Traz um número grande de eventos para viabilizar os filtros locais, 
+      // já que a API não os suporta diretamente.
+      final eventos = await EventosApi.fetchEventos(0, 1000, search: '');
+      
+      // Ordena pela data (mais recentes primeiro)
+      eventos.sort((a, b) => b.data.compareTo(a.data));
+      
+      _allEventos = eventos;
+      _hasFetchedAll = true;
+    } catch (e) {
+      rethrow;
+    } finally {
+      _isLoadingAll = false;
+    }
+  }
+
   // Função que busca os dados da API
   /// Busca eventos com paginação e termo de busca, atualizando o PagingController.
   Future<void> _fetchPage(int pageKey, String query) async {
     try {
-      // Simula tempo de rede
-      await Future.delayed(const Duration(milliseconds: 300));
+      // Se for a primeira vez atualizando (ou a lista foi forçada a limpar)
+      if (pageKey == 0) {
+        _hasFetchedAll = false; // Força recarregar os dados na API quando der pull-to-refresh
+      }
+
+      if (!_hasFetchedAll) {
+        await _fetchAllEventos();
+      }
       
-      // Realiza a filtragem inteiramente mockada
-      List<Evento> filtered = _mockEventos.where((evento) {
+      // Realiza a filtragem local
+      List<Evento> filtered = _allEventos.where((evento) {
         // Filtro por texto na query (nome e categoria)
         final bool matchesQuery = query.trim().isEmpty ||
             evento.titulo.toLowerCase().contains(query.trim().toLowerCase()) ||
@@ -196,10 +166,16 @@ class _SearchPageState extends State<SearchPage> {
         // Filtro por curso
         bool matchesCourse = true;
         if (_selectedCourse != null) {
-           matchesCourse = evento.cursoAutor == _selectedCourse!.nome;
+           matchesCourse = evento.cursoAutor.trim().toLowerCase() == _selectedCourse!.nome.trim().toLowerCase();
         }
 
-        return matchesQuery && matchesDate && matchesCourse;
+        // Filtro por categoria
+        bool matchesCategoria = true;
+        if (_selectedCategoria != null) {
+           matchesCategoria = evento.categoria.trim().toLowerCase() == _selectedCategoria!.nome.trim().toLowerCase();
+        }
+
+        return matchesQuery && matchesDate && matchesCourse && matchesCategoria;
       }).toList();
 
       // Paginando localmente a lista 
@@ -235,7 +211,7 @@ class _SearchPageState extends State<SearchPage> {
             icon: Stack(
               children: [
                 const Icon(Icons.filter_list),
-                if (_selectedDateFilter != 'Todas as datas' || _selectedCourse != null)
+                if (_selectedDateFilter != 'Todas as datas' || _selectedCourse != null || _selectedCategoria != null)
                   Positioned(
                     right: 0,
                     top: 0,
@@ -430,6 +406,28 @@ class _SearchPageState extends State<SearchPage> {
                       });
                     },
                   ),
+                  const SizedBox(height: 16),
+                  // Seleção de Categoria
+                  DropdownButtonFormField<Categoria>(
+                    decoration: const InputDecoration(
+                      labelText: 'Categoria',
+                      prefixIcon: Icon(Icons.category),
+                      border: OutlineInputBorder(),
+                    ),
+                    value: _selectedCategoria,
+                    isExpanded: true,
+                    items: _categorias.map((Categoria cat) {
+                      return DropdownMenuItem<Categoria>(
+                         value: cat,
+                         child: Text(cat.nome),
+                      );
+                    }).toList(),
+                    onChanged: (Categoria? newValue) {
+                      setModalState(() {
+                         _selectedCategoria = newValue;
+                      });
+                    },
+                  ),
                   const SizedBox(height: 32),
                   // Botões
                   Row(
@@ -441,6 +439,7 @@ class _SearchPageState extends State<SearchPage> {
                               _selectedDateFilter = 'Todas as datas';
                               _customDateRange = null;
                               _selectedCourse = null;
+                              _selectedCategoria = null;
                             });
                             _pagingController.refresh();
                             Navigator.pop(context);
