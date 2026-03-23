@@ -183,16 +183,15 @@ class UsuarioApi {
 
     final url = Uri.parse('$_baseUrl/$usuarioId?action=active');
     try {
-      print('[UsuarioApi] Tentando reativar usuário (PATCH): $url');
+      print('[UsuarioApi] Tentando reativar usuário (PUT): $url');
       final response = await http
-          .patch(
+          .put(
             url,
             headers: {
               'Authorization': 'Bearer $token',
               'Content-Type': 'application/json'
             },
-            body: jsonEncode(
-                {}), // Enviando corpo vazio para evitar erro 500 em alguns backends
+            body: jsonEncode({}),
           )
           .timeout(const Duration(seconds: 15));
 
