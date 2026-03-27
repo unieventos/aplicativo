@@ -203,6 +203,7 @@ class _EVRegisterState extends State<EVRegister> {
       final dadosEvento = {
         'nomeEvento': _tituloController.text.trim(),
         'descricao': _descricaoController.text.trim(),
+        'curso': _cursoSelecionadoId,
         'categorias': [
           categoriaId.trim()
         ], // Enviando como lista para o backend

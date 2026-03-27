@@ -62,6 +62,23 @@ class Evento {
       categoriaNome = categoriaRaw['nomeCategoria'] ?? categoriaRaw['nome'] ?? '';
     }
     
+    // Extrai o curso de dentro do array usuariosPermissao (primeiro que tiver)
+    String cursoNomeExtraido = 'Curso não informado';
+    if (usuariosPermissao is List) {
+      for (final permissao in usuariosPermissao) {
+        if (permissao is Map<String, dynamic>) {
+          final curso = permissao['curso'];
+          if (curso is Map<String, dynamic>) {
+            final nome = curso['nome'];
+            if (nome is String && nome.isNotEmpty) {
+              cursoNomeExtraido = nome;
+              break;
+            }
+          }
+        }
+      }
+    }
+
     return Evento(
       id: json['id'] ?? '',
       // API retorna 'nomeEvento', não 'titulo' ou 'nome'
@@ -70,7 +87,7 @@ class Evento {
       // API retorna 'usuarioCriador'
       autor: json['usuarioCriador'] ?? json['autor'] ?? json['criador'] ?? 'Autor desconhecido',
       criador: json['usuarioCriador'] ?? json['criador'] ?? json['autor'] ?? 'Criador desconhecido',
-      cursoAutor: json['cursoAutor'] ?? json['curso'] ?? 'Curso não informado',
+      cursoAutor: json['cursoAutor'] ?? json['curso'] ?? cursoNomeExtraido,
       autorAvatarUrl: json['autorAvatarUrl'] ?? json['avatarUrl'] ?? '',
       imagemUrl: json['imagemUrl'] ?? json['imagem'] ?? '',
       imagemBytes: null,

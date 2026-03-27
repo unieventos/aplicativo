@@ -784,6 +784,77 @@ class EventosApi {
     }
   }
 
+  // POST /eventos?action=relatorio - Gera um relatório em bytes baseado em filtros
+  static Future<Uint8List?> gerarRelatorio({
+    required DateTime startDate,
+    required DateTime endDate,
+    String? categoryId,
+    String? course,
+    List<String>? eventIds,
+  }) async {
+    final token = await _storage.read(key: 'token');
+    if (token == null) {
+      print('[EventosApi] Erro: Token não encontrado para gerar relatório.');
+      return null;
+    }
+
+    if (WebChecks.isMixedContent(ApiConfig.base)) {
+      throw Exception('Mixed content bloqueado no navegador: app https x API http.');
+    }
+
+    final url = Uri.parse('$_baseUrl?action=relatorio');
+
+    // Formata a data e mantém a mesma estrutura do JSON original
+    final Map<String, dynamic> params = {
+      'startDate': startDate.toUtc().toIso8601String(),
+      'endDate': endDate.toUtc().toIso8601String(),
+    };
+    
+    if (categoryId != null && categoryId.isNotEmpty) {
+      params['categoryId'] = categoryId;
+    }
+    if (course != null && course.isNotEmpty) {
+      params['course'] = course;
+    }
+    if (eventIds != null && eventIds.isNotEmpty) {
+      params['eventIds'] = eventIds;
+    }
+
+    final payload = {
+      'filterType': 'PERIOD',
+      'params': params,
+    };
+
+    try {
+      print('[EventosApi] Solicitando relatório em: $url com payload: ${jsonEncode(payload)}');
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json; charset=utf-8',
+          // Aceita array de bytes (como PDF, excel, etc)
+          'Accept': 'application/pdf, application/octet-stream, */*',
+        },
+        body: jsonEncode(payload),
+      ).timeout(const Duration(seconds: 45)); // Maior tempo de espera para geração de relatório
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('[EventosApi] Relatório gerado com sucesso. Status: ${response.statusCode}, Tamanho: ${response.bodyBytes.length} bytes');
+        return response.bodyBytes;
+      } else {
+        String msgErro = 'Sem detalhes';
+        try {
+          msgErro = utf8.decode(response.bodyBytes);
+        } catch (_) {}
+        print('[EventosApi] Erro ao gerar relatório (${response.statusCode}): $msgErro');
+        return null;
+      }
+    } catch (e) {
+      print('[EventosApi] Erro de rede ao gerar relatório: $e');
+      return null;
+    }
+  }
+
   // Extrai mensagem de erro do body da resposta
   static String? _extractMessage(dynamic data) {
     if (data == null) return null;
