@@ -434,8 +434,8 @@ class EventosApi {
     }
   }
 
-  /// POST /eventos?action=relatorio — Retorna um PDF com base na requisição de filtro (IDS).
-  static Future<void> gerarRelatorio(List<String> eventIds) async {
+  /// POST /eventos?action=relatorio — Retorna um PDF com base na requisição de filtro (IDS ou outro).
+  static Future<void> gerarRelatorio(String filterType, Map<String, dynamic> params) async {
     final token = await _storage.read(key: 'token');
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
@@ -446,14 +446,8 @@ class EventosApi {
     final url = Uri.parse('$_baseUrl?action=relatorio&_t=$timestamp');
 
     final payload = {
-      "filterType": "IDS",
-      "params": {
-        "startDate": "",
-        "endDate": "",
-        "categoryId": "",
-        "course": "",
-        "eventIds": eventIds
-      }
+      "filterType": filterType,
+      "params": params
     };
 
     final headers = <String, String>{

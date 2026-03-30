@@ -101,52 +101,59 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
+  bool _hasActiveFilter() {
+    if (_activeFilterType == 'PERIOD' && _selectedDateFilter != 'Todas as datas') return true;
+    if (_activeFilterType == 'COURSE' && _selectedCourse != null) return true;
+    if (_activeFilterType == 'CATEGORY' && _selectedCategoria != null) return true;
+    return false;
+  }
+
+  Map<String, dynamic> _buildSearchParams() {
+    Map<String, dynamic> params = {
+      "startDate": "",
+      "endDate": "",
+      "categoryId": "",
+      "course": "",
+      "eventIds": []
+    };
+
+    if (_activeFilterType == 'PERIOD') {
+      if (_selectedDateFilter != 'Todas as datas') {
+          final agora = DateTime.now();
+          if (_selectedDateFilter == 'Esta semana') {
+            final inicioSemana = agora.subtract(Duration(days: agora.weekday - 1));
+            final fimSemana = inicioSemana.add(const Duration(days: 6, hours: 23, minutes: 59));
+            params['startDate'] = inicioSemana.subtract(const Duration(days: 1)).toUtc().toIso8601String();
+            params['endDate'] = fimSemana.add(const Duration(days: 1)).toUtc().toIso8601String();
+          } else if (_selectedDateFilter == 'Este mês') {
+            final inicioMes = DateTime(agora.year, agora.month, 1);
+            final fimMes = DateTime(agora.year, agora.month + 1, 0, 23, 59, 59);
+            params['startDate'] = inicioMes.toUtc().toIso8601String();
+            params['endDate'] = fimMes.toUtc().toIso8601String();
+          } else if (_selectedDateFilter == 'Último ano') {
+            final umAnoAtras = DateTime(agora.year - 1, agora.month, agora.day);
+            params['startDate'] = umAnoAtras.toUtc().toIso8601String();
+            params['endDate'] = agora.add(const Duration(days: 1)).toUtc().toIso8601String();
+          }
+      }
+    } else if (_activeFilterType == 'COURSE') {
+      if (_selectedCourse != null) {
+        params['course'] = _selectedCourse!.id;
+      }
+    } else if (_activeFilterType == 'CATEGORY') {
+      if (_selectedCategoria != null) {
+        params['categoryId'] = _selectedCategoria!.id;
+      }
+    }
+    return params;
+  }
+
   // Função que busca os dados da API
   /// Busca eventos com paginação e termo de busca, atualizando o PagingController.
   Future<void> _fetchPage(int pageKey, String query) async {
     try {
-      Map<String, dynamic> params = {
-        "startDate": "",
-        "endDate": "",
-        "categoryId": "",
-        "course": "",
-        "eventIds": []
-      };
-
-      bool hasActiveFilter = false;
-
-      if (_activeFilterType == 'PERIOD') {
-        if (_selectedDateFilter != 'Todas as datas') {
-           hasActiveFilter = true;
-           final agora = DateTime.now();
-           if (_selectedDateFilter == 'Esta semana') {
-             final inicioSemana = agora.subtract(Duration(days: agora.weekday - 1));
-             final fimSemana = inicioSemana.add(const Duration(days: 6, hours: 23, minutes: 59));
-             // Formatar para ISO UTC conforme a API requer
-             params['startDate'] = inicioSemana.subtract(const Duration(days: 1)).toUtc().toIso8601String();
-             params['endDate'] = fimSemana.add(const Duration(days: 1)).toUtc().toIso8601String();
-           } else if (_selectedDateFilter == 'Este mês') {
-             final inicioMes = DateTime(agora.year, agora.month, 1);
-             final fimMes = DateTime(agora.year, agora.month + 1, 0, 23, 59, 59);
-             params['startDate'] = inicioMes.toUtc().toIso8601String();
-             params['endDate'] = fimMes.toUtc().toIso8601String();
-           } else if (_selectedDateFilter == 'Último ano') {
-             final umAnoAtras = DateTime(agora.year - 1, agora.month, agora.day);
-             params['startDate'] = umAnoAtras.toUtc().toIso8601String();
-             params['endDate'] = agora.add(const Duration(days: 1)).toUtc().toIso8601String();
-           }
-        }
-      } else if (_activeFilterType == 'COURSE') {
-        if (_selectedCourse != null) {
-          hasActiveFilter = true;
-          params['course'] = _selectedCourse!.id;
-        }
-      } else if (_activeFilterType == 'CATEGORY') {
-        if (_selectedCategoria != null) {
-          hasActiveFilter = true;
-          params['categoryId'] = _selectedCategoria!.id;
-        }
-      }
+      final bool hasActiveFilter = _hasActiveFilter();
+      final Map<String, dynamic> params = _buildSearchParams();
 
       final List<Evento> newItems;
       if (hasActiveFilter) {
@@ -246,12 +253,29 @@ class _SearchPageState extends State<SearchPage> {
           ),
         ),
       ),
-      floatingActionButton: _selectedEventIds.isNotEmpty
+      floatingActionButton: (_pagingController.itemList?.isNotEmpty ?? false)
           ? FloatingActionButton.extended(
               onPressed: _isGeneratingReport ? null : () async {
                 setState(() => _isGeneratingReport = true);
                 try {
-                  await EventosApi.gerarRelatorio(_selectedEventIds.toList());
+                  String filterType;
+                  Map<String, dynamic> params;
+
+                  if (_selectedEventIds.isNotEmpty) {
+                    filterType = 'IDS';
+                    params = {
+                      "startDate": "",
+                      "endDate": "",
+                      "categoryId": "",
+                      "course": "",
+                      "eventIds": _selectedEventIds.toList()
+                    };
+                  } else {
+                    filterType = _activeFilterType;
+                    params = _buildSearchParams();
+                  }
+
+                  await EventosApi.gerarRelatorio(filterType, params);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Relatório PDF gerado com sucesso!')),
@@ -273,7 +297,11 @@ class _SearchPageState extends State<SearchPage> {
               icon: _isGeneratingReport
                   ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : const Icon(Icons.picture_as_pdf),
-              label: Text(_isGeneratingReport ? 'Gerando...' : 'Baixar Relatório (${_selectedEventIds.length})'),
+              label: Text(_isGeneratingReport 
+                  ? 'Gerando...' 
+                  : _selectedEventIds.isNotEmpty 
+                      ? 'Baixar Selecionados (${_selectedEventIds.length})' 
+                      : 'Baixar Relatório (Todos)'),
             )
           : null,
       body: RefreshIndicator(
