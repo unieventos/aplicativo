@@ -25,6 +25,9 @@ class _SearchPageState extends State<SearchPage> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
 
+  // Filtro Ativo
+  String _activeFilterType = 'PERIOD';
+
   // Filtros de Data
   String _selectedDateFilter = 'Todas as datas';
   DateTimeRange? _customDateRange;
@@ -35,18 +38,17 @@ class _SearchPageState extends State<SearchPage> {
   Categoria? _selectedCategoria;
   List<Categoria> _categorias = [];
 
+  // Seleção de Eventos para Relatório
+  final Set<String> _selectedEventIds = {};
+  bool _isGeneratingReport = false;
+
   // Constantes de período
   static const List<String> _dateFilters = [
     'Todas as datas',
     'Esta semana',
     'Este mês',
-    'Último ano',
-    'Personalizado...'
+    'Último ano'
   ];
-
-  bool _isLoadingAll = false;
-  List<Evento> _allEventos = [];
-  bool _hasFetchedAll = false;
 
   @override
   void initState() {
@@ -99,88 +101,71 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
-  Future<void> _fetchAllEventos() async {
-    if (_hasFetchedAll || _isLoadingAll) return;
-    _isLoadingAll = true;
-    try {
-      // Traz um número grande de eventos para viabilizar os filtros locais, 
-      // já que a API não os suporta diretamente.
-      final eventos = await EventosApi.fetchEventos(0, 1000, search: '');
-      
-      // Ordena pela data (mais recentes primeiro)
-      eventos.sort((a, b) => b.data.compareTo(a.data));
-      
-      _allEventos = eventos;
-      _hasFetchedAll = true;
-    } catch (e) {
-      rethrow;
-    } finally {
-      _isLoadingAll = false;
-    }
-  }
-
   // Função que busca os dados da API
   /// Busca eventos com paginação e termo de busca, atualizando o PagingController.
   Future<void> _fetchPage(int pageKey, String query) async {
     try {
-      // Se for a primeira vez atualizando (ou a lista foi forçada a limpar)
-      if (pageKey == 0) {
-        _hasFetchedAll = false; // Força recarregar os dados na API quando der pull-to-refresh
+      Map<String, dynamic> params = {
+        "startDate": "",
+        "endDate": "",
+        "categoryId": "",
+        "course": "",
+        "eventIds": []
+      };
+
+      bool hasActiveFilter = false;
+
+      if (_activeFilterType == 'PERIOD') {
+        if (_selectedDateFilter != 'Todas as datas') {
+           hasActiveFilter = true;
+           final agora = DateTime.now();
+           if (_selectedDateFilter == 'Esta semana') {
+             final inicioSemana = agora.subtract(Duration(days: agora.weekday - 1));
+             final fimSemana = inicioSemana.add(const Duration(days: 6, hours: 23, minutes: 59));
+             // Formatar para ISO UTC conforme a API requer
+             params['startDate'] = inicioSemana.subtract(const Duration(days: 1)).toUtc().toIso8601String();
+             params['endDate'] = fimSemana.add(const Duration(days: 1)).toUtc().toIso8601String();
+           } else if (_selectedDateFilter == 'Este mês') {
+             final inicioMes = DateTime(agora.year, agora.month, 1);
+             final fimMes = DateTime(agora.year, agora.month + 1, 0, 23, 59, 59);
+             params['startDate'] = inicioMes.toUtc().toIso8601String();
+             params['endDate'] = fimMes.toUtc().toIso8601String();
+           } else if (_selectedDateFilter == 'Último ano') {
+             final umAnoAtras = DateTime(agora.year - 1, agora.month, agora.day);
+             params['startDate'] = umAnoAtras.toUtc().toIso8601String();
+             params['endDate'] = agora.add(const Duration(days: 1)).toUtc().toIso8601String();
+           }
+        }
+      } else if (_activeFilterType == 'COURSE') {
+        if (_selectedCourse != null) {
+          hasActiveFilter = true;
+          params['course'] = _selectedCourse!.id;
+        }
+      } else if (_activeFilterType == 'CATEGORY') {
+        if (_selectedCategoria != null) {
+          hasActiveFilter = true;
+          params['categoryId'] = _selectedCategoria!.id;
+        }
       }
 
-      if (!_hasFetchedAll) {
-        await _fetchAllEventos();
+      final List<Evento> newItems;
+      if (hasActiveFilter) {
+        newItems = await EventosApi.searchEventos(
+          _activeFilterType, 
+          params, 
+          pageKey, 
+          _pageSize, 
+          search: query.trim()
+        );
+      } else {
+        newItems = await EventosApi.fetchEventos(
+          pageKey, 
+          _pageSize, 
+          search: query.trim()
+        );
       }
       
-      // Realiza a filtragem local
-      List<Evento> filtered = _allEventos.where((evento) {
-        // Filtro por texto na query (nome e categoria)
-        final bool matchesQuery = query.trim().isEmpty ||
-            evento.titulo.toLowerCase().contains(query.trim().toLowerCase()) ||
-            evento.categoria.toLowerCase().contains(query.trim().toLowerCase());
-            
-        // Filtro por período de data
-        bool matchesDate = true;
-        final agora = DateTime.now();
-
-        if (_selectedDateFilter != 'Todas as datas') {
-          if (_selectedDateFilter == 'Esta semana') {
-            final inicioSemana = agora.subtract(Duration(days: agora.weekday - 1));
-            final fimSemana = inicioSemana.add(const Duration(days: 6, hours: 23, minutes: 59));
-            matchesDate = evento.data.isAfter(inicioSemana.subtract(const Duration(days: 1))) && 
-                          evento.data.isBefore(fimSemana.add(const Duration(days: 1)));
-          } else if (_selectedDateFilter == 'Este mês') {
-            matchesDate = evento.data.year == agora.year && evento.data.month == agora.month;
-          } else if (_selectedDateFilter == 'Último ano') {
-            final umAnoAtras = DateTime(agora.year - 1, agora.month, agora.day);
-            matchesDate = evento.data.isAfter(umAnoAtras) && evento.data.isBefore(agora.add(const Duration(days: 1)));
-          } else if (_selectedDateFilter == 'Personalizado...' && _customDateRange != null) {
-            final inicio = _customDateRange!.start;
-            // Inclui o fim do dia selecionado
-            final fim = _customDateRange!.end.add(const Duration(hours: 23, minutes: 59, seconds: 59));
-            matchesDate = evento.data.isAfter(inicio.subtract(const Duration(seconds: 1))) && 
-                          evento.data.isBefore(fim.add(const Duration(seconds: 1)));
-          }
-        }
-
-        // Filtro por curso
-        bool matchesCourse = true;
-        if (_selectedCourse != null) {
-           matchesCourse = evento.cursoAutor.trim().toLowerCase() == _selectedCourse!.nome.trim().toLowerCase();
-        }
-
-        // Filtro por categoria
-        bool matchesCategoria = true;
-        if (_selectedCategoria != null) {
-           matchesCategoria = evento.categoria.trim().toLowerCase() == _selectedCategoria!.nome.trim().toLowerCase();
-        }
-
-        return matchesQuery && matchesDate && matchesCourse && matchesCategoria;
-      }).toList();
-
-      // Paginando localmente a lista 
-      final isLastPage = (pageKey * _pageSize + _pageSize) >= filtered.length;
-      final newItems = filtered.skip(pageKey * _pageSize).take(_pageSize).toList();
+      final isLastPage = newItems.length < _pageSize;
       
       if (isLastPage) {
         _pagingController.appendLastPage(newItems);
@@ -211,7 +196,9 @@ class _SearchPageState extends State<SearchPage> {
             icon: Stack(
               children: [
                 const Icon(Icons.filter_list),
-                if (_selectedDateFilter != 'Todas as datas' || _selectedCourse != null || _selectedCategoria != null)
+                if ((_activeFilterType == 'PERIOD' && _selectedDateFilter != 'Todas as datas') ||
+                    (_activeFilterType == 'COURSE' && _selectedCourse != null) ||
+                    (_activeFilterType == 'CATEGORY' && _selectedCategoria != null))
                   Positioned(
                     right: 0,
                     top: 0,
@@ -259,6 +246,36 @@ class _SearchPageState extends State<SearchPage> {
           ),
         ),
       ),
+      floatingActionButton: _selectedEventIds.isNotEmpty
+          ? FloatingActionButton.extended(
+              onPressed: _isGeneratingReport ? null : () async {
+                setState(() => _isGeneratingReport = true);
+                try {
+                  await EventosApi.gerarRelatorio(_selectedEventIds.toList());
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Relatório PDF gerado com sucesso!')),
+                    );
+                    setState(() {
+                      _selectedEventIds.clear();
+                    });
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Erro ao gerar relatório: $e')),
+                    );
+                  }
+                } finally {
+                  if (mounted) setState(() => _isGeneratingReport = false);
+                }
+              },
+              icon: _isGeneratingReport
+                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Icon(Icons.picture_as_pdf),
+              label: Text(_isGeneratingReport ? 'Gerando...' : 'Baixar Relatório (${_selectedEventIds.length})'),
+            )
+          : null,
       body: RefreshIndicator(
         onRefresh: () => Future.sync(_pagingController.refresh),
         child: PagedListView<int, Evento>(
@@ -266,15 +283,46 @@ class _SearchPageState extends State<SearchPage> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           physics: const AlwaysScrollableScrollPhysics(),
           builderDelegate: PagedChildBuilderDelegate<Evento>(
-            itemBuilder: (context, evento, index) => EventoCard(
-              evento: evento,
-              layout: EventoCardLayout.list,
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Evento: ${evento.titulo}')),
-                );
-              },
-            ),
+            itemBuilder: (context, evento, index) {
+              final isSelected = _selectedEventIds.contains(evento.id);
+              return Stack(
+                children: [
+                  EventoCard(
+                    evento: evento,
+                    layout: EventoCardLayout.list,
+                    onTap: () {
+                      setState(() {
+                        if (isSelected) {
+                          _selectedEventIds.remove(evento.id);
+                        } else {
+                          _selectedEventIds.add(evento.id);
+                        }
+                      });
+                    },
+                  ),
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: Transform.scale(
+                      scale: 1.2,
+                      child: Checkbox(
+                        value: isSelected,
+                        activeColor: Theme.of(context).primaryColor,
+                        onChanged: (bool? val) {
+                          setState(() {
+                            if (val == true) {
+                              _selectedEventIds.add(evento.id);
+                            } else {
+                              _selectedEventIds.remove(evento.id);
+                            }
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
             firstPageProgressIndicatorBuilder: (_) =>
                 const Center(child: CircularProgressIndicator()),
             newPageProgressIndicatorBuilder: (_) => const Padding(
@@ -319,115 +367,123 @@ class _SearchPageState extends State<SearchPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  // Seleção de Data
-                  DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: 'Período',
-                      prefixIcon: Icon(Icons.calendar_today),
-                      border: OutlineInputBorder(),
-                    ),
-                    value: _selectedDateFilter,
-                    isExpanded: true,
-                    items: _dateFilters.map((String filter) {
-                      return DropdownMenuItem<String>(
-                        value: filter,
-                        child: Text(filter),
-                      );
-                    }).toList(),
-                    onChanged: (String? newValue) async {
-                      if (newValue == 'Personalizado...') {
-                        final pickedRange = await showDateRangePicker(
-                          context: context,
-                          initialDateRange: _customDateRange ?? DateTimeRange(
-                            start: DateTime.now(),
-                            end: DateTime.now().add(const Duration(days: 7)),
-                          ),
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime(2100),
-                          builder: (context, child) {
-                            return Theme(
-                              data: Theme.of(context).copyWith(
-                                // Ajustes de tema do picker se necessário
-                              ),
-                              child: child!,
-                            );
-                          },
-                        );
-
-                        if (pickedRange != null) {
-                          setModalState(() {
-                            _selectedDateFilter = newValue!;
-                            _customDateRange = pickedRange;
-                          });
-                        } else if (_selectedDateFilter != 'Personalizado...') {
-                          // Se cancelou, volta pro filtro anterior se não era personalizado,
-                          // se já era, mantém
-                        } else if (_customDateRange == null) {
-                           // Cancelou na primeira vez que tentou personalizar
-                           setModalState(() {
-                            _selectedDateFilter = 'Todas as datas';
-                           });
-                        }
-                      } else {
-                        setModalState(() {
-                          _selectedDateFilter = newValue ?? 'Todas as datas';
-                        });
-                      }
+                  
+                  // ====== FILTRO DE PERÍODO ======
+                  RadioListTile<String>(
+                    title: const Text('Por Período', style: TextStyle(fontWeight: FontWeight.bold)),
+                    value: 'PERIOD',
+                    groupValue: _activeFilterType,
+                    onChanged: (String? value) {
+                      setModalState(() {
+                        _activeFilterType = value!;
+                      });
                     },
+                    contentPadding: EdgeInsets.zero,
                   ),
-                  if (_selectedDateFilter == 'Personalizado...' && _customDateRange != null)
+                  if (_activeFilterType == 'PERIOD')
                     Padding(
-                      padding: const EdgeInsets.only(top: 8.0, left: 4.0),
-                      child: Text(
-                        'De ${_customDateRange!.start.day.toString().padLeft(2, '0')}/${_customDateRange!.start.month.toString().padLeft(2, '0')}/${_customDateRange!.start.year} '
-                        'até ${_customDateRange!.end.day.toString().padLeft(2, '0')}/${_customDateRange!.end.month.toString().padLeft(2, '0')}/${_customDateRange!.end.year}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                      padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          DropdownButtonFormField<String>(
+                            decoration: const InputDecoration(
+                              labelText: 'Período',
+                              prefixIcon: Icon(Icons.calendar_today),
+                              border: OutlineInputBorder(),
+                            ),
+                            value: _selectedDateFilter,
+                            isExpanded: true,
+                            items: _dateFilters.map((String filter) {
+                              return DropdownMenuItem<String>(
+                                value: filter,
+                                child: Text(filter),
+                              );
+                            }).toList(),
+                            onChanged: (String? newValue) {
+                              setModalState(() {
+                                _selectedDateFilter = newValue ?? 'Todas as datas';
+                              });
+                            },
+                          ),
+                        ],
                       ),
                     ),
-                  const SizedBox(height: 16),
-                  // Seleção de Curso
-                  DropdownButtonFormField<CourseOption>(
-                    decoration: const InputDecoration(
-                      labelText: 'Curso',
-                      prefixIcon: Icon(Icons.school),
-                      border: OutlineInputBorder(),
-                    ),
-                    value: _selectedCourse,
-                    isExpanded: true,
-                    items: _cursos.map((CourseOption curso) {
-                      return DropdownMenuItem<CourseOption>(
-                        value: curso,
-                        child: Text(curso.nome),
-                      );
-                    }).toList(),
-                    onChanged: (CourseOption? newValue) {
+
+                  // ====== FILTRO DE CURSO ======
+                  RadioListTile<String>(
+                    title: const Text('Por Curso', style: TextStyle(fontWeight: FontWeight.bold)),
+                    value: 'COURSE',
+                    groupValue: _activeFilterType,
+                    onChanged: (String? value) {
                       setModalState(() {
-                        _selectedCourse = newValue;
+                        _activeFilterType = value!;
                       });
                     },
+                    contentPadding: EdgeInsets.zero,
                   ),
-                  const SizedBox(height: 16),
-                  // Seleção de Categoria
-                  DropdownButtonFormField<Categoria>(
-                    decoration: const InputDecoration(
-                      labelText: 'Categoria',
-                      prefixIcon: Icon(Icons.category),
-                      border: OutlineInputBorder(),
+                  if (_activeFilterType == 'COURSE')
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 16.0),
+                      child: DropdownButtonFormField<CourseOption>(
+                        decoration: const InputDecoration(
+                          labelText: 'Curso',
+                          prefixIcon: Icon(Icons.school),
+                          border: OutlineInputBorder(),
+                        ),
+                        value: _selectedCourse,
+                        isExpanded: true,
+                        items: _cursos.map((CourseOption curso) {
+                          return DropdownMenuItem<CourseOption>(
+                            value: curso,
+                            child: Text(curso.nome),
+                          );
+                        }).toList(),
+                        onChanged: (CourseOption? newValue) {
+                          setModalState(() {
+                            _selectedCourse = newValue;
+                          });
+                        },
+                      ),
                     ),
-                    value: _selectedCategoria,
-                    isExpanded: true,
-                    items: _categorias.map((Categoria cat) {
-                      return DropdownMenuItem<Categoria>(
-                         value: cat,
-                         child: Text(cat.nome),
-                      );
-                    }).toList(),
-                    onChanged: (Categoria? newValue) {
+
+                  // ====== FILTRO DE CATEGORIA ======
+                  RadioListTile<String>(
+                    title: const Text('Por Categoria', style: TextStyle(fontWeight: FontWeight.bold)),
+                    value: 'CATEGORY',
+                    groupValue: _activeFilterType,
+                    onChanged: (String? value) {
                       setModalState(() {
-                         _selectedCategoria = newValue;
+                        _activeFilterType = value!;
                       });
                     },
+                    contentPadding: EdgeInsets.zero,
                   ),
+                  if (_activeFilterType == 'CATEGORY')
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 16.0),
+                      child: DropdownButtonFormField<Categoria>(
+                        decoration: const InputDecoration(
+                          labelText: 'Categoria',
+                          prefixIcon: Icon(Icons.category),
+                          border: OutlineInputBorder(),
+                        ),
+                        value: _selectedCategoria,
+                        isExpanded: true,
+                        items: _categorias.map((Categoria cat) {
+                          return DropdownMenuItem<Categoria>(
+                             value: cat,
+                             child: Text(cat.nome),
+                          );
+                        }).toList(),
+                        onChanged: (Categoria? newValue) {
+                          setModalState(() {
+                             _selectedCategoria = newValue;
+                          });
+                        },
+                      ),
+                    ),
+                  
                   const SizedBox(height: 32),
                   // Botões
                   Row(
@@ -436,6 +492,7 @@ class _SearchPageState extends State<SearchPage> {
                         child: OutlinedButton(
                           onPressed: () {
                             setState(() {
+                              _activeFilterType = 'PERIOD';
                               _selectedDateFilter = 'Todas as datas';
                               _customDateRange = null;
                               _selectedCourse = null;

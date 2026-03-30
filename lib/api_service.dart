@@ -15,6 +15,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_application_1/config/api_config.dart';
 import 'package:flutter_application_1/utils/web_checks.dart';
+import 'package:flutter_application_1/user_service.dart';
+import 'utils/file_downloader.dart';
 
 // Modelos centralizados
 import 'package:flutter_application_1/models/usuario.dart';
@@ -288,56 +290,9 @@ class UsuarioApi {
     }
   }
 
-  // GET /cursos - Lista todos os cursos pré-cadastrados
+  // GET /cursos - Lista todos os cursos carregados dinamicamente
   static Future<List<CourseOption>> listarCursos() async {
-    // Lista fixa dos 38 cursos pré-cadastrados conforme a API
-    final cursosPreCadastrados = [
-      'Administração',
-      'Arquitetura e Urbanismo',
-      'Artes',
-      'Biomedicina',
-      'Celulose e Papel',
-      'Ciência da Computação',
-      'Ciências Biológicas Bacharelado',
-      'Ciências Biológicas Licenciatura',
-      'Ciências Contábeis',
-      'Design',
-      'Design de Moda',
-      'Educação Física - Bacharelado',
-      'Educação Física - Licenciatura',
-      'Enfermagem',
-      'Engenharia Agronômica',
-      'Engenharia Civil',
-      'Engenharia de Computação',
-      'Engenharia de Produção',
-      'Engenharia Elétrica',
-      'Engenharia Mecânica',
-      'Engenharia Química',
-      'Estética e Cosmética',
-      'Farmácia',
-      'Fisioterapia',
-      'Gastronomia',
-      'História',
-      'Jogos Digitais',
-      'Jornalismo',
-      'Letras - Português e Inglês - Licenciatura',
-      'Letras - Tradutor - Bacharelado',
-      'Matemática',
-      'Nutrição',
-      'Odontologia',
-      'Pedagogia',
-      'Psicologia',
-      'Publicidade e Propaganda',
-      'Relações Internacionais',
-      'Teatro',
-    ];
-
-    return cursosPreCadastrados
-        .map((nome) => CourseOption(
-              id: nome, // Usar o nome como ID para referência
-              nome: nome,
-            ))
-        .toList();
+    return await UserService.listarCursos();
   }
 
   // Método de teste para verificar conectividade com a API
@@ -476,6 +431,137 @@ class EventosApi {
       return [];
     } else {
       throw Exception('Falha ao carregar eventos: ${response.statusCode}');
+    }
+  }
+
+  /// POST /eventos?action=relatorio — Retorna um PDF com base na requisição de filtro (IDS).
+  static Future<void> gerarRelatorio(List<String> eventIds) async {
+    final token = await _storage.read(key: 'token');
+
+    if (WebChecks.isMixedContent(ApiConfig.base)) {
+      throw Exception('Mixed content bloqueado no navegador: app https x API http.');
+    }
+
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final url = Uri.parse('$_baseUrl?action=relatorio&_t=$timestamp');
+
+    final payload = {
+      "filterType": "IDS",
+      "params": {
+        "startDate": "",
+        "endDate": "",
+        "categoryId": "",
+        "course": "",
+        "eventIds": eventIds
+      }
+    };
+
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'Accept': 'application/pdf',
+    };
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+
+    final response = await http
+        .post(url, headers: headers, body: jsonEncode(payload))
+        .timeout(const Duration(seconds: 30));
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      downloadPdf(response.bodyBytes, 'relatorio_eventos.pdf');
+    } else {
+      throw Exception('Falha ao gerar relatório: ${response.statusCode}');
+    }
+  }
+
+  /// POST /eventos/search — Retorna lista paginada de eventos buscando por filtro do Spring.
+  static Future<List<Evento>> searchEventos(
+      String filterType, Map<String, dynamic> params, int page, int pageSize, {String search = ''}) async {
+    final token = await _storage.read(key: 'token');
+
+    if (WebChecks.isMixedContent(ApiConfig.base)) {
+      throw Exception('Mixed content bloqueado no navegador: app https x API http.');
+    }
+
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final url = Uri.parse('$_baseUrl/search?page=$page&size=$pageSize&sortBy=dateInicio&name=$search&_t=$timestamp');
+
+    final payload = {
+      "filterType": filterType,
+      "params": params
+    };
+
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+
+    final response = await http
+        .post(url, headers: headers, body: jsonEncode(payload))
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final data = json.decode(utf8.decode(response.bodyBytes));
+      final List<dynamic> list = data['_embedded']?['eventoResourceV1List'] ?? [];
+      final eventos = list.map((item) => Evento.fromJson(item['evento'])).toList();
+
+      if (token != null && token.isNotEmpty && eventos.isNotEmpty) {
+        await _enriquecerNomesCriadores(eventos);
+      }
+
+      final String baseUrlEventos = ApiConfig.eventos();
+      final headersAuth = <String, String>{};
+      if (token != null && token.isNotEmpty) {
+        headersAuth['Authorization'] = 'Bearer $token';
+      }
+
+      await Future.wait(eventos.asMap().entries.map((entry) async {
+        final index = entry.key;
+        final evento = entry.value;
+
+        if (evento.id.isNotEmpty) {
+          Uint8List? fetchedBytes;
+          try {
+            final urlFoto = Uri.parse('$baseUrlEventos/${evento.id}/fotos/download');
+            final responseFoto = await http
+                .get(urlFoto, headers: headersAuth)
+                .timeout(const Duration(seconds: 10));
+
+            if (responseFoto.statusCode == 200 && responseFoto.bodyBytes.isNotEmpty) {
+              fetchedBytes = responseFoto.bodyBytes;
+            }
+          } catch (e) {
+            print('[EventosApi] Erro ao buscar foto para evento (search) ${evento.id}: $e');
+          }
+
+          eventos[index] = Evento(
+            id: evento.id,
+            titulo: evento.titulo,
+            descricao: evento.descricao,
+            autor: evento.autor,
+            criador: evento.criador,
+            cursoAutor: evento.cursoAutor,
+            autorAvatarUrl: evento.autorAvatarUrl,
+            imagemUrl: '$baseUrlEventos/${evento.id}/fotos/download',
+            imagemBytes: fetchedBytes,
+            data: evento.data,
+            inicio: evento.inicio,
+            fim: evento.fim,
+            categoria: evento.categoria,
+            participantes: evento.participantes,
+          );
+        }
+      }));
+
+      return eventos;
+    } else if (response.statusCode == 404) {
+      return [];
+    } else {
+      throw Exception('Falha ao buscar eventos: ${response.statusCode}');
     }
   }
 
@@ -784,76 +870,7 @@ class EventosApi {
     }
   }
 
-  // POST /eventos?action=relatorio - Gera um relatório em bytes baseado em filtros
-  static Future<Uint8List?> gerarRelatorio({
-    required DateTime startDate,
-    required DateTime endDate,
-    String? categoryId,
-    String? course,
-    List<String>? eventIds,
-  }) async {
-    final token = await _storage.read(key: 'token');
-    if (token == null) {
-      print('[EventosApi] Erro: Token não encontrado para gerar relatório.');
-      return null;
-    }
 
-    if (WebChecks.isMixedContent(ApiConfig.base)) {
-      throw Exception('Mixed content bloqueado no navegador: app https x API http.');
-    }
-
-    final url = Uri.parse('$_baseUrl?action=relatorio');
-
-    // Formata a data e mantém a mesma estrutura do JSON original
-    final Map<String, dynamic> params = {
-      'startDate': startDate.toUtc().toIso8601String(),
-      'endDate': endDate.toUtc().toIso8601String(),
-    };
-    
-    if (categoryId != null && categoryId.isNotEmpty) {
-      params['categoryId'] = categoryId;
-    }
-    if (course != null && course.isNotEmpty) {
-      params['course'] = course;
-    }
-    if (eventIds != null && eventIds.isNotEmpty) {
-      params['eventIds'] = eventIds;
-    }
-
-    final payload = {
-      'filterType': 'PERIOD',
-      'params': params,
-    };
-
-    try {
-      print('[EventosApi] Solicitando relatório em: $url com payload: ${jsonEncode(payload)}');
-      final response = await http.post(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json; charset=utf-8',
-          // Aceita array de bytes (como PDF, excel, etc)
-          'Accept': 'application/pdf, application/octet-stream, */*',
-        },
-        body: jsonEncode(payload),
-      ).timeout(const Duration(seconds: 45)); // Maior tempo de espera para geração de relatório
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        print('[EventosApi] Relatório gerado com sucesso. Status: ${response.statusCode}, Tamanho: ${response.bodyBytes.length} bytes');
-        return response.bodyBytes;
-      } else {
-        String msgErro = 'Sem detalhes';
-        try {
-          msgErro = utf8.decode(response.bodyBytes);
-        } catch (_) {}
-        print('[EventosApi] Erro ao gerar relatório (${response.statusCode}): $msgErro');
-        return null;
-      }
-    } catch (e) {
-      print('[EventosApi] Erro de rede ao gerar relatório: $e');
-      return null;
-    }
-  }
 
   // Extrai mensagem de erro do body da resposta
   static String? _extractMessage(dynamic data) {
@@ -905,40 +922,3 @@ class CategoriaApi {
   }
 }
 
-// =================== API DE CURSOS ===================
-class CursoApi {
-  static const String _baseUrl = '${ApiConfig.base}/cursos';
-  static final _storage = FlutterSecureStorage();
-
-  // GET /cursos - Lista todos os cursos disponíveis
-  static Future<List<Map<String, dynamic>>> listarCursos() async {
-    final token = await _storage.read(key: 'token');
-    if (token == null) {
-      print('[CursoApi] Erro: Token não encontrado');
-      return [];
-    }
-
-    if (WebChecks.isMixedContent(ApiConfig.base)) {
-      print('[CursoApi] Erro: Mixed content bloqueado');
-      return [];
-    }
-
-    try {
-      final response = await http.get(
-        Uri.parse(_baseUrl),
-        headers: {'Authorization': 'Bearer $token'},
-      ).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final List<dynamic> cursos = jsonDecode(response.body);
-        return cursos.cast<Map<String, dynamic>>();
-      } else {
-        print('[CursoApi] Erro: ${response.statusCode} - ${response.body}');
-        return [];
-      }
-    } catch (e) {
-      print("[CursoApi] Erro de conexão: $e");
-      return [];
-    }
-  }
-}

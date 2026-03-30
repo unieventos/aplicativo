@@ -203,7 +203,7 @@ class _EVRegisterState extends State<EVRegister> {
       final dadosEvento = {
         'nomeEvento': _tituloController.text.trim(),
         'descricao': _descricaoController.text.trim(),
-        'curso': _cursoSelecionadoId,
+        'courseId': _cursoSelecionadoId,
         'categorias': [
           categoriaId.trim()
         ], // Enviando como lista para o backend
@@ -643,8 +643,8 @@ class _EVRegisterState extends State<EVRegister> {
     final DateTime? data = await showDatePicker(
       context: context,
       initialDate: _dataInicio ?? DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(Duration(days: 365)),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
     );
 
     if (data != null) {
@@ -654,6 +654,10 @@ class _EVRegisterState extends State<EVRegister> {
           data.month,
           data.day,
         );
+        // Se a data final já estiver selecionada e for menor que a nova data inicial, recetamos ela
+        if (_dataFim != null && _dataFim!.isBefore(_dataInicio!)) {
+          _dataFim = null;
+        }
       });
     }
   }
@@ -662,8 +666,8 @@ class _EVRegisterState extends State<EVRegister> {
     final DateTime? data = await showDatePicker(
       context: context,
       initialDate: _dataFim ?? (_dataInicio ?? DateTime.now()),
-      firstDate: _dataInicio ?? DateTime.now(),
-      lastDate: DateTime.now().add(Duration(days: 365)),
+      firstDate: _dataInicio ?? DateTime(2000),
+      lastDate: DateTime(2100),
     );
 
     if (data != null) {
