@@ -59,6 +59,10 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
   // Cache local de status de usuários (em memória)
   // Armazena IDs de usuários que foram desativados/ativados nesta sessão
   final Set<String> _usuariosDesativadosCache = <String>{};
+  final Set<String> _usuariosAtivadosCache = <String>{};
+  // Cache de objetos de usuários para inserção imediata nas listas
+  final List<Usuario> _usuariosRecentementeAtivados = [];
+  final List<Usuario> _usuariosRecentementeDesativados = [];
 
   @override
   void initState() {
@@ -185,29 +189,39 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
         _usuarioBuscaAtivosAtual,
         apenasAtivos: true,
       );
-      
+
+      // Verifica se é a última página baseado no tamanho retornado pela API
+      // antes da filtragem local
+      final isLastPage = managedUsers.length < 10;
+
       // Converte ManagedUser para Usuario
       // Usa o campo active real do ManagedUser para garantir que apenas usuários ativos apareçam
       // Filtra também usuários que estão no cache de desativados (desativações locais recentes)
+      // Inclui usuários que estão no cache de ativados (ativações locais recentes)
       final usuarios = managedUsers
           .where((mu) =>
-              mu.active == true && !_usuariosDesativadosCache.contains(mu.id))
-          .map((mu) => Usuario(
+              (mu.active == true || _usuariosAtivadosCache.contains(mu.id)) &&
+              !_usuariosDesativadosCache.contains(mu.id) &&
+              !_usuariosRecentementeAtivados.any((ru) => ru.id == mu.id))
+          .map<Usuario>((mu) => Usuario(
                 id: mu.id,
                 nome: mu.nome,
                 sobrenome: mu.sobrenome,
                 email: mu.email,
                 login: mu.login,
-                curso: mu.cursoDisplay,
+                cursoId: 0,
+                cursoNome: mu.cursoDisplay,
                 role: mu.role,
-                active: mu.active,
+                active:
+                    _usuariosAtivadosCache.contains(mu.id) ? true : mu.active,
               ))
           .toList();
 
-      // Verifica se é a última página baseado no tamanho retornado pela API
-      // Se a API retornou menos de 10 itens, não há mais páginas
-      final isLastPage = managedUsers.length < 10;
-      
+      if (pageKey == 0) {
+        // Prende usuários recentemente ativados no topo para feedback instantâneo
+        usuarios.insertAll(0, _usuariosRecentementeAtivados);
+      }
+
       if (isLastPage) {
         _pagingControllerAtivos.appendLastPage(usuarios);
       } else {
@@ -234,30 +248,43 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
 
   Future<void> _fetchUsuariosDesativadosPage(int pageKey) async {
     try {
-      // Busca apenas usuários inativos da API usando o parâmetro apenasAtivos: false
       final managedUsers = await UsuarioApi.fetchUsuarios(
         pageKey,
         10,
         _usuarioBuscaDesativadosAtual,
         apenasAtivos: false, // Busca apenas usuários inativos
       );
+
+      final isLastPage = managedUsers.length < 10;
+
       // Converte ManagedUser para Usuario
       // A API já deve retornar apenas usuários inativos quando apenasAtivos: false
       // Mas ainda filtra para garantir que apenas inativos apareçam
+      // Filtra também usuários que estão no cache de ativados (ativações locais recentes)
       final usuariosDaApi = managedUsers
           .where((mu) =>
-              mu.active == false) // Filtra apenas inativos para garantir
-          .map((mu) => Usuario(
+              mu.active == false &&
+              !_usuariosAtivadosCache.contains(mu.id) &&
+              !_usuariosRecentementeDesativados.any((ru) => ru.id == mu.id))
+          .map<Usuario>((mu) => Usuario(
                 id: mu.id,
                 nome: mu.nome,
                 sobrenome: mu.sobrenome,
                 email: mu.email,
                 login: mu.login,
-                curso: mu.cursoDisplay,
+                cursoId: 0,
+                cursoNome: mu.cursoDisplay,
                 role: mu.role,
-                active: mu.active, // Usa o campo active real da API
+                active: _usuariosDesativadosCache.contains(mu.id)
+                    ? false
+                    : mu.active,
               ))
           .toList();
+
+      if (pageKey == 0) {
+        // Prende usuários recentemente desativados no topo para feedback instantâneo
+        usuariosDaApi.insertAll(0, _usuariosRecentementeDesativados);
+      }
 
       // Adiciona usuários do cache local que ainda não foram retornados pela API
       // (caso de desativações recentes que ainda não foram sincronizadas)
@@ -269,7 +296,6 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
       // Por enquanto, apenas usa os da API para evitar múltiplas chamadas
       final usuarios = usuariosDaApi;
 
-      final isLastPage = usuarios.length < 10;
       if (isLastPage) {
         _pagingControllerDesativados.appendLastPage(usuarios);
       } else {
@@ -311,15 +337,19 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
 
     // Remove o usuário da lista de desativados localmente primeiro
     final itemListDesativados = _pagingControllerDesativados.itemList;
+    Usuario? usuarioParaAtivar;
     if (itemListDesativados != null) {
-      final itemListAtualizada =
-          itemListDesativados.where((u) => u.id != userId).toList();
-      _pagingControllerDesativados.itemList = itemListAtualizada;
+      final index = itemListDesativados.indexWhere((u) => u.id == userId);
+      if (index != -1) {
+        usuarioParaAtivar = itemListDesativados[index];
+        final itemListAtualizada =
+            itemListDesativados.where((u) => u.id != userId).toList();
+        _pagingControllerDesativados.itemList = itemListAtualizada;
+      }
     }
 
     try {
-      final sucesso =
-          await UserService.atualizarUsuario(userId, {'active': true});
+      final sucesso = await api_service.UsuarioApi.reativarUsuario(userId);
       if (!mounted) return;
 
       if (sucesso) {
@@ -327,12 +357,26 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
           const SnackBar(content: Text('Usuário ativado com sucesso')),
         );
 
-        // Remove do cache de usuários desativados para feedback imediato
-        // O cache será limpo após o refresh que buscará o status real da API
+        // Atualiza os caches locais para feedback imediato
         _usuariosDesativadosCache.remove(userId);
+        _usuariosAtivadosCache.add(userId);
 
-        // Recarrega ambas as listas: remove dos desativados e adiciona aos ativos
-        // A API agora retorna o campo active correto, então o cache é apenas para feedback imediato
+        // Armazena o objeto para inserção imediata na outra lista
+        if (usuarioParaAtivar != null) {
+          final usuarioAtivado = usuarioParaAtivar.copyWith(active: true);
+          _usuariosRecentementeAtivados.add(usuarioAtivado);
+
+          // Tenta atualizar a lista de ativos sem refresh total primeiro
+          final itemListAtivos = _pagingControllerAtivos.itemList;
+          if (itemListAtivos != null) {
+            _pagingControllerAtivos.itemList = [
+              usuarioAtivado,
+              ...itemListAtivos
+            ];
+          }
+        }
+
+        // Recarrega ambas as listas para sincronizar com o backend
         _pagingControllerAtivos.refresh();
         _pagingControllerDesativados.refresh();
       } else {
@@ -383,10 +427,15 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
 
     // Remove o usuário da lista de ativos localmente primeiro para atualização imediata
     final itemListAtivos = _pagingControllerAtivos.itemList;
+    Usuario? usuarioParaDesativar;
     if (itemListAtivos != null) {
-      final itemListAtualizada =
-          itemListAtivos.where((u) => u.id != userId).toList();
-      _pagingControllerAtivos.itemList = itemListAtualizada;
+      final index = itemListAtivos.indexWhere((u) => u.id == userId);
+      if (index != -1) {
+        usuarioParaDesativar = itemListAtivos[index];
+        final itemListAtualizada =
+            itemListAtivos.where((u) => u.id != userId).toList();
+        _pagingControllerAtivos.itemList = itemListAtualizada;
+      }
     }
 
     dynamic resultado = await UsuarioApi.deletarUsuario(userId);
@@ -411,12 +460,26 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
         const SnackBar(content: Text('Usuário desativado com sucesso')),
       );
 
-      // Adiciona ao cache de usuários desativados para feedback imediato
-      // O cache será limpo após o refresh que buscará o status real da API
+      // Atualiza os caches locais para feedback imediato
+      _usuariosAtivadosCache.remove(userId);
       _usuariosDesativadosCache.add(userId);
 
-      // Recarrega ambas as listas: remove dos ativos e adiciona aos desativados
-      // A API agora retorna o campo active correto, então o cache é apenas para feedback imediato
+      // Armazena o objeto para inserção imediata na outra lista
+      if (usuarioParaDesativar != null) {
+        final usuarioDesativado = usuarioParaDesativar.copyWith(active: false);
+        _usuariosRecentementeDesativados.add(usuarioDesativado);
+
+        // Tenta atualizar a lista de desativados sem refresh total primeiro
+        final itemListDesativados = _pagingControllerDesativados.itemList;
+        if (itemListDesativados != null) {
+          _pagingControllerDesativados.itemList = [
+            usuarioDesativado,
+            ...itemListDesativados
+          ];
+        }
+      }
+
+      // Recarrega ambas as listas
       _pagingControllerAtivos.refresh();
       _pagingControllerDesativados.refresh();
     } else {
@@ -467,6 +530,11 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
         bottom: _isAdmin
             ? TabBar(
                 controller: _tabController,
+                tabs: const [
+                  Tab(text: 'Cursos'),
+                  Tab(text: 'Ativos'),
+                  Tab(text: 'Inativos'),
+                ],
                 labelColor: Colors.black87,
                 unselectedLabelColor: Colors.grey[600],
                 indicatorColor: Theme.of(context).primaryColor,
@@ -474,45 +542,21 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
                 ),
-                unselectedLabelStyle: const TextStyle(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14,
-                ),
-                tabs: const [
-                  Tab(text: 'Cursos'),
-                  Tab(text: 'Usuários Ativos'),
-                  Tab(text: 'Usuários Desativados'),
-                ],
               )
             : null,
       ),
-      body: SafeArea(child: _buildBody()),
-      floatingActionButton: _buildFloatingActionButton(),
+      body: _buildBody(),
+      floatingActionButton: _tabController.index == 1 && _isAdmin
+          ? FloatingActionButton.extended(
+              onPressed: _abrirCadastroUsuario,
+              icon: Icon(Icons.person_add_alt_1_outlined),
+              label: Text('Novo Usuário'),
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.white,
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
-  }
-
-  Widget? _buildFloatingActionButton() {
-    if (!_verificacaoConcluida || !_isAdmin) return null;
-    if (_tabController.index == 0) {
-      return FloatingActionButton.extended(
-        onPressed: _abrirCadastroCurso,
-        icon: Icon(Icons.school_outlined),
-        label: Text('Novo Curso'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-      );
-    }
-    // Mostra o botão apenas na aba de usuários ativos (índice 1)
-    if (_tabController.index == 1) {
-      return FloatingActionButton.extended(
-        onPressed: _abrirCadastroUsuario,
-        icon: Icon(Icons.person_add_alt_1_outlined),
-        label: Text('Novo Usuário'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-      );
-    }
-    return null;
   }
 
   Widget _buildBody() {

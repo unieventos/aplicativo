@@ -1,10 +1,13 @@
+/// Modelo de Usuário conforme retorno do backend.
 class Usuario {
   final String id;
   final String nome;
   final String sobrenome;
   final String email;
   final String login;
-  final String curso;
+  final int cursoId;
+  final String cursoNome;
+
   final String role;
   final bool active;
 
@@ -14,34 +17,28 @@ class Usuario {
     required this.sobrenome,
     required this.email,
     required this.login,
-    required this.curso,
-    required this.role,
+    required this.cursoId,
+    this.cursoNome = '',
+    this.role = '',
     this.active = true,
   });
 
-  // Getters computados para compatibilidade com o código existente
-  String get initials {
-    if (nome.isNotEmpty && sobrenome.isNotEmpty) {
-      return '${nome[0]}${sobrenome[0]}'.toUpperCase();
-    } else if (nome.isNotEmpty) {
-      return nome[0].toUpperCase();
-    }
-    return 'U';
-  }
+  String get displayName => nome.isNotEmpty ? '$nome $sobrenome'.trim() : (login.isNotEmpty ? login : 'Usuário');
+  String get initials => nome.isNotEmpty ? nome[0].toUpperCase() : (login.isNotEmpty ? login[0].toUpperCase() : 'U');
+  String get cursoDisplay => cursoNome.isNotEmpty ? cursoNome : 'Não informado';
+  String get curso => cursoNome;
 
-  String get displayName => '$nome $sobrenome'.trim();
-  String get cursoDisplay => curso;
-  int get cursoId => curso.hashCode; // Para compatibilidade com código que espera int
-
+  /// Constrói um Usuário a partir de um JSON de resposta.
   factory Usuario.fromJson(Map<String, dynamic> json) {
     return Usuario(
       id: json['id'] ?? '',
       nome: json['nome'] ?? '',
       sobrenome: json['sobrenome'] ?? '',
       email: json['email'] ?? '',
-      login: json['login'] ?? '',
-      curso: json['curso'] ?? '',
-      role: json['role'] ?? 'USER',
+      login: json['login'] ?? json['username'] ?? json['user']?['login'] ?? json['usuario']?['login'] ?? '',
+      cursoId: json['cursoId'] ?? 0,
+      cursoNome: json['cursoNome'] ?? json['curso'] ?? '',
+      role: json['role'] ?? '',
       active: _parseActive(json),
     );
   }
@@ -85,5 +82,28 @@ class Usuario {
       'active': active,
     };
   }
-}
 
+  Usuario copyWith({
+    String? id,
+    String? nome,
+    String? sobrenome,
+    String? email,
+    String? login,
+    int? cursoId,
+    String? cursoNome,
+    String? role,
+    bool? active,
+  }) {
+    return Usuario(
+      id: id ?? this.id,
+      nome: nome ?? this.nome,
+      sobrenome: sobrenome ?? this.sobrenome,
+      email: email ?? this.email,
+      login: login ?? this.login,
+      cursoId: cursoId ?? this.cursoId,
+      cursoNome: cursoNome ?? this.cursoNome,
+      role: role ?? this.role,
+      active: active ?? this.active,
+    );
+  }
+}

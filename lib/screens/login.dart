@@ -30,6 +30,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _loginUser() async {
+    // 1) Valida campos; 2) Chama AuthService; 3) Salva token; 4) Busca /me e navega para a home.
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -44,10 +45,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (token != null && mounted) {
         await _storage.write(key: 'token', value: token);
-        await _storage.write(
-          key: 'permanecerLogado',
-          value: _permanecerLogado.toString(),
-        );
+        await _storage.write(key: 'login', value: _emailController.text.trim()); // Salva o login digitado
+        await _storage.write(key: 'permanecerLogado', value: _permanecerLogado.toString());
         // O role será definido pelo UserService.buscarUsuario() após login
 
         await UserService.buscarUsuario();

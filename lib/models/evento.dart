@@ -1,3 +1,9 @@
+import 'dart:typed_data';
+
+/// Modelo de Evento conforme retorno do backend.
+///
+/// Observação: a API pode variar os nomes de campos de data
+/// (ex.: `data`, `dataInicio`, `dateInicio`). O factory trata esses casos.
 class Evento {
   final String id;
   final String titulo;
@@ -7,6 +13,7 @@ class Evento {
   final String cursoAutor;
   final String autorAvatarUrl;
   final String imagemUrl;
+  final Uint8List? imagemBytes;
   final DateTime data;
   final DateTime inicio;
   final DateTime fim;
@@ -22,6 +29,7 @@ class Evento {
     required this.cursoAutor,
     required this.autorAvatarUrl,
     required this.imagemUrl,
+    this.imagemBytes,
     required this.data,
     required this.inicio,
     required this.fim,
@@ -29,9 +37,7 @@ class Evento {
     required this.participantes,
   });
 
-  // Getters para compatibilidade com código existente
-  String get nome => titulo;
-
+  /// Constrói um Evento a partir de um JSON de resposta.
   factory Evento.fromJson(Map<String, dynamic> json) {
     // Mapeia os campos da API conforme a documentação
     final dynamic dataRaw = json['data'] ?? json['dataInicio'] ?? json['dateInicio'];
@@ -56,6 +62,23 @@ class Evento {
       categoriaNome = categoriaRaw['nomeCategoria'] ?? categoriaRaw['nome'] ?? '';
     }
     
+    // Extrai o curso de dentro do array usuariosPermissao (primeiro que tiver)
+    String cursoNomeExtraido = 'Curso não informado';
+    if (usuariosPermissao is List) {
+      for (final permissao in usuariosPermissao) {
+        if (permissao is Map<String, dynamic>) {
+          final curso = permissao['curso'];
+          if (curso is Map<String, dynamic>) {
+            final nome = curso['nome'];
+            if (nome is String && nome.isNotEmpty) {
+              cursoNomeExtraido = nome;
+              break;
+            }
+          }
+        }
+      }
+    }
+
     return Evento(
       id: json['id'] ?? '',
       // API retorna 'nomeEvento', não 'titulo' ou 'nome'
@@ -64,9 +87,10 @@ class Evento {
       // API retorna 'usuarioCriador'
       autor: json['usuarioCriador'] ?? json['autor'] ?? json['criador'] ?? 'Autor desconhecido',
       criador: json['usuarioCriador'] ?? json['criador'] ?? json['autor'] ?? 'Criador desconhecido',
-      cursoAutor: json['cursoAutor'] ?? json['curso'] ?? 'Curso não informado',
+      cursoAutor: json['cursoAutor'] ?? json['curso'] ?? cursoNomeExtraido,
       autorAvatarUrl: json['autorAvatarUrl'] ?? json['avatarUrl'] ?? '',
       imagemUrl: json['imagemUrl'] ?? json['imagem'] ?? '',
+      imagemBytes: null,
       data: dataRaw is String ? (DateTime.tryParse(dataRaw) ?? DateTime.now()) : DateTime.now(),
       inicio: inicioRaw is String ? (DateTime.tryParse(inicioRaw) ?? DateTime.now()) : DateTime.now(),
       fim: fimRaw is String ? (DateTime.tryParse(fimRaw) ?? DateTime.now()) : DateTime.now(),

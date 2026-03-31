@@ -1,3 +1,6 @@
+/// Serviço para buscar e persistir os dados do usuário logado.
+///
+/// Fluxo: lê o token do storage -> chama /usuarios/me -> salva campos no storage.
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_application_1/config/api_config.dart';
@@ -12,11 +15,11 @@ import 'package:flutter_application_1/models/user_profile.dart';
 class UserService {
   // A URL base da API para facilitar futuras manutenções.
   static const String _baseUrl = ApiConfig.base;
-
   static const String _usuariosPath = '/usuarios';
 
-  // Lista categorias do backend
-  static Future<List<String>> listarCategorias() async {
+  // O método agora é mais robusto e lida com mais cenários de erro.
+  /// Busca lista de categorias simplificada
+  static Future<List<String>> listarCategoriasNomes() async {
     final storage = FlutterSecureStorage();
     final token = await storage.read(key: 'token');
 
@@ -266,7 +269,7 @@ class UserService {
     final storage = FlutterSecureStorage();
     final token = await storage.read(key: 'token');
     if (token == null || token.isEmpty) throw Exception('Token não encontrado');
-    final uri = Uri.parse(ApiConfig.cursos());
+    final uri = Uri.parse(ApiConfig.cursos() + "?page=0&size=100&sortBy=id");
     final response = await http
         .get(
           uri,
@@ -278,6 +281,7 @@ class UserService {
         .timeout(const Duration(seconds: 15));
     if (response.statusCode == 200) {
       final body = utf8.decode(response.bodyBytes);
+      print('[UserService] 200 GET /cursos -> body: $body');
       final data = jsonDecode(body);
       final List<CourseOption> result = [];
       if (data is List) {
@@ -292,14 +296,22 @@ class UserService {
         return result;
       }
       if (data is Map<String, dynamic>) {
-        final list = data['_embedded']?['cursoResourceV1List'];
-        if (list is List) {
-          for (final item in list) {
-            final c = item is Map<String, dynamic> ? (item['curso'] ?? item) : item;
-            final id = (c['id'] ?? c['cursoId'] ?? '').toString();
-            final nome = (c['nomeCurso'] ?? c['nome'] ?? c['name'] ?? '').toString();
-            if (id.isNotEmpty && nome.isNotEmpty) {
-              result.add(CourseOption(id: id, nome: nome));
+        final embedded = data['_embedded'];
+        if (embedded is Map<String, dynamic>) {
+          final list = embedded['courseResourceV1List'] ??
+                       embedded['courseList'] ??
+                       embedded['cursoResourceV1List'] ??
+                       embedded['cursoList'] ??
+                       embedded['cursos'];
+          
+          if (list is List) {
+            for (final item in list) {
+              final c = item is Map<String, dynamic> ? (item['course'] ?? item['curso'] ?? item) : item;
+              final id = (c['id'] ?? c['courseId'] ?? c['cursoId'] ?? '').toString();
+              final nome = (c['nomeCurso'] ?? c['nome'] ?? c['name'] ?? '').toString();
+              if (id.isNotEmpty && nome.isNotEmpty) {
+                result.add(CourseOption(id: id, nome: nome));
+              }
             }
           }
         }
@@ -504,8 +516,21 @@ class UserService {
         final decoded = jsonDecode(body);
         if (decoded is Map<String, dynamic> &&
             decoded['user'] is Map<String, dynamic>) {
-          final profile =
+          var profile =
               UserProfile.fromMap(decoded['user'] as Map<String, dynamic>);
+
+          if (profile.login.isEmpty) {
+            final cachedLogin = await storage.read(key: 'login') ?? '';
+            profile = UserProfile(
+              id: profile.id,
+              nome: profile.nome,
+              sobrenome: profile.sobrenome,
+              email: profile.email,
+              login: cachedLogin,
+              cursoId: profile.cursoId,
+              role: profile.role,
+            );
+          }
 
           if (persistLocally) {
             await _persistProfile(storage, profile);
@@ -539,6 +564,9 @@ class UserService {
     await storage.write(key: 'email', value: profile.email);
     await storage.write(key: 'cursoId', value: profile.cursoId);
     await storage.write(key: 'role', value: profile.role);
+    if (profile.login.isNotEmpty) {
+      await storage.write(key: 'login', value: profile.login);
+    }
     print('[UserService] Dados do usuário salvos com sucesso.');
   }
 
@@ -561,6 +589,8 @@ class UserService {
         'size': '$size',
         'sortBy': sortBy,
         if (search.isNotEmpty) 'name': search,
+        if (apenasAtivos != null) 'active': apenasAtivos.toString(),
+        if (apenasAtivos != null) 'ativo': apenasAtivos.toString(),
       },
     );
 
@@ -628,14 +658,6 @@ class UserService {
               .map(ManagedUser.fromApi)
               .toList();
           
-          // Filtra conforme solicitado
-          if (apenasAtivos == true) {
-            return usuarios.where((usuario) => usuario.active == true).toList();
-          } else if (apenasAtivos == false) {
-            return usuarios.where((usuario) => usuario.active == false).toList();
-          }
-          
-          // Se apenasAtivos for null, retorna todos
           return usuarios;
         }
       }

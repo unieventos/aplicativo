@@ -46,7 +46,8 @@ class EventoCard extends StatelessWidget {
 
   Widget _buildFeaturedCard(BuildContext context) {
     final theme = Theme.of(context);
-    final bool hasImage = evento.imagemUrl.isNotEmpty;
+    final bool hasImageBytes = evento.imagemBytes != null && evento.imagemBytes!.isNotEmpty;
+    final bool hasImage = evento.imagemUrl.isNotEmpty || hasImageBytes;
     final bool hasCategoria = evento.categoria.isNotEmpty;
     final bool hasCriador = evento.criador.isNotEmpty;
 
@@ -64,7 +65,12 @@ class EventoCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (hasImage)
+                  if (hasImageBytes)
+                    Image.memory(
+                      evento.imagemBytes!,
+                      fit: BoxFit.cover,
+                    )
+                  else if (hasImage)
                     CachedNetworkImage(
                       imageUrl: evento.imagemUrl,
                       fit: BoxFit.cover,
@@ -162,7 +168,7 @@ class EventoCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    evento.nome,
+                    evento.titulo,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -205,7 +211,8 @@ class EventoCard extends StatelessWidget {
 
   Widget _buildListCard(BuildContext context) {
     final theme = Theme.of(context);
-    final bool hasImage = evento.imagemUrl.isNotEmpty;
+    final bool hasImageBytes = evento.imagemBytes != null && evento.imagemBytes!.isNotEmpty;
+    final bool hasImage = evento.imagemUrl.isNotEmpty || hasImageBytes;
 
     return InkWell(
       onTap: onTap,
@@ -217,8 +224,15 @@ class EventoCard extends StatelessWidget {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: hasImage
-                    ? CachedNetworkImage(
+                child: hasImageBytes
+                    ? Image.memory(
+                        evento.imagemBytes!,
+                        width: 64,
+                        height: 64,
+                        fit: BoxFit.cover,
+                      )
+                    : hasImage
+                        ? CachedNetworkImage(
                         imageUrl: evento.imagemUrl,
                         width: 64,
                         height: 64,
@@ -254,7 +268,7 @@ class EventoCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      evento.nome,
+                      evento.titulo,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -283,23 +297,7 @@ class EventoCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Icon(
-                    Icons.chevron_right,
-                    color: Colors.grey.shade400,
-                    size: 24,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${evento.participantes} participantes',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
+              // Participantes e seta removidos conforme solicitado
             ],
           ),
         ),
