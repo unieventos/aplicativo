@@ -201,7 +201,10 @@ class _FeedPageState extends State<FeedPage> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           physics: const AlwaysScrollableScrollPhysics(),
           builderDelegate: PagedChildBuilderDelegate<Evento>(
-            itemBuilder: (context, evento, index) => EventoCard(evento: evento),
+            itemBuilder: (context, evento, index) => EventoCard(
+              evento: evento,
+              onEventUpdated: _pagingController.refresh,
+            ),
             firstPageProgressIndicatorBuilder: (_) =>
                 const Center(child: CircularProgressIndicator()),
             newPageProgressIndicatorBuilder: (_) => const Padding(

@@ -19,6 +19,7 @@ class Evento {
   final DateTime fim;
   final String categoria;
   final int participantes;
+  final List<String> fotosIds;
 
   Evento({
     required this.id,
@@ -35,6 +36,7 @@ class Evento {
     required this.fim,
     required this.categoria,
     required this.participantes,
+    this.fotosIds = const [],
   });
 
   /// Constrói um Evento a partir de um JSON de resposta.
@@ -139,6 +141,7 @@ class Evento {
       'fim': fim.toIso8601String(),
       'categoria': categoria,
       'participantes': participantes,
+      'fotosIds': fotosIds,
     };
   }
 }

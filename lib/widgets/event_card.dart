@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../config/app_theme.dart';
 import '../models/evento.dart';
+import '../screens/edit_event.dart';
 
 enum EventoCardLayout { featured, list }
 
@@ -13,11 +14,13 @@ class EventoCard extends StatelessWidget {
     required this.evento,
     this.layout = EventoCardLayout.featured,
     this.onTap,
+    this.onEventUpdated,
   });
 
   final Evento evento;
   final EventoCardLayout layout;
   final VoidCallback? onTap;
+  final VoidCallback? onEventUpdated;
 
   static final DateFormat _dateFormatter = DateFormat('d MMM, yyyy', 'pt_BR');
 
@@ -158,6 +161,30 @@ class EventoCard extends StatelessWidget {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                  Positioned(
+                    top: 16,
+                    right: 16,
+                    child: CircleAvatar(
+                      backgroundColor: Colors.white.withOpacity(0.9),
+                      radius: 20,
+                      child: IconButton(
+                        icon: const Icon(Icons.edit,
+                            size: 20, color: AppColors.primary),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => EditEvent(evento: evento),
+                            ),
+                          ).then((updated) {
+                            if (updated == true && onEventUpdated != null) {
+                              onEventUpdated!();
+                            }
+                          });
+                        },
+                      ),
                     ),
                   ),
                 ],

@@ -393,19 +393,42 @@ class EventosApi {
 
         if (evento.id.isNotEmpty) {
           Uint8List? fetchedBytes;
-          try {
-            final urlFoto =
-                Uri.parse('$baseUrlEventos/${evento.id}/fotos/download');
-            final response = await http
-                .get(urlFoto, headers: headers)
-                .timeout(const Duration(seconds: 10));
+          List<String> fetchedFotosIds = [];
 
-            if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-              fetchedBytes = response.bodyBytes;
+          try {
+            final urlFotosList =
+                Uri.parse('$baseUrlEventos/${evento.id}/fotos');
+            final responseList = await http
+                .get(urlFotosList, headers: headers)
+                .timeout(const Duration(seconds: 10));
+            if (responseList.statusCode == 200) {
+              final data = jsonDecode(utf8.decode(responseList.bodyBytes));
+              final list = data['_embedded']?['fotoDTOV1List'] as List?;
+              if (list != null) {
+                fetchedFotosIds =
+                    list.map((item) => item['id'].toString()).toList();
+              }
             }
           } catch (e) {
             print(
-                '[EventosApi] Erro ao buscar foto para evento ${evento.id}: $e');
+                '[EventosApi] Erro ao buscar lista de fotos para evento ${evento.id}: $e');
+          }
+
+          if (fetchedFotosIds.isNotEmpty) {
+            try {
+              final urlFoto = Uri.parse(
+                  '${ApiConfig.base}/fotos/${fetchedFotosIds.first}/download');
+              final responseFoto = await http
+                  .get(urlFoto, headers: headers)
+                  .timeout(const Duration(seconds: 10));
+              if (responseFoto.statusCode == 200 &&
+                  responseFoto.bodyBytes.isNotEmpty) {
+                fetchedBytes = responseFoto.bodyBytes;
+              }
+            } catch (e) {
+              print(
+                  '[EventosApi] Erro ao buscar foto inicial para evento ${evento.id}: $e');
+            }
           }
 
           eventos[index] = Evento(
@@ -416,13 +439,16 @@ class EventosApi {
             criador: evento.criador,
             cursoAutor: evento.cursoAutor,
             autorAvatarUrl: evento.autorAvatarUrl,
-            imagemUrl: '$baseUrlEventos/${evento.id}/fotos/download',
+            imagemUrl: fetchedFotosIds.isNotEmpty
+                ? '${ApiConfig.base}/fotos/${fetchedFotosIds.first}/download'
+                : '',
             imagemBytes: fetchedBytes,
             data: evento.data,
             inicio: evento.inicio,
             fim: evento.fim,
             categoria: evento.categoria,
             participantes: evento.participantes,
+            fotosIds: fetchedFotosIds,
           );
         }
       }));
@@ -522,20 +548,42 @@ class EventosApi {
 
         if (evento.id.isNotEmpty) {
           Uint8List? fetchedBytes;
-          try {
-            final urlFoto =
-                Uri.parse('$baseUrlEventos/${evento.id}/fotos/download');
-            final responseFoto = await http
-                .get(urlFoto, headers: headersAuth)
-                .timeout(const Duration(seconds: 10));
+          List<String> fetchedFotosIds = [];
 
-            if (responseFoto.statusCode == 200 &&
-                responseFoto.bodyBytes.isNotEmpty) {
-              fetchedBytes = responseFoto.bodyBytes;
+          try {
+            final urlFotosList =
+                Uri.parse('$baseUrlEventos/${evento.id}/fotos');
+            final responseList = await http
+                .get(urlFotosList, headers: headersAuth)
+                .timeout(const Duration(seconds: 10));
+            if (responseList.statusCode == 200) {
+              final data = jsonDecode(utf8.decode(responseList.bodyBytes));
+              final list = data['_embedded']?['fotoDTOV1List'] as List?;
+              if (list != null) {
+                fetchedFotosIds =
+                    list.map((item) => item['id'].toString()).toList();
+              }
             }
           } catch (e) {
             print(
-                '[EventosApi] Erro ao buscar foto para evento (search) ${evento.id}: $e');
+                '[EventosApi] Erro ao buscar lista de fotos (search) ${evento.id}: $e');
+          }
+
+          if (fetchedFotosIds.isNotEmpty) {
+            try {
+              final urlFoto = Uri.parse(
+                  '${ApiConfig.base}/fotos/${fetchedFotosIds.first}/download');
+              final responseFoto = await http
+                  .get(urlFoto, headers: headersAuth)
+                  .timeout(const Duration(seconds: 10));
+              if (responseFoto.statusCode == 200 &&
+                  responseFoto.bodyBytes.isNotEmpty) {
+                fetchedBytes = responseFoto.bodyBytes;
+              }
+            } catch (e) {
+              print(
+                  '[EventosApi] Erro ao buscar foto (search) ${evento.id}: $e');
+            }
           }
 
           eventos[index] = Evento(
@@ -546,13 +594,16 @@ class EventosApi {
             criador: evento.criador,
             cursoAutor: evento.cursoAutor,
             autorAvatarUrl: evento.autorAvatarUrl,
-            imagemUrl: '$baseUrlEventos/${evento.id}/fotos/download',
+            imagemUrl: fetchedFotosIds.isNotEmpty
+                ? '${ApiConfig.base}/fotos/${fetchedFotosIds.first}/download'
+                : '',
             imagemBytes: fetchedBytes,
             data: evento.data,
             inicio: evento.inicio,
             fim: evento.fim,
             categoria: evento.categoria,
             participantes: evento.participantes,
+            fotosIds: fetchedFotosIds,
           );
         }
       }));
@@ -721,6 +772,99 @@ class EventosApi {
     } catch (e) {
       return {'success': false, 'error': 'Erro de conexão: $e'};
     }
+  }
+
+  // PUT /eventos/{id} - Atualiza um evento via Multipart (dados + foto)
+  static Future<Map<String, dynamic>> atualizarEvento(
+      String eventId, Map<String, dynamic> dadosEvento,
+      [dynamic imagemOuImagens]) async {
+    final token = await _storage.read(key: 'token');
+    if (token == null)
+      return {'success': false, 'error': 'Token não encontrado.'};
+
+    try {
+      final request =
+          http.MultipartRequest('PUT', Uri.parse('$_baseUrl/$eventId'));
+      request.headers['Authorization'] = 'Bearer $token';
+
+      // Parte 1: JSON do evento
+      request.files.add(http.MultipartFile.fromString(
+        'dados',
+        jsonEncode(dadosEvento),
+        contentType: MediaType('application', 'json'),
+      ));
+
+      // Parte 2: Arquivo(s) da foto
+      if (imagemOuImagens != null) {
+        List<dynamic> imagens;
+        if (imagemOuImagens is List) {
+          imagens = imagemOuImagens;
+        } else {
+          imagens = [imagemOuImagens];
+        }
+        for (var imagem in imagens) {
+          if (kIsWeb && imagem is XFile) {
+            final bytes = await imagem.readAsBytes();
+            request.files.add(http.MultipartFile.fromBytes('fotos', bytes,
+                filename: imagem.name,
+                contentType: _mimeTypeForPath(imagem.name)));
+          } else if (imagem is File) {
+            request.files.add(await http.MultipartFile.fromPath(
+                'fotos', imagem.path,
+                contentType: _mimeTypeForPath(imagem.path)));
+          } else if (imagem is XFile) {
+            if (imagem.path.isEmpty) {
+              final bytes = await imagem.readAsBytes();
+              request.files.add(http.MultipartFile.fromBytes('fotos', bytes,
+                  filename: imagem.name,
+                  contentType: _mimeTypeForPath(imagem.name)));
+            } else {
+              request.files.add(await http.MultipartFile.fromPath(
+                  'fotos', imagem.path,
+                  contentType: _mimeTypeForPath(imagem.name)));
+            }
+          }
+        }
+      }
+
+      final response = await http.Response.fromStream(
+          await request.send().timeout(const Duration(seconds: 20)));
+      final body = utf8.decode(response.bodyBytes);
+      print('[EventosApi] PUT Status: ${response.statusCode}');
+      print('[EventosApi] PUT Response Body: $body');
+
+      dynamic decodedBody;
+      try {
+        decodedBody = body.isNotEmpty ? jsonDecode(body) : null;
+      } catch (e) {
+        decodedBody = body;
+      }
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return {'success': true, 'eventId': eventId};
+      }
+      return {
+        'success': false,
+        'error': _extractMessage(decodedBody) ?? 'Erro ${response.statusCode}',
+        'details': decodedBody
+      };
+    } catch (e) {
+      return {'success': false, 'error': 'Erro de conexão: $e'};
+    }
+  }
+
+  static Future<Uint8List?> downloadFotoBytes(String fotoId) async {
+    final token = await _storage.read(key: 'token');
+    final url = Uri.parse('${ApiConfig.base}/fotos/$fotoId/download');
+    try {
+      final response = await http.get(url, headers: {
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token'
+      }).timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+        return response.bodyBytes;
+      }
+    } catch (e) {}
+    return null;
   }
 
   // Extrai o ID do evento do header Location

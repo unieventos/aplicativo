@@ -342,6 +342,7 @@ class _SearchPageState extends State<SearchPage> {
                         }
                       });
                     },
+                    onEventUpdated: _pagingController.refresh,
                   ),
                   Positioned(
                     bottom: 8,
