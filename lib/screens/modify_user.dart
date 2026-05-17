@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/models/usuario.dart'; // Modelo Usuario centralizado
-import 'package:flutter_application_1/api_service.dart'; // Importa a sua classe de API
+import 'package:flutter_application_1/services/api_service.dart'; // Importa a sua classe de API
 
 import 'package:flutter_application_1/models/course_option.dart';
-import 'package:flutter_application_1/user_service.dart';
+import 'package:flutter_application_1/services/user_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ModifyUserApp extends StatefulWidget {
@@ -23,7 +23,7 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
   late TextEditingController _emailController;
   late TextEditingController _loginController;
   late TextEditingController _senhaController;
-  
+
   bool _isAdmin = false;
   bool _isEditingSelf = false;
 
@@ -46,7 +46,8 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
   void initState() {
     super.initState();
     _nomeController = TextEditingController(text: widget.usuario.nome);
-    _sobrenomeController = TextEditingController(text: widget.usuario.sobrenome);
+    _sobrenomeController =
+        TextEditingController(text: widget.usuario.sobrenome);
     _emailController = TextEditingController(text: widget.usuario.email);
     _loginController = TextEditingController(text: widget.usuario.login);
     _senhaController = TextEditingController();
@@ -61,13 +62,14 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
       }
     } else {
       _roleSelecionado = null;
-    }    
+    }
     _carregarCursos();
     _verificarPermissao();
   }
 
   Future<void> _verificarPermissao() async {
-    const storage = FlutterSecureStorage();
+    const storage = FlutterSecureStorage(
+        aOptions: AndroidOptions(encryptedSharedPreferences: true));
     final role = await storage.read(key: 'role');
     final myId = await storage.read(key: 'id');
     if (mounted) {
@@ -89,7 +91,8 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
 
         if (widget.usuario.curso.isNotEmpty) {
           final match = _cursos.firstWhere(
-            (curso) => curso.nome.toLowerCase() == widget.usuario.curso.toLowerCase(),
+            (curso) =>
+                curso.nome.toLowerCase() == widget.usuario.curso.toLowerCase(),
             orElse: () => CourseOption(id: '', nome: ''),
           );
           if (match.id.isNotEmpty) {
@@ -100,8 +103,7 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Falha ao carregar cursos: $e'))
-      );
+          SnackBar(content: Text('Falha ao carregar cursos: $e')));
     } finally {
       if (mounted) {
         setState(() => _isLoadingCursos = false);
@@ -276,7 +278,8 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
                       children: [
                         CircleAvatar(
                           radius: 40,
-                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
                           child: Text(
                             widget.usuario.initials,
                             style: const TextStyle(
@@ -292,12 +295,18 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
                             children: [
                               Text(
                                 'Editando ${widget.usuario.displayName}',
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600),
                               ),
                               const SizedBox(height: 6),
                               Text(
                                 'ID: ${widget.usuario.id}',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: Colors.grey[600]),
                               ),
                             ],
                           ),
@@ -381,13 +390,18 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _obscureText ? Icons.visibility_off : Icons.visibility,
+                            _obscureText
+                                ? Icons.visibility_off
+                                : Icons.visibility,
                           ),
-                          onPressed: () => setState(() => _obscureText = !_obscureText),
+                          onPressed: () =>
+                              setState(() => _obscureText = !_obscureText),
                         ),
                       ),
                       validator: (value) {
-                        if (value != null && value.isNotEmpty && value.length < 6) {
+                        if (value != null &&
+                            value.isNotEmpty &&
+                            value.length < 6) {
                           return 'Senha deve ter pelo menos 6 caracteres';
                         }
                         return null;
@@ -402,7 +416,8 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
                               height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation(Colors.white),
+                                valueColor:
+                                    AlwaysStoppedAnimation(Colors.white),
                               ),
                             )
                           : const Icon(Icons.save_outlined),

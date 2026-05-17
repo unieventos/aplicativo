@@ -3,11 +3,11 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 // Seus imports, todos corretos.
-import 'package:flutter_application_1/eventRegister.dart';
-import 'package:flutter_application_1/UserRegister.dart';
-import 'package:flutter_application_1/perfil.dart';
-import 'package:flutter_application_1/search.dart';
-import 'package:flutter_application_1/api_service.dart';
+import 'package:flutter_application_1/screens/event_register.dart';
+import 'package:flutter_application_1/screens/user_register.dart';
+import 'package:flutter_application_1/screens/perfil.dart';
+import 'package:flutter_application_1/screens/search.dart';
+import 'package:flutter_application_1/services/api_service.dart';
 import 'package:flutter_application_1/models/evento.dart';
 import 'package:flutter_application_1/widgets/event_card.dart';
 
@@ -23,7 +23,8 @@ class EventosPage extends StatefulWidget {
 
 class _EventosPageState extends State<EventosPage> {
   // ... (todo o código de _EventosPageState permanece o mesmo)
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage(
+      aOptions: AndroidOptions(encryptedSharedPreferences: true));
   int _selectedIndex = 0;
   String? _role;
   List<Widget> _pages = const [];

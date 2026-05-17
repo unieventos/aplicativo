@@ -13,10 +13,9 @@ import 'package:flutter/foundation.dart';
 // --- SERVIÇO DE AUTENTICAÇÃO REATORADO ---
 // Responsável por lidar com o processo de login na API.
 class AuthService {
-
   // O método agora é mais robusto e lida com erros de conexão.
-  static Future<String?> fazerLogin(String login, String password, bool stayLogged) async {
-    
+  static Future<String?> fazerLogin(
+      String login, String password, bool stayLogged) async {
     // 1. MONTA O CORPO DA REQUISIÇÃO
     final body = jsonEncode({
       'login': login,
@@ -29,30 +28,32 @@ class AuthService {
     try {
       // Em Web, evita chamadas http quando a página roda em https (mixed content)
       if (WebChecks.isMixedContent(ApiConfig.base)) {
-        throw Exception('Bloqueado pelo navegador: mixed content (app https x API http). Use http na origem ou habilite https na API.');
+        throw Exception(
+            'Bloqueado pelo navegador: mixed content (app https x API http). Use http na origem ou habilite https na API.');
       }
       final url = Uri.parse(ApiConfig.authLogin());
-      
+
       final response = await http
           .post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: body,
-      )
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: body,
+          )
           .timeout(const Duration(seconds: 15));
 
       // 3. VERIFICA A RESPOSTA DA API
       if (response.statusCode == 200) {
         // Sucesso! Decodifica a resposta.
         final responseBody = jsonDecode(response.body);
-        
+
         // VALIDAÇÃO: Verifica se a resposta contém a chave 'token'.
         if (responseBody != null && responseBody['token'] != null) {
           print('[AuthService] Usuário entrou com sucesso.');
           return responseBody['token'];
         } else {
           // Se a resposta for 200, mas o JSON não tiver o formato esperado.
-          print('[AuthService] Erro: Resposta da API inválida. Chave "token" não encontrada.');
+          print(
+              '[AuthService] Erro: Resposta da API inválida. Chave "token" não encontrada.');
           return null;
         }
       } else {

@@ -20,7 +20,8 @@ class UserService {
   // O método agora é mais robusto e lida com mais cenários de erro.
   /// Busca lista de categorias simplificada
   static Future<List<String>> listarCategoriasNomes() async {
-    final storage = FlutterSecureStorage();
+    final storage = FlutterSecureStorage(
+        aOptions: AndroidOptions(encryptedSharedPreferences: true));
     final token = await storage.read(key: 'token');
 
     if (token == null || token.isEmpty) {
@@ -153,7 +154,8 @@ class UserService {
 
   // Lista categorias com id e nome
   static Future<List<Map<String, String>>> listarCategoriasDetalhadas() async {
-    final storage = FlutterSecureStorage();
+    final storage = FlutterSecureStorage(
+        aOptions: AndroidOptions(encryptedSharedPreferences: true));
     final token = await storage.read(key: 'token');
     if (token == null || token.isEmpty) throw Exception('Token não encontrado');
 
@@ -266,19 +268,18 @@ class UserService {
   }
 
   static Future<List<CourseOption>> listarCursos() async {
-    final storage = FlutterSecureStorage();
+    final storage = FlutterSecureStorage(
+        aOptions: AndroidOptions(encryptedSharedPreferences: true));
     final token = await storage.read(key: 'token');
     if (token == null || token.isEmpty) throw Exception('Token não encontrado');
     final uri = Uri.parse(ApiConfig.cursos() + "?page=0&size=100&sortBy=id");
-    final response = await http
-        .get(
-          uri,
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Accept': 'application/json',
-          },
-        )
-        .timeout(const Duration(seconds: 15));
+    final response = await http.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      },
+    ).timeout(const Duration(seconds: 15));
     if (response.statusCode == 200) {
       final body = utf8.decode(response.bodyBytes);
       print('[UserService] 200 GET /cursos -> body: $body');
@@ -288,7 +289,8 @@ class UserService {
         for (final item in data) {
           final m = item is Map<String, dynamic> ? item : <String, dynamic>{};
           final id = (m['id'] ?? m['cursoId'] ?? '').toString();
-          final nome = (m['nomeCurso'] ?? m['nome'] ?? m['name'] ?? '').toString();
+          final nome =
+              (m['nomeCurso'] ?? m['nome'] ?? m['name'] ?? '').toString();
           if (id.isNotEmpty && nome.isNotEmpty) {
             result.add(CourseOption(id: id, nome: nome));
           }
@@ -299,16 +301,20 @@ class UserService {
         final embedded = data['_embedded'];
         if (embedded is Map<String, dynamic>) {
           final list = embedded['courseResourceV1List'] ??
-                       embedded['courseList'] ??
-                       embedded['cursoResourceV1List'] ??
-                       embedded['cursoList'] ??
-                       embedded['cursos'];
-          
+              embedded['courseList'] ??
+              embedded['cursoResourceV1List'] ??
+              embedded['cursoList'] ??
+              embedded['cursos'];
+
           if (list is List) {
             for (final item in list) {
-              final c = item is Map<String, dynamic> ? (item['course'] ?? item['curso'] ?? item) : item;
-              final id = (c['id'] ?? c['courseId'] ?? c['cursoId'] ?? '').toString();
-              final nome = (c['nomeCurso'] ?? c['nome'] ?? c['name'] ?? '').toString();
+              final c = item is Map<String, dynamic>
+                  ? (item['course'] ?? item['curso'] ?? item)
+                  : item;
+              final id =
+                  (c['id'] ?? c['courseId'] ?? c['cursoId'] ?? '').toString();
+              final nome =
+                  (c['nomeCurso'] ?? c['nome'] ?? c['name'] ?? '').toString();
               if (id.isNotEmpty && nome.isNotEmpty) {
                 result.add(CourseOption(id: id, nome: nome));
               }
@@ -320,7 +326,8 @@ class UserService {
       return <CourseOption>[];
     }
     final body = utf8.decode(response.bodyBytes);
-    print('[UserService] Erro ao listar cursos (${response.statusCode}): $body');
+    print(
+        '[UserService] Erro ao listar cursos (${response.statusCode}): $body');
     return <CourseOption>[];
   }
 
@@ -334,20 +341,23 @@ class UserService {
   }
 
   static Future<bool> atualizarCurso(String id, String nome) async {
-    final storage = FlutterSecureStorage();
+    final storage = FlutterSecureStorage(
+        aOptions: AndroidOptions(encryptedSharedPreferences: true));
     final token = await storage.read(key: 'token');
     if (token == null || token.isEmpty) throw Exception('Token não encontrado');
 
     final uri = Uri.parse('$_baseUrl/categorias/$id');
-    final response = await http.patch(
-      uri,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode({'nomeCategoria': nome}),
-    ).timeout(const Duration(seconds: 15));
+    final response = await http
+        .patch(
+          uri,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: jsonEncode({'nomeCategoria': nome}),
+        )
+        .timeout(const Duration(seconds: 15));
 
     if (response.statusCode == 200 ||
         response.statusCode == 204 ||
@@ -356,12 +366,14 @@ class UserService {
     }
 
     final body = utf8.decode(response.bodyBytes);
-    print('[UserService] Erro ao atualizar curso (${response.statusCode}): $body');
+    print(
+        '[UserService] Erro ao atualizar curso (${response.statusCode}): $body');
     return false;
   }
 
   static Future<bool> deletarCurso(String id) async {
-    final storage = FlutterSecureStorage();
+    final storage = FlutterSecureStorage(
+        aOptions: AndroidOptions(encryptedSharedPreferences: true));
     final token = await storage.read(key: 'token');
     if (token == null || token.isEmpty) throw Exception('Token não encontrado');
 
@@ -381,14 +393,16 @@ class UserService {
     }
 
     final body = utf8.decode(response.bodyBytes);
-    print('[UserService] Erro ao deletar curso (${response.statusCode}): $body');
+    print(
+        '[UserService] Erro ao deletar curso (${response.statusCode}): $body');
     return false;
   }
 
   // Cria uma categoria
   static Future<Map<String, String>?> criarCategoria(
       String nomeCategoria) async {
-    final storage = FlutterSecureStorage();
+    final storage = FlutterSecureStorage(
+        aOptions: AndroidOptions(encryptedSharedPreferences: true));
     final token = await storage.read(key: 'token');
     if (token == null || token.isEmpty) throw Exception('Token não encontrado');
 
@@ -408,14 +422,14 @@ class UserService {
     print(
         '[UserService] Resposta criar categoria ${response.statusCode}: $body');
     print('[UserService] Headers: ${response.headers}');
-    
+
     if (response.statusCode == 200 || response.statusCode == 201) {
       try {
         final data = body.isNotEmpty ? jsonDecode(body) : null;
         // tenta extrair id/nome de diferentes formatos
         String id = '';
         String nome = nomeCategoria;
-        
+
         if (data is Map<String, dynamic>) {
           if (data['categoria'] is Map<String, dynamic>) {
             final c = data['categoria'] as Map<String, dynamic>;
@@ -428,46 +442,53 @@ class UserService {
             print('[UserService] ID extraído do objeto raiz: $id');
           }
         }
-        
+
         // Se não encontrou no body, tenta no header Location
         if (id.isEmpty) {
           final location =
               response.headers['location'] ?? response.headers['Location'];
-          print('[UserService] Tentando extrair ID do header Location: $location');
+          print(
+              '[UserService] Tentando extrair ID do header Location: $location');
           if (location != null && location.isNotEmpty) {
             // Remove query parameters se houver
             final locationPath = location.split('?').first;
-            final segments = locationPath.split('/').where((s) => s.isNotEmpty).toList();
+            final segments =
+                locationPath.split('/').where((s) => s.isNotEmpty).toList();
             if (segments.isNotEmpty) {
               id = segments.last;
               print('[UserService] ID extraído do header Location: $id');
             } else {
-              print('[UserService] AVISO: Location header não contém segmentos válidos');
+              print(
+                  '[UserService] AVISO: Location header não contém segmentos válidos');
             }
           }
         }
-        
+
         if (nome.isEmpty) nome = nomeCategoria;
-        
+
         if (id.isEmpty) {
-          print('[UserService] AVISO: Não foi possível extrair ID da categoria criada');
+          print(
+              '[UserService] AVISO: Não foi possível extrair ID da categoria criada');
         } else {
-          print('[UserService] Categoria criada com sucesso: ID=$id, Nome=$nome');
+          print(
+              '[UserService] Categoria criada com sucesso: ID=$id, Nome=$nome');
         }
-        
+
         return {'id': id, 'nome': nome};
       } catch (e) {
         print('[UserService] Erro ao parsear resposta: $e');
         // Tenta extrair do header Location como fallback
         final location =
             response.headers['location'] ?? response.headers['Location'];
-        print('[UserService] Fallback: tentando extrair do Location: $location');
+        print(
+            '[UserService] Fallback: tentando extrair do Location: $location');
         final id = (location != null && location.isNotEmpty)
             ? location
-                .split('/')
-                .where((s) => s.isNotEmpty)
-                .toList()
-                .lastOrNull ?? ''
+                    .split('/')
+                    .where((s) => s.isNotEmpty)
+                    .toList()
+                    .lastOrNull ??
+                ''
             : '';
         if (id.isNotEmpty) {
           print('[UserService] ID extraído do Location (fallback): $id');
@@ -486,7 +507,8 @@ class UserService {
   }
 
   static Future<UserProfile?> obterPerfil({bool persistLocally = false}) async {
-    final storage = FlutterSecureStorage();
+    final storage = FlutterSecureStorage(
+        aOptions: AndroidOptions(encryptedSharedPreferences: true));
 
     final token = await storage.read(key: 'token');
     if (token == null || token.isEmpty) {
@@ -498,18 +520,17 @@ class UserService {
     final url = Uri.parse('$_baseUrl/usuarios/me');
     try {
       if (WebChecks.isMixedContent(ApiConfig.base)) {
-        throw Exception('Mixed content bloqueado no navegador: app https x API http.');
+        throw Exception(
+            'Mixed content bloqueado no navegador: app https x API http.');
       }
 
-      final response = await http
-          .get(
-            url,
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final body = utf8.decode(response.bodyBytes);
@@ -577,7 +598,8 @@ class UserService {
     String search = '',
     bool? apenasAtivos,
   }) async {
-    final storage = FlutterSecureStorage();
+    final storage = FlutterSecureStorage(
+        aOptions: AndroidOptions(encryptedSharedPreferences: true));
     final token = await storage.read(key: 'token');
     if (token == null || token.isEmpty) {
       throw Exception('Token não encontrado');
@@ -605,7 +627,7 @@ class UserService {
     if (response.statusCode == 200) {
       final bodyText = utf8.decode(response.bodyBytes);
       final data = jsonDecode(bodyText);
-      
+
       if (data is Map<String, dynamic>) {
         final embedded = data['_embedded'];
         final list = embedded is Map<String, dynamic>
@@ -622,21 +644,21 @@ class UserService {
                     // 1. No objeto user
                     // 2. No item pai
                     // 3. Com diferentes nomes (active, is_active, isActive, ativo)
-                    dynamic activeValue = userData['active'] ?? 
-                                         userData['is_active'] ?? 
-                                         userData['isActive'] ?? 
-                                         userData['ativo'] ??
-                                         item['active'] ?? 
-                                         item['is_active'] ?? 
-                                         item['isActive'] ?? 
-                                         item['ativo'];
-                    
+                    dynamic activeValue = userData['active'] ??
+                        userData['is_active'] ??
+                        userData['isActive'] ??
+                        userData['ativo'] ??
+                        item['active'] ??
+                        item['is_active'] ??
+                        item['isActive'] ??
+                        item['ativo'];
+
                     // Se encontrou o valor, adiciona ao userData para garantir que seja parseado
                     if (activeValue != null) {
                       userData['active'] = activeValue;
                       userData['is_active'] = activeValue;
                     }
-                    
+
                     // Verifica e extrai o role se for um objeto
                     final roleRaw = userData['role'];
                     if (roleRaw is Map<String, dynamic>) {
@@ -647,7 +669,7 @@ class UserService {
                       // Role já é uma string, mantém como está
                       userData['role'] = roleRaw.toString();
                     }
-                    
+
                     return userData;
                   }
                   return userData;
@@ -657,7 +679,7 @@ class UserService {
               .whereType<Map<String, dynamic>>()
               .map(ManagedUser.fromApi)
               .toList();
-          
+
           return usuarios;
         }
       }
@@ -683,7 +705,8 @@ class UserService {
     String? email,
     String? role,
   }) async {
-    final storage = FlutterSecureStorage();
+    final storage = FlutterSecureStorage(
+        aOptions: AndroidOptions(encryptedSharedPreferences: true));
     final token = await storage.read(key: 'token');
     if (token == null || token.isEmpty) {
       throw Exception('Token não encontrado');
@@ -748,14 +771,16 @@ class UserService {
     String userId,
     Map<String, dynamic> payload,
   ) async {
-    final storage = FlutterSecureStorage();
+    final storage = FlutterSecureStorage(
+        aOptions: AndroidOptions(encryptedSharedPreferences: true));
     final token = await storage.read(key: 'token');
     if (token == null || token.isEmpty) {
       throw Exception('Token não encontrado');
     }
 
     final filteredPayload = Map<String, dynamic>.from(payload)
-      ..removeWhere((key, value) => value == null || (value is String && value.isEmpty));
+      ..removeWhere(
+          (key, value) => value == null || (value is String && value.isEmpty));
 
     if (filteredPayload.isEmpty) {
       print('[UserService] Nenhum dado para atualizar. Ignorando chamada.');
@@ -763,17 +788,19 @@ class UserService {
     }
 
     final uri = Uri.parse('$_baseUrl$_usuariosPath/$userId');
-    
+
     try {
-      final response = await http.patch(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode(filteredPayload),
-      ).timeout(const Duration(seconds: 15));
+      final response = await http
+          .patch(
+            uri,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode(filteredPayload),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200 ||
           response.statusCode == 204 ||
@@ -788,10 +815,11 @@ class UserService {
     } on http.ClientException catch (e) {
       // Trata erros de CORS especificamente
       final errorMessage = e.message.toLowerCase();
-      if (errorMessage.contains('cors') || 
+      if (errorMessage.contains('cors') ||
           errorMessage.contains('cross-origin') ||
           errorMessage.contains('networkerror')) {
-        print('[UserService] Erro de CORS ao atualizar usuário. O backend precisa permitir o método PATCH nas configurações de CORS.');
+        print(
+            '[UserService] Erro de CORS ao atualizar usuário. O backend precisa permitir o método PATCH nas configurações de CORS.');
         rethrow;
       }
       print('[UserService] Erro de conexão ao atualizar usuário: $e');
@@ -803,7 +831,8 @@ class UserService {
   }
 
   static Future<Map<String, dynamic>> deletarUsuario(String userId) async {
-    final storage = FlutterSecureStorage();
+    final storage = FlutterSecureStorage(
+        aOptions: AndroidOptions(encryptedSharedPreferences: true));
     final token = await storage.read(key: 'token');
     if (token == null || token.isEmpty) {
       throw Exception('Token não encontrado');
@@ -811,7 +840,7 @@ class UserService {
 
     final uri = Uri.parse('$_baseUrl$_usuariosPath/$userId');
     print('[UserService] DELETE $uri');
-    
+
     final response = await http.delete(
       uri,
       headers: {
@@ -834,15 +863,16 @@ class UserService {
     if (response.statusCode == 400 || response.statusCode == 404) {
       // Verifica se é o erro específico UserAlreadyInactive
       final bodyLower = body.toLowerCase();
-      if (bodyLower.contains('already') || 
-          bodyLower.contains('inactive') || 
+      if (bodyLower.contains('already') ||
+          bodyLower.contains('inactive') ||
           bodyLower.contains('já está') ||
           bodyLower.contains('inativo')) {
         print('[UserService] Usuário já estava inativo: $userId');
         return {'sucesso': true, 'realmenteDeletado': false};
       }
       // Outros erros 400 ainda são tratados como sucesso (usuário não será exibido)
-      print('[UserService] Erro 400/404 ao desativar (tratado como sucesso): $userId - $body');
+      print(
+          '[UserService] Erro 400/404 ao desativar (tratado como sucesso): $userId - $body');
       return {'sucesso': true, 'realmenteDeletado': false};
     }
 

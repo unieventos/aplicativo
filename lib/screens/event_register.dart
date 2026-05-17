@@ -7,10 +7,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
-import 'package:flutter_application_1/api_service.dart' as api_service;
+import 'package:flutter_application_1/services/api_service.dart' as api_service;
 import 'package:flutter_application_1/models/course_option.dart';
-import 'package:flutter_application_1/user_service.dart';
-import 'package:flutter_application_1/home.dart' as home_page;
+import 'package:flutter_application_1/services/user_service.dart';
+import 'package:flutter_application_1/screens/home.dart' as home_page;
 
 /// Tela de cadastro de evento (formulário + envio para API).
 class EVRegister extends StatefulWidget {
@@ -32,8 +32,8 @@ class _EVRegisterState extends State<EVRegister> {
   DateTime? _dataInicio;
   DateTime? _dataFim;
   final ImagePicker _imagePicker = ImagePicker();
-  XFile? _imagemSelecionada;
-  Uint8List? _imagemBytes; // Para armazenar bytes da imagem no Web
+  List<XFile> _imagensSelecionadas = [];
+  List<Uint8List> _imagensBytes = []; // Para armazenar bytes da imagem no Web
   final TextEditingController _descricaoController = TextEditingController();
   bool _isLoading = false;
   String? _userRole;
@@ -61,7 +61,8 @@ class _EVRegisterState extends State<EVRegister> {
         _categorias = categorias;
         if (_categorias.isNotEmpty) {
           // Mantém a categoria selecionada se já existir e continuar válida, caso contrário pega a primeira
-          if (_categoriaSelecionadaId == null || !_categorias.any((c) => c.id == _categoriaSelecionadaId)) {
+          if (_categoriaSelecionadaId == null ||
+              !_categorias.any((c) => c.id == _categoriaSelecionadaId)) {
             _categoriaSelecionadaId = _categorias.first.id;
           }
         }
@@ -70,7 +71,8 @@ class _EVRegisterState extends State<EVRegister> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Falha ao carregar categorias: $e')));
+      ).showSnackBar(
+          SnackBar(content: Text('Falha ao carregar categorias: $e')));
     }
   }
 
@@ -94,7 +96,8 @@ class _EVRegisterState extends State<EVRegister> {
 
   Future<void> _carregarRole() async {
     try {
-      final storage = FlutterSecureStorage();
+      final storage = FlutterSecureStorage(
+          aOptions: AndroidOptions(encryptedSharedPreferences: true));
       final role = await storage.read(key: 'user_role');
       if (!mounted) return;
       setState(() {
@@ -110,24 +113,24 @@ class _EVRegisterState extends State<EVRegister> {
 
   Future<void> _selecionarImagem() async {
     try {
-      final XFile? imagem = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
+      final List<XFile> imagens = await _imagePicker.pickMultiImage(
         maxWidth: 1024,
         maxHeight: 1024,
         imageQuality: 80,
       );
-      if (imagem != null) {
-        // No Web, precisamos ler os bytes para exibir a imagem
+      if (imagens.isNotEmpty) {
         if (kIsWeb) {
-          final bytes = await imagem.readAsBytes();
+          final List<Uint8List> bytesList = [];
+          for (var img in imagens) {
+            bytesList.add(await img.readAsBytes());
+          }
           setState(() {
-            _imagemSelecionada = imagem;
-            _imagemBytes = bytes;
+            _imagensSelecionadas.addAll(imagens);
+            _imagensBytes.addAll(bytesList);
           });
         } else {
           setState(() {
-            _imagemSelecionada = imagem;
-            _imagemBytes = null; // Não necessário em outras plataformas
+            _imagensSelecionadas.addAll(imagens);
           });
         }
       }
@@ -135,8 +138,17 @@ class _EVRegisterState extends State<EVRegister> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Erro ao selecionar imagem: $e')));
+      ).showSnackBar(SnackBar(content: Text('Erro ao selecionar imagens: $e')));
     }
+  }
+
+  void _removerImagem(int index) {
+    setState(() {
+      _imagensSelecionadas.removeAt(index);
+      if (kIsWeb && _imagensBytes.length > index) {
+        _imagensBytes.removeAt(index);
+      }
+    });
   }
 
   Future<void> _publicarEvento() async {
@@ -179,10 +191,10 @@ class _EVRegisterState extends State<EVRegister> {
       return;
     }
 
-    if (_imagemSelecionada == null) {
+    if (_imagensSelecionadas.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Selecione uma imagem para o evento'),
+          content: Text('Selecione pelo menos uma imagem para o evento'),
           backgroundColor: Colors.red,
         ),
       );
@@ -216,7 +228,7 @@ class _EVRegisterState extends State<EVRegister> {
 
       final resultado = await api_service.EventosApi.criarEvento(
         dadosEvento,
-        _imagemSelecionada,
+        _imagensSelecionadas,
       );
 
       print('[EVRegister] Resultado: $resultado');
@@ -312,7 +324,8 @@ class _EVRegisterState extends State<EVRegister> {
                           final nome = nomeController.text.trim();
                           if (nome.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Informe o nome da categoria')),
+                              const SnackBar(
+                                  content: Text('Informe o nome da categoria')),
                             );
                             return;
                           }
@@ -320,10 +333,12 @@ class _EVRegisterState extends State<EVRegister> {
                           setStateDialog(() => isSaving = true);
 
                           try {
-                            final resultado = await UserService.criarCategoria(nome);
+                            final resultado =
+                                await UserService.criarCategoria(nome);
                             if (resultado != null) {
                               String? novoId;
-                              if (resultado['id'] != null && resultado['id']!.isNotEmpty) {
+                              if (resultado['id'] != null &&
+                                  resultado['id']!.isNotEmpty) {
                                 novoId = resultado['id'];
                               }
 
@@ -332,13 +347,15 @@ class _EVRegisterState extends State<EVRegister> {
                                 await _carregarCategorias(); // Atualiza a lista via API
                                 try {
                                   // Procura se a categoria já aparece na listagem
-                                  final cat = _categorias.firstWhere(
-                                      (c) => c.nome.toLowerCase() == nome.toLowerCase());
+                                  final cat = _categorias.firstWhere((c) =>
+                                      c.nome.toLowerCase() ==
+                                      nome.toLowerCase());
                                   novoId = cat.id;
                                   break; // Encontrou, pode sair do loop
                                 } catch (_) {
                                   // Ainda não indexou, aguarda um pouco
-                                  await Future.delayed(const Duration(milliseconds: 500));
+                                  await Future.delayed(
+                                      const Duration(milliseconds: 500));
                                 }
                               }
 
@@ -346,7 +363,8 @@ class _EVRegisterState extends State<EVRegister> {
                                 setState(() {
                                   // Garante que o novo ID existe na lista para o Dropdown não dar erro
                                   if (!_categorias.any((c) => c.id == novoId)) {
-                                    _categorias.add(api_service.Categoria(id: novoId!, nome: nome));
+                                    _categorias.add(api_service.Categoria(
+                                        id: novoId!, nome: nome));
                                   }
                                   _categoriaSelecionadaId = novoId;
                                 });
@@ -355,16 +373,19 @@ class _EVRegisterState extends State<EVRegister> {
                                   Navigator.pop(context);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Categoria criada com sucesso!'),
+                                      content:
+                                          Text('Categoria criada com sucesso!'),
                                       backgroundColor: Colors.green,
                                     ),
                                   );
                                 }
                               } else {
-                                throw Exception('Não foi possível recuperar o ID da nova categoria.');
+                                throw Exception(
+                                    'Não foi possível recuperar o ID da nova categoria.');
                               }
                             } else {
-                              throw Exception('A API retornou um erro ao criar a categoria.');
+                              throw Exception(
+                                  'A API retornou um erro ao criar a categoria.');
                             }
                           } catch (e) {
                             if (context.mounted) {
@@ -515,8 +536,8 @@ class _EVRegisterState extends State<EVRegister> {
                                       ),
                                     )
                                     .toList(),
-                                onChanged: (value) =>
-                                    setState(() => _categoriaSelecionadaId = value),
+                                onChanged: (value) => setState(
+                                    () => _categoriaSelecionadaId = value),
                                 validator: (value) {
                                   if (value == null || value.isEmpty) {
                                     return 'Selecione uma categoria';
@@ -575,30 +596,60 @@ class _EVRegisterState extends State<EVRegister> {
                       children: [
                         OutlinedButton.icon(
                           onPressed: _selecionarImagem,
-                          icon: const Icon(Icons.image_outlined),
-                          label: Text(
-                            _imagemSelecionada == null
-                                ? 'Selecionar imagem'
-                                : 'Trocar imagem',
-                          ),
+                          icon: const Icon(Icons.library_add_outlined),
+                          label: const Text('Adicionar imagens'),
                         ),
                         const SizedBox(height: 16),
-                        if (_imagemSelecionada != null)
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: kIsWeb && _imagemBytes != null
-                                ? Image.memory(
-                                    _imagemBytes!,
-                                    height: 180,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                  )
-                                : Image.file(
-                                    File(_imagemSelecionada!.path),
-                                    height: 180,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                  ),
+                        if (_imagensSelecionadas.isNotEmpty)
+                          SizedBox(
+                            height: 180,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _imagensSelecionadas.length,
+                              itemBuilder: (context, index) {
+                                return Stack(
+                                  children: [
+                                    Padding(
+                                      padding:
+                                          const EdgeInsets.only(right: 12.0),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(16),
+                                        child: kIsWeb &&
+                                                _imagensBytes.length > index
+                                            ? Image.memory(
+                                                _imagensBytes[index],
+                                                height: 180,
+                                                width: 180,
+                                                fit: BoxFit.cover,
+                                              )
+                                            : Image.file(
+                                                File(_imagensSelecionadas[index]
+                                                    .path),
+                                                height: 180,
+                                                width: 180,
+                                                fit: BoxFit.cover,
+                                              ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: 8,
+                                      right: 20,
+                                      child: CircleAvatar(
+                                        radius: 16,
+                                        backgroundColor: Colors.black54,
+                                        child: IconButton(
+                                          padding: EdgeInsets.zero,
+                                          icon: const Icon(Icons.close,
+                                              size: 16, color: Colors.white),
+                                          onPressed: () =>
+                                              _removerImagem(index),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
                           )
                         else
                           Container(

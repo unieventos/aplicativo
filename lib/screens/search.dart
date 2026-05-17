@@ -6,7 +6,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 // Imports necessários
 import 'package:flutter_application_1/models/evento.dart'; // Modelo Evento centralizado
 import 'package:flutter_application_1/models/course_option.dart';
-import 'package:flutter_application_1/api_service.dart'; // Para a classe EventosApi e UsuarioApi
+import 'package:flutter_application_1/services/api_service.dart'; // Para a classe EventosApi e UsuarioApi
 import 'package:flutter_application_1/widgets/event_card.dart';
 
 // --- TELA DE BUSCA DE EVENTOS FINALIZADA E CONECTADA À API ---
@@ -102,9 +102,11 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   bool _hasActiveFilter() {
-    if (_activeFilterType == 'PERIOD' && _selectedDateFilter != 'Todas as datas') return true;
+    if (_activeFilterType == 'PERIOD' &&
+        _selectedDateFilter != 'Todas as datas') return true;
     if (_activeFilterType == 'COURSE' && _selectedCourse != null) return true;
-    if (_activeFilterType == 'CATEGORY' && _selectedCategoria != null) return true;
+    if (_activeFilterType == 'CATEGORY' && _selectedCategoria != null)
+      return true;
     return false;
   }
 
@@ -119,22 +121,29 @@ class _SearchPageState extends State<SearchPage> {
 
     if (_activeFilterType == 'PERIOD') {
       if (_selectedDateFilter != 'Todas as datas') {
-          final agora = DateTime.now();
-          if (_selectedDateFilter == 'Esta semana') {
-            final inicioSemana = agora.subtract(Duration(days: agora.weekday - 1));
-            final fimSemana = inicioSemana.add(const Duration(days: 6, hours: 23, minutes: 59));
-            params['startDate'] = inicioSemana.subtract(const Duration(days: 1)).toUtc().toIso8601String();
-            params['endDate'] = fimSemana.add(const Duration(days: 1)).toUtc().toIso8601String();
-          } else if (_selectedDateFilter == 'Este mês') {
-            final inicioMes = DateTime(agora.year, agora.month, 1);
-            final fimMes = DateTime(agora.year, agora.month + 1, 0, 23, 59, 59);
-            params['startDate'] = inicioMes.toUtc().toIso8601String();
-            params['endDate'] = fimMes.toUtc().toIso8601String();
-          } else if (_selectedDateFilter == 'Último ano') {
-            final umAnoAtras = DateTime(agora.year - 1, agora.month, agora.day);
-            params['startDate'] = umAnoAtras.toUtc().toIso8601String();
-            params['endDate'] = agora.add(const Duration(days: 1)).toUtc().toIso8601String();
-          }
+        final agora = DateTime.now();
+        if (_selectedDateFilter == 'Esta semana') {
+          final inicioSemana =
+              agora.subtract(Duration(days: agora.weekday - 1));
+          final fimSemana =
+              inicioSemana.add(const Duration(days: 6, hours: 23, minutes: 59));
+          params['startDate'] = inicioSemana
+              .subtract(const Duration(days: 1))
+              .toUtc()
+              .toIso8601String();
+          params['endDate'] =
+              fimSemana.add(const Duration(days: 1)).toUtc().toIso8601String();
+        } else if (_selectedDateFilter == 'Este mês') {
+          final inicioMes = DateTime(agora.year, agora.month, 1);
+          final fimMes = DateTime(agora.year, agora.month + 1, 0, 23, 59, 59);
+          params['startDate'] = inicioMes.toUtc().toIso8601String();
+          params['endDate'] = fimMes.toUtc().toIso8601String();
+        } else if (_selectedDateFilter == 'Último ano') {
+          final umAnoAtras = DateTime(agora.year - 1, agora.month, agora.day);
+          params['startDate'] = umAnoAtras.toUtc().toIso8601String();
+          params['endDate'] =
+              agora.add(const Duration(days: 1)).toUtc().toIso8601String();
+        }
       }
     } else if (_activeFilterType == 'COURSE') {
       if (_selectedCourse != null) {
@@ -158,22 +167,15 @@ class _SearchPageState extends State<SearchPage> {
       final List<Evento> newItems;
       if (hasActiveFilter) {
         newItems = await EventosApi.searchEventos(
-          _activeFilterType, 
-          params, 
-          pageKey, 
-          _pageSize, 
-          search: query.trim()
-        );
+            _activeFilterType, params, pageKey, _pageSize,
+            search: query.trim());
       } else {
-        newItems = await EventosApi.fetchEventos(
-          pageKey, 
-          _pageSize, 
-          search: query.trim()
-        );
+        newItems = await EventosApi.fetchEventos(pageKey, _pageSize,
+            search: query.trim());
       }
-      
+
       final isLastPage = newItems.length < _pageSize;
-      
+
       if (isLastPage) {
         _pagingController.appendLastPage(newItems);
       } else {
@@ -203,9 +205,12 @@ class _SearchPageState extends State<SearchPage> {
             icon: Stack(
               children: [
                 const Icon(Icons.filter_list),
-                if ((_activeFilterType == 'PERIOD' && _selectedDateFilter != 'Todas as datas') ||
-                    (_activeFilterType == 'COURSE' && _selectedCourse != null) ||
-                    (_activeFilterType == 'CATEGORY' && _selectedCategoria != null))
+                if ((_activeFilterType == 'PERIOD' &&
+                        _selectedDateFilter != 'Todas as datas') ||
+                    (_activeFilterType == 'COURSE' &&
+                        _selectedCourse != null) ||
+                    (_activeFilterType == 'CATEGORY' &&
+                        _selectedCategoria != null))
                   Positioned(
                     right: 0,
                     top: 0,
@@ -255,52 +260,62 @@ class _SearchPageState extends State<SearchPage> {
       ),
       floatingActionButton: (_pagingController.itemList?.isNotEmpty ?? false)
           ? FloatingActionButton.extended(
-              onPressed: _isGeneratingReport ? null : () async {
-                setState(() => _isGeneratingReport = true);
-                try {
-                  String filterType;
-                  Map<String, dynamic> params;
+              onPressed: _isGeneratingReport
+                  ? null
+                  : () async {
+                      setState(() => _isGeneratingReport = true);
+                      try {
+                        String filterType;
+                        Map<String, dynamic> params;
 
-                  if (_selectedEventIds.isNotEmpty) {
-                    filterType = 'IDS';
-                    params = {
-                      "startDate": "",
-                      "endDate": "",
-                      "categoryId": "",
-                      "course": "",
-                      "eventIds": _selectedEventIds.toList()
-                    };
-                  } else {
-                    filterType = _activeFilterType;
-                    params = _buildSearchParams();
-                  }
+                        if (_selectedEventIds.isNotEmpty) {
+                          filterType = 'IDS';
+                          params = {
+                            "startDate": "",
+                            "endDate": "",
+                            "categoryId": "",
+                            "course": "",
+                            "eventIds": _selectedEventIds.toList()
+                          };
+                        } else {
+                          filterType = _activeFilterType;
+                          params = _buildSearchParams();
+                        }
 
-                  await EventosApi.gerarRelatorio(filterType, params);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Relatório PDF gerado com sucesso!')),
-                    );
-                    setState(() {
-                      _selectedEventIds.clear();
-                    });
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Erro ao gerar relatório: $e')),
-                    );
-                  }
-                } finally {
-                  if (mounted) setState(() => _isGeneratingReport = false);
-                }
-              },
+                        await EventosApi.gerarRelatorio(filterType, params);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content:
+                                    Text('Relatório PDF gerado com sucesso!')),
+                          );
+                          setState(() {
+                            _selectedEventIds.clear();
+                          });
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                                content: Text('Erro ao gerar relatório: $e')),
+                          );
+                        }
+                      } finally {
+                        if (mounted)
+                          setState(() => _isGeneratingReport = false);
+                      }
+                    },
               icon: _isGeneratingReport
-                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2))
                   : const Icon(Icons.picture_as_pdf),
-              label: Text(_isGeneratingReport 
-                  ? 'Gerando...' 
-                  : _selectedEventIds.isNotEmpty 
-                      ? 'Baixar Selecionados (${_selectedEventIds.length})' 
+              label: Text(_isGeneratingReport
+                  ? 'Gerando...'
+                  : _selectedEventIds.isNotEmpty
+                      ? 'Baixar Selecionados (${_selectedEventIds.length})'
                       : 'Baixar Relatório (Todos)'),
             )
           : null,
@@ -395,10 +410,11 @@ class _SearchPageState extends State<SearchPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // ====== FILTRO DE PERÍODO ======
                   RadioListTile<String>(
-                    title: const Text('Por Período', style: TextStyle(fontWeight: FontWeight.bold)),
+                    title: const Text('Por Período',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                     value: 'PERIOD',
                     groupValue: _activeFilterType,
                     onChanged: (String? value) {
@@ -410,7 +426,8 @@ class _SearchPageState extends State<SearchPage> {
                   ),
                   if (_activeFilterType == 'PERIOD')
                     Padding(
-                      padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 16.0),
+                      padding: const EdgeInsets.only(
+                          left: 16.0, right: 16.0, bottom: 16.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -430,7 +447,8 @@ class _SearchPageState extends State<SearchPage> {
                             }).toList(),
                             onChanged: (String? newValue) {
                               setModalState(() {
-                                _selectedDateFilter = newValue ?? 'Todas as datas';
+                                _selectedDateFilter =
+                                    newValue ?? 'Todas as datas';
                               });
                             },
                           ),
@@ -440,7 +458,8 @@ class _SearchPageState extends State<SearchPage> {
 
                   // ====== FILTRO DE CURSO ======
                   RadioListTile<String>(
-                    title: const Text('Por Curso', style: TextStyle(fontWeight: FontWeight.bold)),
+                    title: const Text('Por Curso',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                     value: 'COURSE',
                     groupValue: _activeFilterType,
                     onChanged: (String? value) {
@@ -452,7 +471,8 @@ class _SearchPageState extends State<SearchPage> {
                   ),
                   if (_activeFilterType == 'COURSE')
                     Padding(
-                      padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 16.0),
+                      padding: const EdgeInsets.only(
+                          left: 16.0, right: 16.0, bottom: 16.0),
                       child: DropdownButtonFormField<CourseOption>(
                         decoration: const InputDecoration(
                           labelText: 'Curso',
@@ -477,7 +497,8 @@ class _SearchPageState extends State<SearchPage> {
 
                   // ====== FILTRO DE CATEGORIA ======
                   RadioListTile<String>(
-                    title: const Text('Por Categoria', style: TextStyle(fontWeight: FontWeight.bold)),
+                    title: const Text('Por Categoria',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                     value: 'CATEGORY',
                     groupValue: _activeFilterType,
                     onChanged: (String? value) {
@@ -489,7 +510,8 @@ class _SearchPageState extends State<SearchPage> {
                   ),
                   if (_activeFilterType == 'CATEGORY')
                     Padding(
-                      padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 16.0),
+                      padding: const EdgeInsets.only(
+                          left: 16.0, right: 16.0, bottom: 16.0),
                       child: DropdownButtonFormField<Categoria>(
                         decoration: const InputDecoration(
                           labelText: 'Categoria',
@@ -500,18 +522,18 @@ class _SearchPageState extends State<SearchPage> {
                         isExpanded: true,
                         items: _categorias.map((Categoria cat) {
                           return DropdownMenuItem<Categoria>(
-                             value: cat,
-                             child: Text(cat.nome),
+                            value: cat,
+                            child: Text(cat.nome),
                           );
                         }).toList(),
                         onChanged: (Categoria? newValue) {
                           setModalState(() {
-                             _selectedCategoria = newValue;
+                            _selectedCategoria = newValue;
                           });
                         },
                       ),
                     ),
-                  
+
                   const SizedBox(height: 32),
                   // Botões
                   Row(

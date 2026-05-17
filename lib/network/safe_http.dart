@@ -124,9 +124,8 @@ class SafeHttp {
       http.Response response;
       final duration = timeout ?? _defaultTimeout;
       if (method == 'GET') {
-        response = await client
-            .get(uri, headers: effectiveHeaders)
-            .timeout(duration);
+        response =
+            await client.get(uri, headers: effectiveHeaders).timeout(duration);
       } else if (method == 'POST') {
         response = await client
             .post(
@@ -176,7 +175,7 @@ class SafeHttp {
     } on TimeoutException {
       rethrow;
     } finally {
-        client.close();
+      client.close();
     }
   }
 

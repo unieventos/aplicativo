@@ -46,7 +46,8 @@ class EventoCard extends StatelessWidget {
 
   Widget _buildFeaturedCard(BuildContext context) {
     final theme = Theme.of(context);
-    final bool hasImageBytes = evento.imagemBytes != null && evento.imagemBytes!.isNotEmpty;
+    final bool hasImageBytes =
+        evento.imagemBytes != null && evento.imagemBytes!.isNotEmpty;
     final bool hasImage = evento.imagemUrl.isNotEmpty || hasImageBytes;
     final bool hasCategoria = evento.categoria.isNotEmpty;
     final bool hasCriador = evento.criador.isNotEmpty;
@@ -211,7 +212,8 @@ class EventoCard extends StatelessWidget {
 
   Widget _buildListCard(BuildContext context) {
     final theme = Theme.of(context);
-    final bool hasImageBytes = evento.imagemBytes != null && evento.imagemBytes!.isNotEmpty;
+    final bool hasImageBytes =
+        evento.imagemBytes != null && evento.imagemBytes!.isNotEmpty;
     final bool hasImage = evento.imagemUrl.isNotEmpty || hasImageBytes;
 
     return InkWell(
@@ -233,34 +235,34 @@ class EventoCard extends StatelessWidget {
                       )
                     : hasImage
                         ? CachedNetworkImage(
-                        imageUrl: evento.imagemUrl,
-                        width: 64,
-                        height: 64,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(
-                          width: 64,
-                          height: 64,
-                          color: Colors.grey.shade200,
-                        ),
-                        errorWidget: (_, __, ___) => Container(
-                          width: 64,
-                          height: 64,
-                          color: Colors.grey.shade200,
-                          child: Icon(
-                            Icons.image_not_supported_outlined,
-                            color: Colors.grey.shade500,
+                            imageUrl: evento.imagemUrl,
+                            width: 64,
+                            height: 64,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) => Container(
+                              width: 64,
+                              height: 64,
+                              color: Colors.grey.shade200,
+                            ),
+                            errorWidget: (_, __, ___) => Container(
+                              width: 64,
+                              height: 64,
+                              color: Colors.grey.shade200,
+                              child: Icon(
+                                Icons.image_not_supported_outlined,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          )
+                        : Container(
+                            width: 64,
+                            height: 64,
+                            color: Colors.grey.shade200,
+                            child: Icon(
+                              Icons.event_outlined,
+                              color: Colors.grey.shade500,
+                            ),
                           ),
-                        ),
-                      )
-                    : Container(
-                        width: 64,
-                        height: 64,
-                        color: Colors.grey.shade200,
-                        child: Icon(
-                          Icons.event_outlined,
-                          color: Colors.grey.shade500,
-                        ),
-                      ),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(

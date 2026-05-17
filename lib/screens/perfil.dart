@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:flutter_application_1/login.dart';
-import 'package:flutter_application_1/modifyUser.dart';
+import 'package:flutter_application_1/screens/login.dart';
+import 'package:flutter_application_1/screens/modify_user.dart';
 import 'package:flutter_application_1/models/usuario.dart';
-import 'package:flutter_application_1/user_service.dart';
+import 'package:flutter_application_1/services/user_service.dart';
 import 'package:flutter_application_1/models/user_profile.dart';
 
 class PerfilPage extends StatefulWidget {
@@ -14,7 +14,8 @@ class PerfilPage extends StatefulWidget {
 }
 
 class _PerfilPageState extends State<PerfilPage> {
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage(
+      aOptions: AndroidOptions(encryptedSharedPreferences: true));
   late Future<UserProfile> _perfilUsuarioFuture;
 
   @override
@@ -34,7 +35,7 @@ class _PerfilPageState extends State<PerfilPage> {
       return cached;
     }
 
-      return const UserProfile(nome: 'Usuário');
+    return const UserProfile(nome: 'Usuário');
   }
 
   Future<UserProfile?> _loadCachedProfile() async {
@@ -113,11 +114,13 @@ class _PerfilPageState extends State<PerfilPage> {
               return const Center(child: Text('Nenhum dado encontrado.'));
             }
 
-          final perfil = snapshot.data!;
-          
+            final perfil = snapshot.data!;
+
             return RefreshIndicator(
               onRefresh: () async {
-                setState(() { _perfilUsuarioFuture = _loadUserData(); });
+                setState(() {
+                  _perfilUsuarioFuture = _loadUserData();
+                });
               },
               child: ListView(
                 padding: const EdgeInsets.all(16.0),
@@ -170,66 +173,72 @@ class _PerfilPageState extends State<PerfilPage> {
       ),
     );
   }
-  
+
   Widget _buildActionsCard(UserProfile perfil) {
     final theme = Theme.of(context);
     return Card(
-       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-       child: Column(
-         children: [
-            ListTile(
-              leading: Icon(Icons.edit_outlined, color: Colors.blue.shade700),
-              title: const Text("Editar Perfil"),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () async {
-                final usuario = Usuario(
-                  id: perfil.id,
-                  nome: perfil.nome,
-                  sobrenome: perfil.sobrenome,
-                  email: perfil.email,
-                  login: perfil.login,
-                  cursoId: int.tryParse(perfil.cursoId) ?? 0,
-                  cursoNome: 'Não informado',
-                  role: perfil.role,
-                );
-                final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => ModifyUserApp(usuario: usuario)));
-                if (result == true) {
-                  setState(() { _perfilUsuarioFuture = _loadUserData(); });
-                }
-              },
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        children: [
+          ListTile(
+            leading: Icon(Icons.edit_outlined, color: Colors.blue.shade700),
+            title: const Text("Editar Perfil"),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () async {
+              final usuario = Usuario(
+                id: perfil.id,
+                nome: perfil.nome,
+                sobrenome: perfil.sobrenome,
+                email: perfil.email,
+                login: perfil.login,
+                cursoId: int.tryParse(perfil.cursoId) ?? 0,
+                cursoNome: 'Não informado',
+                role: perfil.role,
+              );
+              final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => ModifyUserApp(usuario: usuario)));
+              if (result == true) {
+                setState(() {
+                  _perfilUsuarioFuture = _loadUserData();
+                });
+              }
+            },
+          ),
+          const Divider(indent: 16, endIndent: 16),
+          ListTile(
+            leading:
+                Icon(Icons.school_outlined, color: theme.colorScheme.primary),
+            title: const Text('Curso'),
+            subtitle: Text(
+              perfil.cursoId != '0' && perfil.cursoId.isNotEmpty
+                  ? 'Curso ID: ${perfil.cursoId}'
+                  : 'Não informado',
             ),
-            const Divider(indent: 16, endIndent: 16),
-            ListTile(
-              leading: Icon(Icons.school_outlined, color: theme.colorScheme.primary),
-              title: const Text('Curso'),
-              subtitle: Text(
-                perfil.cursoId != '0' && perfil.cursoId.isNotEmpty
-                    ? 'Curso ID: ${perfil.cursoId}'
-                    : 'Não informado',
-              ),
+          ),
+          const Divider(indent: 16, endIndent: 16),
+          ListTile(
+            leading: Icon(
+              Icons.admin_panel_settings_outlined,
+              color: theme.colorScheme.primary,
             ),
-            const Divider(indent: 16, endIndent: 16),
-            ListTile(
-              leading: Icon(
-                Icons.admin_panel_settings_outlined,
-                color: theme.colorScheme.primary,
-              ),
-              title: const Text('Nível de acesso'),
-              subtitle: Text(
-                perfil.role.isNotEmpty ? perfil.role.toUpperCase() : 'USER',
-              ),
+            title: const Text('Nível de acesso'),
+            subtitle: Text(
+              perfil.role.isNotEmpty ? perfil.role.toUpperCase() : 'USER',
             ),
-            const Divider(indent: 16, endIndent: 16),
-            ListTile(
-              leading: Icon(Icons.logout, color: theme.colorScheme.primary),
-              title: Text(
-                'Sair',
-                style: TextStyle(color: theme.colorScheme.primary),
-              ),
-              onTap: _logout,
+          ),
+          const Divider(indent: 16, endIndent: 16),
+          ListTile(
+            leading: Icon(Icons.logout, color: theme.colorScheme.primary),
+            title: Text(
+              'Sair',
+              style: TextStyle(color: theme.colorScheme.primary),
             ),
-         ],
-       ),
+            onTap: _logout,
+          ),
+        ],
+      ),
     );
   }
 }

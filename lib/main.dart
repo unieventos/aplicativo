@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/home.dart';
-import 'package:flutter_application_1/login.dart';
-import 'package:flutter_application_1/user_service.dart';
+import 'package:flutter_application_1/screens/home.dart';
+import 'package:flutter_application_1/screens/login.dart';
+import 'package:flutter_application_1/services/user_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'config/app_theme.dart';
 
 // Import necessário para a inicialização da formatação de datas.
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 // Torna a função main assíncrona para poder esperar a inicialização.
 void main() async {
@@ -45,7 +46,8 @@ class AuthCheck extends StatefulWidget {
 }
 
 class _AuthCheckState extends State<AuthCheck> {
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage(
+      aOptions: AndroidOptions(encryptedSharedPreferences: true));
 
   Future<void> _clearSession() async {
     await _storage.delete(key: 'token');
@@ -60,22 +62,24 @@ class _AuthCheckState extends State<AuthCheck> {
     final keepLogged =
         keepLoggedRaw != null && keepLoggedRaw.toLowerCase() == 'true';
 
-    if (token == null || token.isEmpty || !keepLogged) {
+    if (token == null || token.isEmpty) {
+      return null;
+    }
+
+    // Na web (kIsWeb), um reload reseta o app, então não forçamos logout caso não tenha marcado 'Permanecer conectado'.
+    if (!keepLogged && !kIsWeb) {
       await _clearSession();
       return null;
     }
 
     try {
-      final userId = await UserService.buscarUsuario();
-      if (userId == null) {
-        await _clearSession();
-        return null;
-      }
-      return token;
+      await UserService.buscarUsuario();
     } catch (_) {
-      await _clearSession();
-      return null;
+      // Falha ao conectar com o servidor (ex: sem internet).
+      // Não limpa o token ativo para permitir acesso offline/conectividade posterior.
     }
+
+    return token;
   }
 
   @override

@@ -15,7 +15,11 @@ class UserProfile {
       nome: map['nome']?.toString() ?? '',
       sobrenome: map['sobrenome']?.toString() ?? '',
       email: map['email']?.toString() ?? '',
-      login: map['login']?.toString() ?? map['username']?.toString() ?? map['user']?['login']?.toString() ?? map['usuario']?['login']?.toString() ?? '',
+      login: map['login']?.toString() ??
+          map['username']?.toString() ??
+          map['user']?['login']?.toString() ??
+          map['usuario']?['login']?.toString() ??
+          '',
       cursoId: map['cursoId']?.toString() ?? '',
       role: map['role']?.toString() ?? 'user',
     );

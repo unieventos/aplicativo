@@ -23,8 +23,12 @@ class Usuario {
     this.active = true,
   });
 
-  String get displayName => nome.isNotEmpty ? '$nome $sobrenome'.trim() : (login.isNotEmpty ? login : 'Usuário');
-  String get initials => nome.isNotEmpty ? nome[0].toUpperCase() : (login.isNotEmpty ? login[0].toUpperCase() : 'U');
+  String get displayName => nome.isNotEmpty
+      ? '$nome $sobrenome'.trim()
+      : (login.isNotEmpty ? login : 'Usuário');
+  String get initials => nome.isNotEmpty
+      ? nome[0].toUpperCase()
+      : (login.isNotEmpty ? login[0].toUpperCase() : 'U');
   String get cursoDisplay => cursoNome.isNotEmpty ? cursoNome : 'Não informado';
   String get curso => cursoNome;
 
@@ -35,7 +39,11 @@ class Usuario {
       nome: json['nome'] ?? '',
       sobrenome: json['sobrenome'] ?? '',
       email: json['email'] ?? '',
-      login: json['login'] ?? json['username'] ?? json['user']?['login'] ?? json['usuario']?['login'] ?? '',
+      login: json['login'] ??
+          json['username'] ??
+          json['user']?['login'] ??
+          json['usuario']?['login'] ??
+          '',
       cursoId: json['cursoId'] ?? 0,
       cursoNome: json['cursoNome'] ?? json['curso'] ?? '',
       role: json['role'] ?? '',
@@ -45,24 +53,26 @@ class Usuario {
 
   static bool _parseActive(Map<String, dynamic> json) {
     // Tenta diferentes possíveis nomes do campo
-    final activeValue = json['active'] ?? 
-                        json['is_active'] ?? 
-                        json['isActive'] ?? 
-                        json['ativo'];
-    
+    final activeValue = json['active'] ??
+        json['is_active'] ??
+        json['isActive'] ??
+        json['ativo'];
+
     // Debug: log para verificar o que está vindo
     if (activeValue == null) {
-      print('[Usuario] Campo active não encontrado no JSON. Chaves disponíveis: ${json.keys.toList()}');
+      print(
+          '[Usuario] Campo active não encontrado no JSON. Chaves disponíveis: ${json.keys.toList()}');
       // Se não vier o campo, assume que está ativo por padrão
       return true;
     }
-    
-    print('[Usuario] Campo active encontrado: $activeValue (tipo: ${activeValue.runtimeType})');
-    
+
+    print(
+        '[Usuario] Campo active encontrado: $activeValue (tipo: ${activeValue.runtimeType})');
+
     if (activeValue is bool) {
       return activeValue;
     }
-    
+
     // Se for string, verifica se é 'false' ou '0'
     final activeStr = activeValue.toString().toLowerCase();
     final result = activeStr != 'false' && activeStr != '0';

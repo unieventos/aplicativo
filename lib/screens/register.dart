@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/api_service.dart';
+import 'package:flutter_application_1/services/api_service.dart';
 import 'package:flutter_application_1/models/course_option.dart';
-import 'package:flutter_application_1/models/curso.dart';// --- TELA DE CADASTRO DE USUÁRIO FINALIZADA ---
+import 'package:flutter_application_1/models/curso.dart'; // --- TELA DE CADASTRO DE USUÁRIO FINALIZADA ---
+
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key, this.role});
 
@@ -26,6 +27,7 @@ class _SectionTitle extends StatelessWidget {
     );
   }
 }
+
 class _RegisterScreenState extends State<RegisterScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
@@ -35,7 +37,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _roleController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _senhaController = TextEditingController();
-  final TextEditingController _confirmarSenhaController = TextEditingController();
+  final TextEditingController _confirmarSenhaController =
+      TextEditingController();
 
   List<CourseOption> _cursos = const [];
   bool _isLoadingCursos = true;
@@ -151,7 +154,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(conectado ? 'Conectado com sucesso!' : 'Falha na conexão'),
+            content:
+                Text(conectado ? 'Conectado com sucesso!' : 'Falha na conexão'),
           ),
         );
       }
@@ -190,29 +194,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool isSmallScreen = constraints.maxWidth < 453;
-        
+
         return DropdownButtonFormField<String>(
           value: _cursoSelecionadoId,
           decoration: InputDecoration(
             labelText: 'Curso',
-            prefixIcon: isSmallScreen ? null : const Icon(Icons.school_outlined),
+            prefixIcon:
+                isSmallScreen ? null : const Icon(Icons.school_outlined),
             contentPadding: isSmallScreen
                 ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
                 : const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           ),
           isExpanded: true,
-          items: _cursos.map(
-            (curso) => DropdownMenuItem(value: curso.id, child: Text(curso.nome)),
-          ).toList(),
+          items: _cursos
+              .map(
+                (curso) =>
+                    DropdownMenuItem(value: curso.id, child: Text(curso.nome)),
+              )
+              .toList(),
           selectedItemBuilder: (context) {
             return _cursos.map((curso) {
               return Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  _cursos.firstWhere(
-                    (c) => c.id == _cursoSelecionadoId,
-                    orElse: () => _cursos.isNotEmpty ? _cursos.first : curso,
-                  ).nome,
+                  _cursos
+                      .firstWhere(
+                        (c) => c.id == _cursoSelecionadoId,
+                        orElse: () =>
+                            _cursos.isNotEmpty ? _cursos.first : curso,
+                      )
+                      .nome,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: Colors.black87),
                 ),
@@ -239,12 +250,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
         prefixIcon: Icon(Icons.admin_panel_settings_outlined),
       ),
       isExpanded: true,
-      items: _rolesDisponiveis.map(
-        (role) => DropdownMenuItem(
-          value: role['value'],
-          child: Text(role['label']!),
-        ),
-      ).toList(),
+      items: _rolesDisponiveis
+          .map(
+            (role) => DropdownMenuItem(
+              value: role['value'],
+              child: Text(role['label']!),
+            ),
+          )
+          .toList(),
       onChanged: (value) {
         if (value != null) {
           setState(() {
@@ -285,22 +298,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
               TextFormField(
                 controller: _nomeController,
                 textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: "Nome", prefixIcon: Icon(Icons.person_outline)),
+                decoration: const InputDecoration(
+                    labelText: "Nome", prefixIcon: Icon(Icons.person_outline)),
                 validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _sobrenomeController,
                 textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: "Sobrenome", prefixIcon: Icon(Icons.person_2_outlined)),
+                decoration: const InputDecoration(
+                    labelText: "Sobrenome",
+                    prefixIcon: Icon(Icons.person_2_outlined)),
                 validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: "E-mail", prefixIcon: Icon(Icons.alternate_email)),
-                validator: (v) => (v!.isEmpty || !v.contains('@')) ? 'Email inválido' : null,
+                decoration: const InputDecoration(
+                    labelText: "E-mail",
+                    prefixIcon: Icon(Icons.alternate_email)),
+                validator: (v) =>
+                    (v!.isEmpty || !v.contains('@')) ? 'Email inválido' : null,
               ),
               const SizedBox(height: 16),
               _buildCursoDropdown(),
@@ -336,9 +355,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscureSenha ? Icons.visibility_off : Icons.visibility,
+                              _obscureSenha
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
                             ),
-                            onPressed: () => setState(() => _obscureSenha = !_obscureSenha),
+                            onPressed: () =>
+                                setState(() => _obscureSenha = !_obscureSenha),
                           ),
                         ),
                         validator: (value) {
@@ -360,9 +382,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           prefixIcon: const Icon(Icons.lock_reset_outlined),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscureConfirmarSenha ? Icons.visibility_off : Icons.visibility,
+                              _obscureConfirmarSenha
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
                             ),
-                            onPressed: () => setState(() => _obscureConfirmarSenha = !_obscureConfirmarSenha),
+                            onPressed: () => setState(() =>
+                                _obscureConfirmarSenha =
+                                    !_obscureConfirmarSenha),
                           ),
                         ),
                         validator: (value) {
@@ -400,5 +426,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
     );
   }
-
 }

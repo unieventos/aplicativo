@@ -25,7 +25,8 @@ class ManagedUser {
 
     if (cursoRaw is Map<String, dynamic>) {
       final rawId = cursoRaw['id'] ?? cursoRaw['cursoId'];
-      final rawNome = cursoRaw['nome'] ?? cursoRaw['nomeCurso'] ?? cursoRaw['descricao'];
+      final rawNome =
+          cursoRaw['nome'] ?? cursoRaw['nomeCurso'] ?? cursoRaw['descricao'];
       if (rawId != null && cursoId.isEmpty) cursoId = rawId.toString();
       if (rawNome != null) cursoNome = rawNome.toString();
     } else if (cursoRaw != null) {
@@ -50,7 +51,12 @@ class ManagedUser {
       nome: (json['nome'] ?? '').toString(),
       sobrenome: (json['sobrenome'] ?? '').toString(),
       email: (json['email'] ?? '').toString(),
-      login: (json['login'] ?? json['username'] ?? json['user']?['login'] ?? json['usuario']?['login'] ?? '').toString(),
+      login: (json['login'] ??
+              json['username'] ??
+              json['user']?['login'] ??
+              json['usuario']?['login'] ??
+              '')
+          .toString(),
       cursoId: cursoId,
       cursoNome: cursoNome,
       role: roleValue,
@@ -60,25 +66,27 @@ class ManagedUser {
 
   static bool _parseActive(Map<String, dynamic> json) {
     // Tenta diferentes possíveis nomes do campo
-    final activeValue = json['active'] ?? 
-                        json['is_active'] ?? 
-                        json['isActive'] ?? 
-                        json['ativo'];
-    
+    final activeValue = json['active'] ??
+        json['is_active'] ??
+        json['isActive'] ??
+        json['ativo'];
+
     // Debug: log para verificar o que está vindo
     if (activeValue == null) {
-      print('[ManagedUser] Campo active não encontrado no JSON. Chaves disponíveis: ${json.keys.toList()}');
+      print(
+          '[ManagedUser] Campo active não encontrado no JSON. Chaves disponíveis: ${json.keys.toList()}');
       // Se não vier o campo, assume que está ativo por padrão
       // Mas vamos verificar se há algum campo que indique inativo
       return true;
     }
-    
-    print('[ManagedUser] Campo active encontrado: $activeValue (tipo: ${activeValue.runtimeType})');
-    
+
+    print(
+        '[ManagedUser] Campo active encontrado: $activeValue (tipo: ${activeValue.runtimeType})');
+
     if (activeValue is bool) {
       return activeValue;
     }
-    
+
     // Se for string, verifica se é 'false' ou '0'
     final activeStr = activeValue.toString().toLowerCase();
     final result = activeStr != 'false' && activeStr != '0';
@@ -121,8 +129,9 @@ class ManagedUser {
   String get displayName =>
       [nome, sobrenome].where((chunk) => chunk.trim().isNotEmpty).join(' ');
 
-  String get cursoDisplay =>
-      cursoNome.isNotEmpty ? cursoNome : (cursoId.isNotEmpty ? 'ID $cursoId' : '');
+  String get cursoDisplay => cursoNome.isNotEmpty
+      ? cursoNome
+      : (cursoId.isNotEmpty ? 'ID $cursoId' : '');
 
   String get initials {
     final chunks = [nome, sobrenome]

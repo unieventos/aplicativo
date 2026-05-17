@@ -1,10 +1,11 @@
 import 'package:flutter_application_1/models/course_option.dart';
 import 'package:flutter_application_1/models/managed_user.dart';
-import 'package:flutter_application_1/user_service.dart';
+import 'package:flutter_application_1/services/user_service.dart';
 
 class UsuarioApi {
   static Future<List<ManagedUser>> fetchUsuarios(
-      int page, int pageSize, String search, {bool? apenasAtivos}) async {
+      int page, int pageSize, String search,
+      {bool? apenasAtivos}) async {
     return UserService.listarUsuarios(
       page: page,
       size: pageSize,

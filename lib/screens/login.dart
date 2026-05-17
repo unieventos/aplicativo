@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import 'package:flutter_application_1/auth_service.dart';
-import 'package:flutter_application_1/home.dart';
-import 'package:flutter_application_1/user_service.dart';
+import 'package:flutter_application_1/services/auth_service.dart';
+import 'package:flutter_application_1/screens/home.dart';
+import 'package:flutter_application_1/services/user_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,7 +16,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _senhaController = TextEditingController();
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage(
+      aOptions: AndroidOptions(encryptedSharedPreferences: true));
 
   bool _permanecerLogado = false;
   bool _isLoading = false;
@@ -45,8 +46,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (token != null && mounted) {
         await _storage.write(key: 'token', value: token);
-        await _storage.write(key: 'login', value: _emailController.text.trim()); // Salva o login digitado
-        await _storage.write(key: 'permanecerLogado', value: _permanecerLogado.toString());
+        await _storage.write(
+            key: 'login',
+            value: _emailController.text.trim()); // Salva o login digitado
+        await _storage.write(
+            key: 'permanecerLogado', value: _permanecerLogado.toString());
         // O role será definido pelo UserService.buscarUsuario() após login
 
         await UserService.buscarUsuario();
@@ -109,7 +113,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 const SizedBox(height: 8),
                                 Text(
                                   'Use suas credenciais institucionais para acessar a plataforma.',
-                                  style: Theme.of(context).textTheme.bodyMedium
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
                                       ?.copyWith(color: Colors.grey[600]),
                                 ),
                                 const SizedBox(height: 24),
@@ -123,33 +129,32 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                   validator: (value) =>
                                       (value == null || value.isEmpty)
-                                      ? 'Campo obrigatório'
-                                      : null,
+                                          ? 'Campo obrigatório'
+                                          : null,
                                 ),
                                 const SizedBox(height: 16),
                                 TextFormField(
                                   controller: _senhaController,
                                   obscureText: _obscureText,
-                                  decoration:
-                                      _buildInputDecoration(
-                                        label: 'Senha',
-                                        icon: Icons.lock_outline,
-                                      ).copyWith(
-                                        suffixIcon: IconButton(
-                                          icon: Icon(
-                                            _obscureText
-                                                ? Icons.visibility_off
-                                                : Icons.visibility,
-                                          ),
-                                          onPressed: () => setState(
-                                            () => _obscureText = !_obscureText,
-                                          ),
-                                        ),
+                                  decoration: _buildInputDecoration(
+                                    label: 'Senha',
+                                    icon: Icons.lock_outline,
+                                  ).copyWith(
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscureText
+                                            ? Icons.visibility_off
+                                            : Icons.visibility,
                                       ),
+                                      onPressed: () => setState(
+                                        () => _obscureText = !_obscureText,
+                                      ),
+                                    ),
+                                  ),
                                   validator: (value) =>
                                       (value == null || value.isEmpty)
-                                      ? 'Campo obrigatório'
-                                      : null,
+                                          ? 'Campo obrigatório'
+                                          : null,
                                 ),
                                 const SizedBox(height: 12),
                                 CheckboxListTile(
@@ -173,8 +178,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                             strokeWidth: 2.5,
                                             valueColor:
                                                 AlwaysStoppedAnimation<Color>(
-                                                  Colors.white,
-                                                ),
+                                              Colors.white,
+                                            ),
                                           ),
                                         )
                                       : const Text('Entrar'),
@@ -236,9 +241,9 @@ class _LoginHeader extends StatelessWidget {
           Text(
             'Eventos UNISAGRADO',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
           ),
           const SizedBox(height: 8),
           Text(

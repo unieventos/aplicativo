@@ -40,28 +40,34 @@ class Evento {
   /// Constrói um Evento a partir de um JSON de resposta.
   factory Evento.fromJson(Map<String, dynamic> json) {
     // Mapeia os campos da API conforme a documentação
-    final dynamic dataRaw = json['data'] ?? json['dataInicio'] ?? json['dateInicio'];
-    final dynamic inicioRaw = json['inicio'] ?? json['dataInicio'] ?? json['dateInicio'];
+    final dynamic dataRaw =
+        json['data'] ?? json['dataInicio'] ?? json['dateInicio'];
+    final dynamic inicioRaw =
+        json['inicio'] ?? json['dataInicio'] ?? json['dateInicio'];
     final dynamic fimRaw = json['fim'] ?? json['dataFim'] ?? json['dateFim'];
-    
+
     // Conta participantes da lista usuariosPermissao
     final usuariosPermissao = json['usuariosPermissao'];
-    final int participantesCount = usuariosPermissao is List ? usuariosPermissao.length : 0;
-    
+    final int participantesCount =
+        usuariosPermissao is List ? usuariosPermissao.length : 0;
+
     // Extrai categoria se existir (pode vir como objeto ou string)
     String categoriaNome = '';
     final categoriaRaw = json['eventoCategoria'];
     if (categoriaRaw is List && categoriaRaw.isNotEmpty) {
       final primeiraCategoria = categoriaRaw.first;
       if (primeiraCategoria is Map<String, dynamic>) {
-        categoriaNome = primeiraCategoria['nomeCategoria'] ?? primeiraCategoria['nome'] ?? '';
+        categoriaNome = primeiraCategoria['nomeCategoria'] ??
+            primeiraCategoria['nome'] ??
+            '';
       }
     } else if (categoriaRaw is String) {
       categoriaNome = categoriaRaw;
     } else if (categoriaRaw is Map<String, dynamic>) {
-      categoriaNome = categoriaRaw['nomeCategoria'] ?? categoriaRaw['nome'] ?? '';
+      categoriaNome =
+          categoriaRaw['nomeCategoria'] ?? categoriaRaw['nome'] ?? '';
     }
-    
+
     // Extrai o curso de dentro do array usuariosPermissao (primeiro que tiver)
     String cursoNomeExtraido = 'Curso não informado';
     if (usuariosPermissao is List) {
@@ -82,23 +88,38 @@ class Evento {
     return Evento(
       id: json['id'] ?? '',
       // API retorna 'nomeEvento', não 'titulo' ou 'nome'
-      titulo: json['nomeEvento'] ?? json['titulo'] ?? json['nome'] ?? 'Título não informado',
+      titulo: json['nomeEvento'] ??
+          json['titulo'] ??
+          json['nome'] ??
+          'Título não informado',
       descricao: json['descricao'] ?? json['description'] ?? '',
       // API retorna 'usuarioCriador'
-      autor: json['usuarioCriador'] ?? json['autor'] ?? json['criador'] ?? 'Autor desconhecido',
-      criador: json['usuarioCriador'] ?? json['criador'] ?? json['autor'] ?? 'Criador desconhecido',
+      autor: json['usuarioCriador'] ??
+          json['autor'] ??
+          json['criador'] ??
+          'Autor desconhecido',
+      criador: json['usuarioCriador'] ??
+          json['criador'] ??
+          json['autor'] ??
+          'Criador desconhecido',
       cursoAutor: json['cursoAutor'] ?? json['curso'] ?? cursoNomeExtraido,
       autorAvatarUrl: json['autorAvatarUrl'] ?? json['avatarUrl'] ?? '',
       imagemUrl: json['imagemUrl'] ?? json['imagem'] ?? '',
       imagemBytes: null,
-      data: dataRaw is String ? (DateTime.tryParse(dataRaw) ?? DateTime.now()) : DateTime.now(),
-      inicio: inicioRaw is String ? (DateTime.tryParse(inicioRaw) ?? DateTime.now()) : DateTime.now(),
-      fim: fimRaw is String ? (DateTime.tryParse(fimRaw) ?? DateTime.now()) : DateTime.now(),
-      categoria: categoriaNome.isNotEmpty 
-          ? categoriaNome 
+      data: dataRaw is String
+          ? (DateTime.tryParse(dataRaw) ?? DateTime.now())
+          : DateTime.now(),
+      inicio: inicioRaw is String
+          ? (DateTime.tryParse(inicioRaw) ?? DateTime.now())
+          : DateTime.now(),
+      fim: fimRaw is String
+          ? (DateTime.tryParse(fimRaw) ?? DateTime.now())
+          : DateTime.now(),
+      categoria: categoriaNome.isNotEmpty
+          ? categoriaNome
           : (json['categoria'] ?? json['category'] ?? ''),
-      participantes: participantesCount > 0 
-          ? participantesCount 
+      participantes: participantesCount > 0
+          ? participantesCount
           : (json['participantes'] ?? json['participants'] ?? 0),
     );
   }

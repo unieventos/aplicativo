@@ -15,8 +15,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_application_1/config/api_config.dart';
 import 'package:flutter_application_1/utils/web_checks.dart';
-import 'package:flutter_application_1/user_service.dart';
-import 'utils/file_downloader.dart';
+import 'package:flutter_application_1/services/user_service.dart';
+import 'package:flutter_application_1/utils/file_downloader.dart';
 
 // Modelos centralizados
 import 'package:flutter_application_1/models/usuario.dart';
@@ -40,7 +40,8 @@ class Categoria {
 /// Operações de API relacionadas a Usuários.
 class UsuarioApi {
   static final String _baseUrl = ApiConfig.usuarios();
-  static final _storage = FlutterSecureStorage();
+  static final _storage = FlutterSecureStorage(
+      aOptions: AndroidOptions(encryptedSharedPreferences: true));
 
   /// GET /usuarios — Retorna lista paginada de usuários.
   /// - page: índice da página (0-based)
@@ -337,7 +338,8 @@ class UsuarioApi {
 /// Operações de API relacionadas a Eventos.
 class EventosApi {
   static final String _baseUrl = ApiConfig.eventos();
-  static final _storage = FlutterSecureStorage();
+  static final _storage = FlutterSecureStorage(
+      aOptions: AndroidOptions(encryptedSharedPreferences: true));
 
   /// GET /eventos — Retorna lista paginada de eventos.
   /// Parâmetros de busca podem variar no backend (ex.: name, titulo, etc.).
@@ -435,20 +437,19 @@ class EventosApi {
   }
 
   /// POST /eventos?action=relatorio — Retorna um PDF com base na requisição de filtro (IDS ou outro).
-  static Future<void> gerarRelatorio(String filterType, Map<String, dynamic> params) async {
+  static Future<void> gerarRelatorio(
+      String filterType, Map<String, dynamic> params) async {
     final token = await _storage.read(key: 'token');
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
-      throw Exception('Mixed content bloqueado no navegador: app https x API http.');
+      throw Exception(
+          'Mixed content bloqueado no navegador: app https x API http.');
     }
 
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final url = Uri.parse('$_baseUrl?action=relatorio&_t=$timestamp');
 
-    final payload = {
-      "filterType": filterType,
-      "params": params
-    };
+    final payload = {"filterType": filterType, "params": params};
 
     final headers = <String, String>{
       'Content-Type': 'application/json',
@@ -471,20 +472,20 @@ class EventosApi {
 
   /// POST /eventos/search — Retorna lista paginada de eventos buscando por filtro do Spring.
   static Future<List<Evento>> searchEventos(
-      String filterType, Map<String, dynamic> params, int page, int pageSize, {String search = ''}) async {
+      String filterType, Map<String, dynamic> params, int page, int pageSize,
+      {String search = ''}) async {
     final token = await _storage.read(key: 'token');
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
-      throw Exception('Mixed content bloqueado no navegador: app https x API http.');
+      throw Exception(
+          'Mixed content bloqueado no navegador: app https x API http.');
     }
 
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final url = Uri.parse('$_baseUrl/search?page=$page&size=$pageSize&sortBy=dateInicio&name=$search&_t=$timestamp');
+    final url = Uri.parse(
+        '$_baseUrl/search?page=$page&size=$pageSize&sortBy=dateInicio&name=$search&_t=$timestamp');
 
-    final payload = {
-      "filterType": filterType,
-      "params": params
-    };
+    final payload = {"filterType": filterType, "params": params};
 
     final headers = <String, String>{
       'Content-Type': 'application/json',
@@ -500,8 +501,10 @@ class EventosApi {
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       final data = json.decode(utf8.decode(response.bodyBytes));
-      final List<dynamic> list = data['_embedded']?['eventoResourceV1List'] ?? [];
-      final eventos = list.map((item) => Evento.fromJson(item['evento'])).toList();
+      final List<dynamic> list =
+          data['_embedded']?['eventoResourceV1List'] ?? [];
+      final eventos =
+          list.map((item) => Evento.fromJson(item['evento'])).toList();
 
       if (token != null && token.isNotEmpty && eventos.isNotEmpty) {
         await _enriquecerNomesCriadores(eventos);
@@ -520,16 +523,19 @@ class EventosApi {
         if (evento.id.isNotEmpty) {
           Uint8List? fetchedBytes;
           try {
-            final urlFoto = Uri.parse('$baseUrlEventos/${evento.id}/fotos/download');
+            final urlFoto =
+                Uri.parse('$baseUrlEventos/${evento.id}/fotos/download');
             final responseFoto = await http
                 .get(urlFoto, headers: headersAuth)
                 .timeout(const Duration(seconds: 10));
 
-            if (responseFoto.statusCode == 200 && responseFoto.bodyBytes.isNotEmpty) {
+            if (responseFoto.statusCode == 200 &&
+                responseFoto.bodyBytes.isNotEmpty) {
               fetchedBytes = responseFoto.bodyBytes;
             }
           } catch (e) {
-            print('[EventosApi] Erro ao buscar foto para evento (search) ${evento.id}: $e');
+            print(
+                '[EventosApi] Erro ao buscar foto para evento (search) ${evento.id}: $e');
           }
 
           eventos[index] = Evento(
@@ -633,7 +639,7 @@ class EventosApi {
   // POST /eventos - Cadastra um novo evento via Multipart (dados + foto)
   static Future<Map<String, dynamic>> criarEvento(
       Map<String, dynamic> dadosEvento,
-      [dynamic imagem]) async {
+      [dynamic imagemOuImagens]) async {
     final token = await _storage.read(key: 'token');
     if (token == null)
       return {'success': false, 'error': 'Token não encontrado.'};
@@ -649,21 +655,29 @@ class EventosApi {
         contentType: MediaType('application', 'json'),
       ));
 
-      // Parte 2: Arquivo da foto
-      if (imagem != null) {
-        if (kIsWeb && imagem is XFile) {
-          final bytes = await imagem.readAsBytes();
-          request.files.add(http.MultipartFile.fromBytes('fotos', bytes,
-              filename: imagem.name,
-              contentType: _mimeTypeForPath(imagem.name)));
-        } else if (imagem is File) {
-          request.files.add(await http.MultipartFile.fromPath(
-              'fotos', imagem.path,
-              contentType: _mimeTypeForPath(imagem.path)));
-        } else if (imagem is XFile) {
-          request.files.add(await http.MultipartFile.fromPath(
-              'fotos', imagem.path,
-              contentType: _mimeTypeForPath(imagem.name)));
+      // Parte 2: Arquivo(s) da foto
+      if (imagemOuImagens != null) {
+        List<dynamic> imagens;
+        if (imagemOuImagens is List) {
+          imagens = imagemOuImagens;
+        } else {
+          imagens = [imagemOuImagens];
+        }
+        for (var imagem in imagens) {
+          if (kIsWeb && imagem is XFile) {
+            final bytes = await imagem.readAsBytes();
+            request.files.add(http.MultipartFile.fromBytes('fotos', bytes,
+                filename: imagem.name,
+                contentType: _mimeTypeForPath(imagem.name)));
+          } else if (imagem is File) {
+            request.files.add(await http.MultipartFile.fromPath(
+                'fotos', imagem.path,
+                contentType: _mimeTypeForPath(imagem.path)));
+          } else if (imagem is XFile) {
+            request.files.add(await http.MultipartFile.fromPath(
+                'fotos', imagem.path,
+                contentType: _mimeTypeForPath(imagem.name)));
+          }
         }
       }
 
@@ -864,8 +878,6 @@ class EventosApi {
     }
   }
 
-
-
   // Extrai mensagem de erro do body da resposta
   static String? _extractMessage(dynamic data) {
     if (data == null) return null;
@@ -886,7 +898,8 @@ class EventosApi {
 /// Operações de API relacionadas a Categorias.
 class CategoriaApi {
   static final String _baseUrl = ApiConfig.categorias();
-  static final _storage = FlutterSecureStorage();
+  static final _storage = FlutterSecureStorage(
+      aOptions: AndroidOptions(encryptedSharedPreferences: true));
 
   // GET /categorias - Busca lista de categorias
   static Future<List<Categoria>> fetchCategorias() async {
@@ -915,4 +928,3 @@ class CategoriaApi {
     }
   }
 }
-
