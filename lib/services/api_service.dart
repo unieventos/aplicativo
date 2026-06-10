@@ -466,6 +466,10 @@ class EventosApi {
   static Future<void> gerarRelatorio(
       String filterType, Map<String, dynamic> params) async {
     final token = await _storage.read(key: 'token');
+    if (token == null || token.isEmpty) {
+      print('[EventosApi] Erro: Token não encontrado ao tentar gerar relatório.');
+      throw Exception('Sessão expirada ou token não encontrado. Por favor, faça login novamente.');
+    }
 
     if (WebChecks.isMixedContent(ApiConfig.base)) {
       throw Exception(
@@ -480,18 +484,27 @@ class EventosApi {
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'application/pdf',
+      'Authorization': 'Bearer $token',
     };
-    if (token != null && token.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $token';
-    }
+
+    print('[EventosApi] Enviando requisição de relatório...');
+    print('[EventosApi] URL: $url');
+    print('[EventosApi] Payload: ${jsonEncode(payload)}');
+    print('[EventosApi] Token presente: ${token.length > 20 ? "Sim (válido)" : "Curto demais"}');
 
     final response = await http
         .post(url, headers: headers, body: jsonEncode(payload))
-        .timeout(const Duration(seconds: 30));
+        .timeout(const Duration(seconds: 45));
+
+    print('[EventosApi] Resposta do relatório: ${response.statusCode}');
 
     if (response.statusCode == 200 || response.statusCode == 201) {
+      if (response.bodyBytes.isEmpty) {
+        throw Exception('O servidor retornou um PDF vazio.');
+      }
       downloadPdf(response.bodyBytes, 'relatorio_eventos.pdf');
     } else {
+      print('[EventosApi] Erro detalhado: ${response.body}');
       throw Exception('Falha ao gerar relatório: ${response.statusCode}');
     }
   }

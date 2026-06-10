@@ -160,21 +160,39 @@ class _EditEventState extends State<EditEvent> {
         maxHeight: 1024,
         imageQuality: 80,
       );
+
       if (imagens.isNotEmpty) {
-        if (kIsWeb) {
-          final List<Uint8List> bytesList = [];
-          for (var img in imagens) {
-            bytesList.add(await img.readAsBytes());
+        final List<XFile> apenasPng = imagens.where((img) {
+          return img.name.toLowerCase().endsWith('.png');
+        }).toList();
+
+        if (apenasPng.length < imagens.length) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Apenas fotos em formato .png são aceitas.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
           }
-          setState(() {
-            _imagensSelecionadas.addAll(imagens);
-            _imagensBytes.addAll(bytesList);
-          });
-        } else {
-          setState(() {
-            _imagensSelecionadas.addAll(imagens);
-            _imagensBytes.addAll(List.filled(imagens.length, Uint8List(0)));
-          });
+        }
+
+        if (apenasPng.isNotEmpty) {
+          if (kIsWeb) {
+            final List<Uint8List> bytesList = [];
+            for (var img in apenasPng) {
+              bytesList.add(await img.readAsBytes());
+            }
+            setState(() {
+              _imagensSelecionadas.addAll(apenasPng);
+              _imagensBytes.addAll(bytesList);
+            });
+          } else {
+            setState(() {
+              _imagensSelecionadas.addAll(apenasPng);
+              _imagensBytes.addAll(List.filled(apenasPng.length, Uint8List(0)));
+            });
+          }
         }
       }
     } catch (e) {
