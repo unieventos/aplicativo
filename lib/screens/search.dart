@@ -8,6 +8,9 @@ import 'package:flutter_application_1/models/evento.dart'; // Modelo Evento cent
 import 'package:flutter_application_1/models/course_option.dart';
 import 'package:flutter_application_1/services/api_service.dart'; // Para a classe EventosApi e UsuarioApi
 import 'package:flutter_application_1/widgets/event_card.dart';
+import 'package:flutter_application_1/widgets/branded_header.dart';
+import 'package:flutter_application_1/widgets/state_views.dart';
+import 'package:flutter_application_1/config/app_theme.dart';
 
 // --- TELA DE BUSCA DE EVENTOS FINALIZADA E CONECTADA À API ---
 class SearchPage extends StatefulWidget {
@@ -195,68 +198,81 @@ class _SearchPageState extends State<SearchPage> {
     super.dispose();
   }
 
+  Widget _buildSearchField() {
+    return TextField(
+      controller: _searchController,
+      textInputAction: TextInputAction.search,
+      style: const TextStyle(color: AppColors.textPrimary),
+      decoration: InputDecoration(
+        hintText: 'Digite o nome do evento ou categoria',
+        hintStyle: const TextStyle(color: Colors.white70),
+        prefixIcon: const Icon(Icons.search, color: Colors.white70),
+        suffixIcon: _searchController.text.isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'Limpar busca',
+                icon: const Icon(Icons.close, color: Colors.white70),
+                onPressed: () {
+                  _searchController.clear();
+                  _pagingController.refresh();
+                },
+              ),
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.15),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: const BorderSide(color: Colors.white54, width: 1.2),
+        ),
+      ),
+      onSubmitted: (_) => _pagingController.refresh(),
+    );
+  }
+
+  Widget _buildFilterAction() {
+    final hasFilter = _hasActiveFilter();
+    return IconButton(
+      icon: Stack(
+        children: [
+          const Icon(Icons.filter_list, color: AppColors.onPrimary),
+          if (hasFilter)
+            Positioned(
+              right: 0,
+              top: 0,
+              child: Container(
+                padding: const EdgeInsets.all(1),
+                decoration: BoxDecoration(
+                  color: AppColors.error,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                constraints: const BoxConstraints(
+                  minWidth: 10,
+                  minHeight: 10,
+                ),
+              ),
+            ),
+        ],
+      ),
+      onPressed: () => _showFilterBottomSheet(context),
+      tooltip: 'Filtros',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Buscar eventos'),
-        actions: [
-          IconButton(
-            icon: Stack(
-              children: [
-                const Icon(Icons.filter_list),
-                if ((_activeFilterType == 'PERIOD' &&
-                        _selectedDateFilter != 'Todas as datas') ||
-                    (_activeFilterType == 'COURSE' &&
-                        _selectedCourse != null) ||
-                    (_activeFilterType == 'CATEGORY' &&
-                        _selectedCategoria != null))
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(1),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 10,
-                        minHeight: 10,
-                      ),
-                    ),
-                  )
-              ],
-            ),
-            onPressed: () => _showFilterBottomSheet(context),
-            tooltip: 'Filtros',
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(76),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: TextField(
-              controller: _searchController,
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: 'Digite o nome do evento ou categoria',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: 'Limpar busca',
-                        icon: const Icon(Icons.close),
-                        onPressed: () {
-                          _searchController.clear();
-                          _pagingController.refresh();
-                        },
-                      ),
-              ),
-              onSubmitted: (_) => _pagingController.refresh(),
-            ),
-          ),
-        ),
+    return BrandedScaffold(
+      header: BrandedHeader(
+        title: 'Buscar',
+        actions: [_buildFilterAction()],
+        bottom: _buildSearchField(),
       ),
       floatingActionButton: (_pagingController.itemList?.isNotEmpty ?? false)
           ? FloatingActionButton.extended(
@@ -305,12 +321,17 @@ class _SearchPageState extends State<SearchPage> {
                           setState(() => _isGeneratingReport = false);
                       }
                     },
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.onPrimary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+              ),
               icon: _isGeneratingReport
                   ? const SizedBox(
                       width: 24,
                       height: 24,
                       child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2))
+                          color: AppColors.onPrimary, strokeWidth: 2))
                   : const Icon(Icons.picture_as_pdf),
               label: Text(_isGeneratingReport
                   ? 'Gerando...'
@@ -373,9 +394,15 @@ class _SearchPageState extends State<SearchPage> {
               padding: EdgeInsets.all(16.0),
               child: Center(child: CircularProgressIndicator()),
             ),
-            noItemsFoundIndicatorBuilder: (_) => const _SearchEmptyState(),
-            firstPageErrorIndicatorBuilder: (_) =>
-                _SearchErrorState(onRetry: _pagingController.refresh),
+            noItemsFoundIndicatorBuilder: (_) => const EmptyView(
+              icon: Icons.search_off,
+              title: 'Nenhum evento encontrado',
+              subtitle: 'Tente usar outra palavra-chave ou filtros diferentes.',
+            ),
+            firstPageErrorIndicatorBuilder: (_) => ErrorView(
+              message: 'Erro ao carregar eventos',
+              onRetry: _pagingController.refresh,
+            ),
           ),
         ),
       ),
@@ -386,8 +413,9 @@ class _SearchPageState extends State<SearchPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
       builder: (context) {
         return StatefulBuilder(
@@ -395,9 +423,9 @@ class _SearchPageState extends State<SearchPage> {
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom,
-                left: 16,
-                right: 16,
-                top: 24,
+                left: AppSpacing.md,
+                right: AppSpacing.md,
+                top: AppSpacing.lg,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -410,7 +438,7 @@ class _SearchPageState extends State<SearchPage> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.lg),
 
                   // ====== FILTRO DE PERÍODO ======
                   RadioListTile<String>(
@@ -428,7 +456,9 @@ class _SearchPageState extends State<SearchPage> {
                   if (_activeFilterType == 'PERIOD')
                     Padding(
                       padding: const EdgeInsets.only(
-                          left: 16.0, right: 16.0, bottom: 16.0),
+                          left: AppSpacing.md,
+                          right: AppSpacing.md,
+                          bottom: AppSpacing.md),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -473,7 +503,9 @@ class _SearchPageState extends State<SearchPage> {
                   if (_activeFilterType == 'COURSE')
                     Padding(
                       padding: const EdgeInsets.only(
-                          left: 16.0, right: 16.0, bottom: 16.0),
+                          left: AppSpacing.md,
+                          right: AppSpacing.md,
+                          bottom: AppSpacing.md),
                       child: DropdownButtonFormField<CourseOption>(
                         decoration: const InputDecoration(
                           labelText: 'Curso',
@@ -512,7 +544,9 @@ class _SearchPageState extends State<SearchPage> {
                   if (_activeFilterType == 'CATEGORY')
                     Padding(
                       padding: const EdgeInsets.only(
-                          left: 16.0, right: 16.0, bottom: 16.0),
+                          left: AppSpacing.md,
+                          right: AppSpacing.md,
+                          bottom: AppSpacing.md),
                       child: DropdownButtonFormField<Categoria>(
                         decoration: const InputDecoration(
                           labelText: 'Categoria',
@@ -535,7 +569,7 @@ class _SearchPageState extends State<SearchPage> {
                       ),
                     ),
 
-                  const SizedBox(height: 32),
+                  const SizedBox(height: AppSpacing.xl),
                   // Botões
                   Row(
                     children: [
@@ -555,7 +589,7 @@ class _SearchPageState extends State<SearchPage> {
                           child: const Text('Limpar'),
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: AppSpacing.md),
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () {
@@ -568,83 +602,13 @@ class _SearchPageState extends State<SearchPage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: AppSpacing.xl),
                 ],
               ),
             );
           },
         );
       },
-    );
-  }
-}
-
-class _SearchEmptyState extends StatelessWidget {
-  const _SearchEmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(Icons.search_off, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text(
-              'Nenhum evento encontrado',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Tente usar outra palavra-chave ou filtros diferentes.',
-              style: TextStyle(color: Colors.grey),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SearchErrorState extends StatelessWidget {
-  const _SearchErrorState({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.wifi_off, size: 64, color: Colors.redAccent),
-            const SizedBox(height: 16),
-            const Text(
-              'Erro ao carregar eventos',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Verifique sua conexão ou tente novamente em instantes.',
-              style: TextStyle(color: Colors.grey),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Tentar novamente'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
