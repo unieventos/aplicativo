@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/services/api_service.dart';
+import 'package:flutter_application_1/config/app_theme.dart';
 import 'package:flutter_application_1/models/course_option.dart';
-import 'package:flutter_application_1/models/curso.dart'; // --- TELA DE CADASTRO DE USUÁRIO FINALIZADA ---
+import 'package:flutter_application_1/services/api_service.dart';
+import 'package:flutter_application_1/widgets/app_feedback.dart';
+import 'package:flutter_application_1/widgets/branded_header.dart';
+import 'package:flutter_application_1/widgets/section_title.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key, this.role});
@@ -10,22 +13,6 @@ class RegisterScreen extends StatefulWidget {
 
   @override
   _RegisterScreenState createState() => _RegisterScreenState();
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: Theme.of(
-        context,
-      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-    );
-  }
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
@@ -76,9 +63,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Falha ao carregar cursos: $e')),
-      );
+      AppFeedback.error(context, 'Falha ao carregar cursos: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoadingCursos = false);
@@ -102,9 +87,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_cursoSelecionadoId == null || _cursoSelecionadoId!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecione um curso')),
-      );
+      AppFeedback.error(context, 'Selecione um curso');
       return;
     }
 
@@ -125,21 +108,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (mounted) {
         if (sucesso) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Usuário criado com sucesso!')),
-          );
+          AppFeedback.success(context, 'Usuário criado com sucesso!');
           Navigator.of(context).pop(true);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Erro ao criar usuário.')),
-          );
+          AppFeedback.error(context, 'Erro ao criar usuário.');
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro inesperado: $e')),
-        );
+        AppFeedback.error(context, 'Erro inesperado: $e');
       }
     } finally {
       if (mounted) {
@@ -152,18 +129,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     try {
       final conectado = await UsuarioApi.testarConectividade();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text(conectado ? 'Conectado com sucesso!' : 'Falha na conexão'),
-          ),
-        );
+        if (conectado) {
+          AppFeedback.success(context, 'Conectado com sucesso!');
+        } else {
+          AppFeedback.error(context, 'Falha na conexão');
+        }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao testar conectividade: $e')),
-        );
+        AppFeedback.error(context, 'Erro ao testar conectividade: $e');
       }
     }
   }
@@ -173,12 +147,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade200),
-          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: AppColors.border),
+          color: AppColors.surface,
         ),
-        child: Row(
-          children: const [
+        child: const Row(
+          children: [
             SizedBox(
               width: 18,
               height: 18,
@@ -277,19 +251,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Cadastrar usuário'),
+    return BrandedScaffold(
+      header: BrandedHeader(
+        title: 'Criar usuário',
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.onPrimary),
+          onPressed: () => Navigator.maybePop(context),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.wifi_tethering_outlined),
+            icon: const Icon(
+              Icons.wifi_tethering_outlined,
+              color: AppColors.onPrimary,
+            ),
             onPressed: _testarConectividade,
             tooltip: 'Testar conectividade',
           ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Form(
           key: _formKey,
           child: Column(
@@ -302,7 +283,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     labelText: "Nome", prefixIcon: Icon(Icons.person_outline)),
                 validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
               TextFormField(
                 controller: _sobrenomeController,
                 textCapitalization: TextCapitalization.words,
@@ -311,7 +292,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     prefixIcon: Icon(Icons.person_2_outlined)),
                 validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
@@ -321,14 +302,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 validator: (v) =>
                     (v!.isEmpty || !v.contains('@')) ? 'Email inválido' : null,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
               _buildCursoDropdown(),
-              const SizedBox(height: 24),
-              const _SectionTitle('Acesso à plataforma'),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.lg),
+              const SectionTitle('Acesso à plataforma'),
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(20.0),
+                  padding: const EdgeInsets.all(AppSpacing.lg),
                   child: Column(
                     children: [
                       TextFormField(
@@ -344,9 +324,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.md),
                       _buildRoleDropdown(),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.md),
                       TextFormField(
                         controller: _senhaController,
                         obscureText: _obscureSenha,
@@ -373,7 +353,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.md),
                       TextFormField(
                         controller: _confirmarSenhaController,
                         obscureText: _obscureConfirmarSenha,
@@ -405,7 +385,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: AppSpacing.xl),
               ElevatedButton.icon(
                 onPressed: _isLoading ? null : _criarUsuario,
                 icon: _isLoading
