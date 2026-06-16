@@ -5,6 +5,9 @@ import 'package:flutter_application_1/screens/modify_user.dart';
 import 'package:flutter_application_1/models/usuario.dart';
 import 'package:flutter_application_1/services/user_service.dart';
 import 'package:flutter_application_1/models/user_profile.dart';
+import 'package:flutter_application_1/config/app_theme.dart';
+import 'package:flutter_application_1/widgets/branded_header.dart';
+import 'package:flutter_application_1/widgets/state_views.dart';
 
 class PerfilPage extends StatefulWidget {
   const PerfilPage({super.key});
@@ -84,7 +87,7 @@ class _PerfilPageState extends State<PerfilPage> {
 
     if (confirmar == true && mounted) {
       await _storage.deleteAll();
-      // CORREÇÃO: Navega para a LoginScreen e remove todas as outras telas da pilha.
+      // Navega para a LoginScreen e remove todas as outras telas da pilha.
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => LoginScreen()),
         (Route<dynamic> route) => false,
@@ -94,94 +97,122 @@ class _PerfilPageState extends State<PerfilPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Meu perfil'),
-        automaticallyImplyLeading: false,
-        centerTitle: false,
-      ),
-      body: SafeArea(
-        child: FutureBuilder<UserProfile>(
-          future: _perfilUsuarioFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return const Center(child: Text('Erro ao carregar dados.'));
-            }
-            if (!snapshot.hasData) {
-              return const Center(child: Text('Nenhum dado encontrado.'));
-            }
+    return FutureBuilder<UserProfile>(
+      future: _perfilUsuarioFuture,
+      builder: (context, snapshot) {
+        final perfil = snapshot.data;
 
-            final perfil = snapshot.data!;
+        // Avatar/nome/email slot — only shown when data is available
+        Widget? headerBottom;
+        if (perfil != null) {
+          headerBottom = _buildHeaderProfile(perfil);
+        }
 
-            return RefreshIndicator(
-              onRefresh: () async {
-                setState(() {
-                  _perfilUsuarioFuture = _loadUserData();
-                });
-              },
-              child: ListView(
-                padding: const EdgeInsets.all(16.0),
-                children: [
-                  _buildHeader(perfil),
-                  const SizedBox(height: 24),
-                  _buildActionsCard(perfil),
-                ],
-              ),
-            );
-          },
-        ),
+        return BrandedScaffold(
+          header: BrandedHeader(
+            title: 'Meu perfil',
+            bottom: headerBottom,
+          ),
+          body: _buildBody(snapshot, perfil),
+        );
+      },
+    );
+  }
+
+  Widget _buildBody(AsyncSnapshot<UserProfile> snapshot, UserProfile? perfil) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const LoadingView();
+    }
+    if (snapshot.hasError) {
+      return ErrorView(
+        message: 'Erro ao carregar dados.',
+        onRetry: () {
+          setState(() {
+            _perfilUsuarioFuture = _loadUserData();
+          });
+        },
+      );
+    }
+    if (perfil == null) {
+      return const LoadingView();
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        setState(() {
+          _perfilUsuarioFuture = _loadUserData();
+        });
+      },
+      child: ListView(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        children: [
+          const SizedBox(height: AppSpacing.md),
+          _buildActionsCard(perfil),
+        ],
       ),
     );
   }
 
-  Widget _buildHeader(UserProfile perfil) {
-    final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-        child: Column(
-          children: [
-            CircleAvatar(
-              radius: 48,
-              backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-              child: Text(
-                perfil.initials,
-                style: TextStyle(
-                  fontSize: 40,
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+  /// Avatar + nome + email exibidos dentro da faixa branded do BrandedHeader.
+  Widget _buildHeaderProfile(UserProfile perfil) {
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: 30,
+          backgroundColor: Colors.white.withValues(alpha: 0.25),
+          child: Text(
+            perfil.initials,
+            style: const TextStyle(
+              fontSize: 22,
+              color: AppColors.onPrimary,
+              fontWeight: FontWeight.w700,
             ),
-            const SizedBox(height: 16),
-            Text(
-              perfil.fullName.isNotEmpty ? perfil.fullName : 'Usuário',
-              style: theme.textTheme.titleLarge,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              perfil.email.isNotEmpty ? perfil.email : 'email@nao.informado',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                perfil.fullName.isNotEmpty ? perfil.fullName : 'Usuário',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.onPrimary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                perfil.email.isNotEmpty
+                    ? perfil.email
+                    : 'email@nao.informado',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Colors.white70,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildActionsCard(UserProfile perfil) {
-    final theme = Theme.of(context);
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
       child: Column(
         children: [
           ListTile(
-            leading: Icon(Icons.edit_outlined, color: Colors.blue.shade700),
+            leading:
+                const Icon(Icons.edit_outlined, color: AppColors.primary),
             title: const Text("Editar Perfil"),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () async {
@@ -208,8 +239,7 @@ class _PerfilPageState extends State<PerfilPage> {
           ),
           const Divider(indent: 16, endIndent: 16),
           ListTile(
-            leading:
-                Icon(Icons.school_outlined, color: theme.colorScheme.primary),
+            leading: const Icon(Icons.school_outlined, color: AppColors.primary),
             title: const Text('Curso'),
             subtitle: Text(
               perfil.cursoId != '0' && perfil.cursoId.isNotEmpty
@@ -219,9 +249,9 @@ class _PerfilPageState extends State<PerfilPage> {
           ),
           const Divider(indent: 16, endIndent: 16),
           ListTile(
-            leading: Icon(
+            leading: const Icon(
               Icons.admin_panel_settings_outlined,
-              color: theme.colorScheme.primary,
+              color: AppColors.primary,
             ),
             title: const Text('Nível de acesso'),
             subtitle: Text(
@@ -230,10 +260,10 @@ class _PerfilPageState extends State<PerfilPage> {
           ),
           const Divider(indent: 16, endIndent: 16),
           ListTile(
-            leading: Icon(Icons.logout, color: theme.colorScheme.primary),
+            leading: const Icon(Icons.logout, color: AppColors.primary),
             title: Text(
               'Sair',
-              style: TextStyle(color: theme.colorScheme.primary),
+              style: TextStyle(color: Theme.of(context).colorScheme.primary),
             ),
             onTap: _logout,
           ),
