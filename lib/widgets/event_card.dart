@@ -57,9 +57,14 @@ class EventoCard extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: Card(
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: Container(
         margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          boxShadow: AppShadows.card,
+        ),
         clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,6 +74,7 @@ class EventoCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
+                  // Image layer
                   if (hasImageBytes)
                     Image.memory(
                       evento.imagemBytes!,
@@ -79,82 +85,81 @@ class EventoCard extends StatelessWidget {
                       imageUrl: evento.imagemUrl,
                       fit: BoxFit.cover,
                       placeholder: (_, __) =>
-                          Container(color: Colors.grey.shade200),
-                      errorWidget: (_, __, ___) => Container(
-                        color: Colors.grey.shade200,
-                        child: Icon(
-                          Icons.image_not_supported_outlined,
-                          color: Colors.grey.shade500,
-                        ),
-                      ),
+                          Container(color: AppColors.background),
+                      errorWidget: (_, __, ___) => _imagePlaceholder(),
                     )
                   else
-                    Container(
-                      color: Colors.grey.shade200,
-                      child: Icon(
-                        Icons.event_outlined,
-                        size: 56,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
+                    _imagePlaceholder(),
+
+                  // Gradient overlay for text legibility
                   DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
                         colors: [
-                          Colors.black.withOpacity(0.55),
+                          Colors.black.withOpacity(0.65),
+                          Colors.black.withOpacity(0.10),
                           Colors.transparent,
                         ],
+                        stops: const [0.0, 0.45, 1.0],
                       ),
                     ),
                   ),
+
+                  // Bottom row: category badge + date badge
                   Positioned(
-                    left: 20,
-                    right: 20,
-                    bottom: 18,
+                    left: AppSpacing.lg,
+                    right: AppSpacing.lg,
+                    bottom: AppSpacing.md,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         if (hasCategoria)
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 6,
+                              horizontal: AppSpacing.sm,
+                              vertical: AppSpacing.xs / 2,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.9),
-                              borderRadius: BorderRadius.circular(24),
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(AppRadius.xl),
                             ),
                             child: Text(
                               evento.categoria,
                               style: theme.textTheme.labelLarge?.copyWith(
-                                color: Colors.white,
+                                color: AppColors.onPrimary,
                                 letterSpacing: 0.2,
                               ),
                             ),
-                          ),
+                          )
+                        else
+                          const SizedBox.shrink(),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 6,
+                            horizontal: AppSpacing.sm,
+                            vertical: AppSpacing.xs / 2,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.95),
-                            borderRadius: BorderRadius.circular(20),
+                            color: AppColors.surface,
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.xl),
                           ),
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               const Icon(
                                 Icons.calendar_today_outlined,
                                 size: 14,
                                 color: AppColors.textPrimary,
                               ),
-                              const SizedBox(width: 6),
+                              const SizedBox(width: AppSpacing.xs),
                               Text(
                                 _periodo,
                                 style: theme.textTheme.labelMedium?.copyWith(
                                   fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary,
                                 ),
                               ),
                             ],
@@ -163,11 +168,13 @@ class EventoCard extends StatelessWidget {
                       ],
                     ),
                   ),
+
+                  // Edit button (top-right)
                   Positioned(
-                    top: 16,
-                    right: 16,
+                    top: AppSpacing.md,
+                    right: AppSpacing.md,
                     child: CircleAvatar(
-                      backgroundColor: Colors.white.withOpacity(0.9),
+                      backgroundColor: AppColors.surface.withOpacity(0.9),
                       radius: 20,
                       child: IconButton(
                         icon: const Icon(Icons.edit,
@@ -191,14 +198,20 @@ class EventoCard extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.lg,
+                AppSpacing.lg,
+                AppSpacing.lg,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     evento.titulo,
-                    style: theme.textTheme.titleMedium?.copyWith(
+                    style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -245,51 +258,40 @@ class EventoCard extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Card(
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          boxShadow: AppShadows.card,
+        ),
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Row(
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(AppRadius.md),
                 child: hasImageBytes
                     ? Image.memory(
                         evento.imagemBytes!,
-                        width: 64,
-                        height: 64,
+                        width: 72,
+                        height: 72,
                         fit: BoxFit.cover,
                       )
                     : hasImage
                         ? CachedNetworkImage(
                             imageUrl: evento.imagemUrl,
-                            width: 64,
-                            height: 64,
+                            width: 72,
+                            height: 72,
                             fit: BoxFit.cover,
                             placeholder: (_, __) => Container(
-                              width: 64,
-                              height: 64,
-                              color: Colors.grey.shade200,
+                              width: 72,
+                              height: 72,
+                              color: AppColors.background,
                             ),
-                            errorWidget: (_, __, ___) => Container(
-                              width: 64,
-                              height: 64,
-                              color: Colors.grey.shade200,
-                              child: Icon(
-                                Icons.image_not_supported_outlined,
-                                color: Colors.grey.shade500,
-                              ),
-                            ),
+                            errorWidget: (_, __, ___) => _thumbnailPlaceholder(),
                           )
-                        : Container(
-                            width: 64,
-                            height: 64,
-                            color: Colors.grey.shade200,
-                            child: Icon(
-                              Icons.event_outlined,
-                              color: Colors.grey.shade500,
-                            ),
-                          ),
+                        : _thumbnailPlaceholder(),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
@@ -298,38 +300,64 @@ class EventoCard extends StatelessWidget {
                   children: [
                     Text(
                       evento.titulo,
-                      style: theme.textTheme.titleSmall?.copyWith(
+                      style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: AppSpacing.xs),
                     Text(
                       _periodo,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: AppColors.textMuted,
                       ),
                     ),
-                    if (evento.categoria.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          evento.categoria,
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
+                    if (evento.categoria.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        evento.categoria,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: AppColors.primary,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
+                    ],
                   ],
                 ),
               ),
-              const SizedBox(width: AppSpacing.sm),
-              // Participantes e seta removidos conforme solicitado
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// Placeholder shown when no image is available (featured full-area).
+  Widget _imagePlaceholder() {
+    return Container(
+      color: AppColors.background,
+      child: const Center(
+        child: Icon(
+          Icons.image_not_supported_outlined,
+          size: 56,
+          color: AppColors.textMuted,
+        ),
+      ),
+    );
+  }
+
+  /// Placeholder shown when no image is available (list thumbnail).
+  Widget _thumbnailPlaceholder() {
+    return Container(
+      width: 72,
+      height: 72,
+      color: AppColors.background,
+      child: const Icon(
+        Icons.image_not_supported_outlined,
+        color: AppColors.textMuted,
       ),
     );
   }
