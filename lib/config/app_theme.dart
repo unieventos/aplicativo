@@ -28,6 +28,7 @@ class AppTheme {
   static ThemeData light() {
     final base = ThemeData(
       useMaterial3: false,
+      fontFamily: 'Plus Jakarta Sans',
       scaffoldBackgroundColor: AppColors.background,
       primaryColor: AppColors.primary,
       colorScheme: ColorScheme.light(
