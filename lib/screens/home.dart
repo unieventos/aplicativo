@@ -10,6 +10,9 @@ import 'package:flutter_application_1/screens/search.dart';
 import 'package:flutter_application_1/services/api_service.dart';
 import 'package:flutter_application_1/models/evento.dart';
 import 'package:flutter_application_1/widgets/event_card.dart';
+import 'package:flutter_application_1/widgets/branded_header.dart';
+import 'package:flutter_application_1/widgets/state_views.dart';
+import 'package:flutter_application_1/config/app_theme.dart';
 
 // Modelo Evento agora em lib/models/evento.dart
 
@@ -166,21 +169,14 @@ class _FeedPageState extends State<FeedPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        centerTitle: false,
-        titleSpacing: 16,
-        elevation: 0,
-        title: Text(
-          'Próximos Eventos',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-        ),
+    return BrandedScaffold(
+      header: BrandedHeader(
+        title: 'Eventos',
+        subtitle: 'Próximos a você',
         actions: [
           IconButton(
             tooltip: 'Buscar eventos',
-            icon: const Icon(Icons.search),
+            icon: const Icon(Icons.search, color: AppColors.onPrimary),
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => SearchPage()),
@@ -188,7 +184,7 @@ class _FeedPageState extends State<FeedPage> {
           ),
           IconButton(
             tooltip: 'Notificações',
-            icon: const Icon(Icons.notifications_none),
+            icon: const Icon(Icons.notifications_none, color: AppColors.onPrimary),
             onPressed: () {},
           ),
           const SizedBox(width: 8),
@@ -205,26 +201,20 @@ class _FeedPageState extends State<FeedPage> {
               evento: evento,
               onEventUpdated: _pagingController.refresh,
             ),
-            firstPageProgressIndicatorBuilder: (_) =>
-                const Center(child: CircularProgressIndicator()),
+            firstPageProgressIndicatorBuilder: (_) => const LoadingView(),
             newPageProgressIndicatorBuilder: (_) => const Padding(
               padding: EdgeInsets.all(16.0),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-            noItemsFoundIndicatorBuilder: (_) =>
-                const Center(child: Text("Nenhum evento encontrado.")),
-            firstPageErrorIndicatorBuilder: (_) => Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text("Erro ao carregar eventos."),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: _pagingController.refresh,
-                    child: const Text('Tentar novamente'),
-                  ),
-                ],
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
               ),
+            ),
+            noItemsFoundIndicatorBuilder: (_) => const EmptyView(
+              icon: Icons.event_busy_outlined,
+              title: 'Nenhum evento encontrado.',
+            ),
+            firstPageErrorIndicatorBuilder: (_) => ErrorView(
+              message: 'Erro ao carregar eventos.',
+              onRetry: _pagingController.refresh,
             ),
           ),
         ),
