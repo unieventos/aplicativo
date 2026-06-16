@@ -4,13 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
+import 'package:flutter_application_1/config/app_theme.dart';
 import 'package:flutter_application_1/models/course_option.dart';
 import 'package:flutter_application_1/models/usuario.dart';
 import 'package:flutter_application_1/screens/modify_user.dart';
 import 'package:flutter_application_1/screens/register.dart';
 import 'package:flutter_application_1/services/user_management_api.dart';
-import 'package:flutter_application_1/services/user_service.dart';
 import 'package:flutter_application_1/services/api_service.dart' as api_service;
+import 'package:flutter_application_1/widgets/branded_header.dart';
+import 'package:flutter_application_1/widgets/state_views.dart';
 
 // --- TELA DE GERENCIAMENTO (CURSOS & USUÁRIOS) ---
 class CadastroUsuarioPage extends StatefulWidget {
@@ -523,11 +525,20 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
   // ---------------------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: Text('Gerenciar'),
-        centerTitle: false,
+    // FAB só aparece na aba Ativos (índice 1) e quando o usuário é admin
+    final Widget? fab = _tabController.index == 1 && _isAdmin
+        ? FloatingActionButton.extended(
+            onPressed: _abrirCadastroUsuario,
+            icon: const Icon(Icons.person_add_alt_1_outlined),
+            label: const Text('Novo Usuário'),
+            backgroundColor: AppColors.primary,
+            foregroundColor: AppColors.onPrimary,
+          )
+        : null;
+
+    return BrandedScaffold(
+      header: BrandedHeader(
+        title: 'Gerenciar',
         bottom: _isAdmin
             ? TabBar(
                 controller: _tabController,
@@ -536,9 +547,9 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
                   Tab(text: 'Ativos'),
                   Tab(text: 'Inativos'),
                 ],
-                labelColor: Colors.black87,
-                unselectedLabelColor: Colors.grey[600],
-                indicatorColor: Theme.of(context).primaryColor,
+                labelColor: AppColors.onPrimary,
+                unselectedLabelColor: Colors.white70,
+                indicatorColor: AppColors.onPrimary,
                 labelStyle: const TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
@@ -547,41 +558,20 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
             : null,
       ),
       body: _buildBody(),
-      floatingActionButton: _tabController.index == 1 && _isAdmin
-          ? FloatingActionButton.extended(
-              onPressed: _abrirCadastroUsuario,
-              icon: Icon(Icons.person_add_alt_1_outlined),
-              label: Text('Novo Usuário'),
-              backgroundColor: Theme.of(context).primaryColor,
-              foregroundColor: Colors.white,
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: fab,
     );
   }
 
   Widget _buildBody() {
     if (!_verificacaoConcluida) {
-      return Center(child: CircularProgressIndicator());
+      return const LoadingView();
     }
 
     if (!_isAdmin) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.lock_outline, size: 48, color: Colors.grey[600]),
-              SizedBox(height: 16),
-              Text(
-                'Acesso permitido apenas para administradores.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-              ),
-            ],
-          ),
-        ),
+      return EmptyView(
+        icon: Icons.lock_outline,
+        title: 'Acesso restrito',
+        subtitle: 'Acesso permitido apenas para administradores.',
       );
     }
 
@@ -599,18 +589,12 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(AppSpacing.md),
           child: TextField(
             controller: _buscaCursosController,
-            decoration: InputDecoration(
+            decoration: const InputDecoration(
               hintText: 'Pesquisar cursos...',
               prefixIcon: Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              filled: true,
-              fillColor: Theme.of(context).colorScheme.surface,
             ),
           ),
         ),
@@ -621,10 +605,7 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
                 ? ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     children: const [
-                      SizedBox(
-                        height: 200,
-                        child: Center(child: CircularProgressIndicator()),
-                      ),
+                      SizedBox(height: 200, child: LoadingView()),
                     ],
                   )
                 : _cursosFiltrados.isEmpty
@@ -633,16 +614,18 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
                         children: const [
                           SizedBox(
                             height: 200,
-                            child:
-                                Center(child: Text('Nenhum curso encontrado.')),
+                            child: EmptyView(
+                              icon: Icons.school_outlined,
+                              title: 'Nenhum curso encontrado.',
+                            ),
                           ),
                         ],
                       )
                     : ListView.builder(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 8,
+                          horizontal: AppSpacing.xs,
+                          vertical: AppSpacing.xs,
                         ),
                         itemCount: _cursosFiltrados.length,
                         itemBuilder: (context, index) {
@@ -723,18 +706,12 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(AppSpacing.md),
           child: TextField(
             controller: _buscaUsuariosAtivosController,
-            decoration: InputDecoration(
+            decoration: const InputDecoration(
               hintText: 'Pesquisar usuários ativos...',
               prefixIcon: Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              filled: true,
-              fillColor: Theme.of(context).colorScheme.surface,
             ),
           ),
         ),
@@ -751,14 +728,17 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
                   onDelete: () => _onDeleteUser(usuario.id),
                   onModify: () => _abrirEdicaoUsuario(usuario),
                 ),
-                firstPageProgressIndicatorBuilder: (_) =>
-                    Center(child: CircularProgressIndicator()),
+                firstPageProgressIndicatorBuilder: (_) => const LoadingView(),
                 newPageProgressIndicatorBuilder: (_) =>
-                    Center(child: CircularProgressIndicator()),
-                noItemsFoundIndicatorBuilder: (_) =>
-                    Center(child: Text('Nenhum usuário ativo encontrado.')),
-                firstPageErrorIndicatorBuilder: (_) =>
-                    Center(child: Text('Erro ao carregar usuários ativos.')),
+                    const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                noItemsFoundIndicatorBuilder: (_) => const EmptyView(
+                  icon: Icons.people_outline,
+                  title: 'Nenhum usuário ativo encontrado.',
+                ),
+                firstPageErrorIndicatorBuilder: (ctx) => ErrorView(
+                  message: 'Erro ao carregar usuários ativos.',
+                  onRetry: () => _pagingControllerAtivos.refresh(),
+                ),
               ),
             ),
           ),
@@ -771,18 +751,12 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(AppSpacing.md),
           child: TextField(
             controller: _buscaUsuariosDesativadosController,
-            decoration: InputDecoration(
+            decoration: const InputDecoration(
               hintText: 'Pesquisar usuários desativados...',
               prefixIcon: Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              filled: true,
-              fillColor: Theme.of(context).colorScheme.surface,
             ),
           ),
         ),
@@ -800,14 +774,17 @@ class _CadastroUsuarioPageState extends State<CadastroUsuarioPage>
                       _onAtivarUser(usuario.id), // Ativa usuários desativados
                   onModify: () => _abrirEdicaoUsuario(usuario),
                 ),
-                firstPageProgressIndicatorBuilder: (_) =>
-                    Center(child: CircularProgressIndicator()),
+                firstPageProgressIndicatorBuilder: (_) => const LoadingView(),
                 newPageProgressIndicatorBuilder: (_) =>
-                    Center(child: CircularProgressIndicator()),
-                noItemsFoundIndicatorBuilder: (_) => Center(
-                    child: Text('Nenhum usuário desativado encontrado.')),
-                firstPageErrorIndicatorBuilder: (_) => Center(
-                    child: Text('Erro ao carregar usuários desativados.')),
+                    const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                noItemsFoundIndicatorBuilder: (_) => const EmptyView(
+                  icon: Icons.person_off_outlined,
+                  title: 'Nenhum usuário desativado encontrado.',
+                ),
+                firstPageErrorIndicatorBuilder: (ctx) => ErrorView(
+                  message: 'Erro ao carregar usuários desativados.',
+                  onRetry: () => _pagingControllerDesativados.refresh(),
+                ),
               ),
             ),
           ),
@@ -835,17 +812,20 @@ class _CursoListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 2,
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.xs,
+      ),
+      // shape handled by global CardTheme (AppRadius.lg)
       child: ExpansionTile(
         leading: CircleAvatar(
-          backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
-          foregroundColor: Theme.of(context).primaryColor,
+          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+          foregroundColor: AppColors.primary,
           child: Text(_initials),
         ),
-        title: Text(curso.nome, style: TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text('ID: ${curso.id}'),
+        title: Text(curso.nome, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text('ID: ${curso.id}',
+            style: const TextStyle(color: AppColors.textMuted)),
       ),
     );
   }
@@ -865,46 +845,49 @@ class _UsuarioListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 2,
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs,
+      ),
+      // shape handled by global CardTheme (AppRadius.lg)
       child: ExpansionTile(
         leading: CircleAvatar(
-          backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
-          foregroundColor: Theme.of(context).primaryColor,
+          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+          foregroundColor: AppColors.primary,
           child: Text(usuario.initials),
         ),
         title: Text(
           usuario.displayName,
-          style: TextStyle(fontWeight: FontWeight.w600),
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
-        subtitle: Text('${usuario.email}\nLogin: ${usuario.login}'),
+        subtitle: Text('${usuario.email}\nLogin: ${usuario.login}',
+            style: const TextStyle(color: AppColors.textMuted)),
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.xs,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
                   'Curso: ${usuario.cursoDisplay.isNotEmpty ? usuario.cursoDisplay : 'Não informado'}',
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
                   'Perfil: ${usuario.role.isNotEmpty ? usuario.role.toUpperCase() : 'USER'}',
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton.icon(
                       onPressed: onModify,
-                      icon: Icon(Icons.edit, size: 18),
-                      label: Text('Modificar'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Theme.of(context).primaryColor,
-                      ),
+                      icon: const Icon(Icons.edit, size: 18),
+                      label: const Text('Modificar'),
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: AppSpacing.xs),
                     TextButton.icon(
                       onPressed: onDelete,
                       icon: Icon(
@@ -914,9 +897,6 @@ class _UsuarioListItem extends StatelessWidget {
                         size: 18,
                       ),
                       label: Text(usuario.active ? 'Desativar' : 'Ativar'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Theme.of(context).primaryColor,
-                      ),
                     ),
                   ],
                 ),
