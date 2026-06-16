@@ -11,6 +11,10 @@ import 'package:flutter_application_1/services/api_service.dart' as api_service;
 import 'package:flutter_application_1/models/course_option.dart';
 import 'package:flutter_application_1/services/user_service.dart';
 import 'package:flutter_application_1/screens/home.dart' as home_page;
+import 'package:flutter_application_1/config/app_theme.dart';
+import 'package:flutter_application_1/widgets/branded_header.dart';
+import 'package:flutter_application_1/widgets/section_title.dart';
+import 'package:flutter_application_1/widgets/app_feedback.dart';
 
 /// Tela de cadastro de evento (formulário + envio para API).
 class EVRegister extends StatefulWidget {
@@ -69,10 +73,7 @@ class _EVRegisterState extends State<EVRegister> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
-          SnackBar(content: Text('Falha ao carregar categorias: $e')));
+      AppFeedback.error(context, 'Falha ao carregar categorias: $e');
     }
   }
 
@@ -88,9 +89,7 @@ class _EVRegisterState extends State<EVRegister> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Falha ao carregar cursos: $e')));
+      AppFeedback.error(context, 'Falha ao carregar cursos: $e');
     }
   }
 
@@ -105,9 +104,7 @@ class _EVRegisterState extends State<EVRegister> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Falha ao carregar perfil: $e')));
+      AppFeedback.error(context, 'Falha ao carregar perfil: $e');
     }
   }
 
@@ -154,9 +151,7 @@ class _EVRegisterState extends State<EVRegister> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Erro ao selecionar imagens: $e')));
+      AppFeedback.error(context, 'Erro ao selecionar imagens: $e');
     }
   }
 
@@ -173,49 +168,34 @@ class _EVRegisterState extends State<EVRegister> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_cursoSelecionadoId == null || _cursoSelecionadoId!.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Selecione um curso')));
+      AppFeedback.error(context, 'Selecione um curso');
       return;
     }
 
     if (_categoriaSelecionadaId == null || _categoriaSelecionadaId!.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Selecione uma categoria')));
+      AppFeedback.error(context, 'Selecione uma categoria');
       return;
     }
 
     if (_dataInicio == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecione a data de início')),
-      );
+      AppFeedback.error(context, 'Selecione a data de início');
       return;
     }
 
     if (_dataFim == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Selecione a data de fim')));
+      AppFeedback.error(context, 'Selecione a data de fim');
       return;
     }
 
     if (_dataFim!.isBefore(_dataInicio!)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('A data de fim deve ser posterior à data de início'),
-        ),
-      );
+      AppFeedback.error(
+          context, 'A data de fim deve ser posterior à data de início');
       return;
     }
 
     if (_imagensSelecionadas.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Selecione pelo menos uma imagem para o evento'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppFeedback.error(
+          context, 'Selecione pelo menos uma imagem para o evento');
       return;
     }
 
@@ -255,12 +235,7 @@ class _EVRegisterState extends State<EVRegister> {
 
       if (resultado['success'] == true) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Evento criado com sucesso!'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          AppFeedback.success(context, 'Evento criado com sucesso!');
           // Tenta fazer pop, se não conseguir (porque está em IndexedStack),
           // redireciona para a home explícita para recarregar o feed
           if (Navigator.of(context).canPop()) {
@@ -290,14 +265,7 @@ class _EVRegisterState extends State<EVRegister> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
-        SnackBar(
-          content: Text('Erro inesperado: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppFeedback.error(context, 'Erro inesperado: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -438,270 +406,285 @@ class _EVRegisterState extends State<EVRegister> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Cadastrar evento'), centerTitle: false),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _SectionTitle('Informações básicas'),
-                const SizedBox(height: 12),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      children: [
-                        TextFormField(
-                          controller: _tituloController,
-                          textInputAction: TextInputAction.next,
-                          decoration: const InputDecoration(
-                            labelText: 'Título do evento',
-                            prefixIcon: Icon(Icons.event_outlined),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Título é obrigatório';
-                            }
-                            return null;
-                          },
+    return BrandedScaffold(
+      header: BrandedHeader(
+        title: 'Cadastrar evento',
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          color: AppColors.onPrimary,
+          onPressed: () => Navigator.maybePop(context),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.md,
+          AppSpacing.lg,
+          AppSpacing.xl,
+        ),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SectionTitle('Informações básicas'),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        controller: _tituloController,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'Título do evento',
+                          prefixIcon: Icon(Icons.event_outlined),
                         ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _descricaoController,
-                          minLines: 3,
-                          maxLines: 5,
-                          decoration: const InputDecoration(
-                            labelText: 'Descrição',
-                            alignLabelWithHint: true,
-                            prefixIcon: Icon(Icons.description_outlined),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Descrição é obrigatória';
-                            }
-                            return null;
-                          },
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Título é obrigatório';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      TextFormField(
+                        controller: _descricaoController,
+                        minLines: 3,
+                        maxLines: 5,
+                        decoration: const InputDecoration(
+                          labelText: 'Descrição',
+                          alignLabelWithHint: true,
+                          prefixIcon: Icon(Icons.description_outlined),
                         ),
-                        const SizedBox(height: 16),
-                        DropdownButtonFormField<String>(
-                          value: _cursoSelecionadoId,
-                          decoration: const InputDecoration(
-                            labelText: 'Curso',
-                            prefixIcon: Icon(Icons.school_outlined),
-                          ),
-                          isExpanded: true,
-                          items: _cursos
-                              .map(
-                                (curso) => DropdownMenuItem(
-                                  value: curso.id,
-                                  child: Text(
-                                    curso.nome,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                          selectedItemBuilder: (context) {
-                            return _cursos.map((curso) {
-                              return Align(
-                                alignment: Alignment.centerLeft,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Descrição é obrigatória';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      DropdownButtonFormField<String>(
+                        value: _cursoSelecionadoId,
+                        decoration: const InputDecoration(
+                          labelText: 'Curso',
+                          prefixIcon: Icon(Icons.school_outlined),
+                        ),
+                        isExpanded: true,
+                        items: _cursos
+                            .map(
+                              (curso) => DropdownMenuItem(
+                                value: curso.id,
                                 child: Text(
-                                  _cursos
-                                      .firstWhere(
-                                        (c) => c.id == _cursoSelecionadoId,
-                                        orElse: () => _cursos.first,
-                                      )
-                                      .nome,
+                                  curso.nome,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(color: Colors.black87),
                                 ),
-                              );
-                            }).toList();
-                          },
-                          onChanged: (value) =>
-                              setState(() => _cursoSelecionadoId = value),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Selecione um curso';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: DropdownButtonFormField<String>(
-                                value: _categoriaSelecionadaId,
-                                decoration: const InputDecoration(
-                                  labelText: 'Categoria',
-                                  prefixIcon: Icon(Icons.category_outlined),
-                                ),
-                                isExpanded: true,
-                                items: _categorias
-                                    .map(
-                                      (cat) => DropdownMenuItem(
-                                        value: cat.id,
-                                        child: Text(
-                                          cat.nome,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
+                              ),
+                            )
+                            .toList(),
+                        selectedItemBuilder: (context) {
+                          return _cursos.map((curso) {
+                            return Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                _cursos
+                                    .firstWhere(
+                                      (c) => c.id == _cursoSelecionadoId,
+                                      orElse: () => _cursos.first,
                                     )
-                                    .toList(),
-                                onChanged: (value) => setState(
-                                    () => _categoriaSelecionadaId = value),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Selecione uma categoria';
-                                  }
-                                  return null;
-                                },
+                                    .nome,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: Colors.black87),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4.0),
-                              child: IconButton(
-                                icon: const Icon(Icons.add_circle_outline),
-                                tooltip: 'Criar nova categoria',
-                                color: Theme.of(context).primaryColor,
-                                onPressed: _exibirDialogNovaCategoria,
+                            );
+                          }).toList();
+                        },
+                        onChanged: (value) =>
+                            setState(() => _cursoSelecionadoId = value),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Selecione um curso';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _categoriaSelecionadaId,
+                              decoration: const InputDecoration(
+                                labelText: 'Categoria',
+                                prefixIcon: Icon(Icons.category_outlined),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                _SectionTitle('Cronograma'),
-                const SizedBox(height: 12),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      children: [
-                        _DateTile(
-                          label: 'Data de início',
-                          value: _dataInicio,
-                          onTap: _selecionarDataInicio,
-                        ),
-                        const SizedBox(height: 12),
-                        _DateTile(
-                          label: 'Data de término',
-                          value: _dataFim,
-                          onTap: _selecionarDataFim,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                _SectionTitle('Imagem e divulgação'),
-                const SizedBox(height: 12),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: _selecionarImagem,
-                          icon: const Icon(Icons.library_add_outlined),
-                          label: const Text('Adicionar imagens'),
-                        ),
-                        const SizedBox(height: 16),
-                        if (_imagensSelecionadas.isNotEmpty)
-                          SizedBox(
-                            height: 180,
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: _imagensSelecionadas.length,
-                              itemBuilder: (context, index) {
-                                return Stack(
-                                  children: [
-                                    Padding(
-                                      padding:
-                                          const EdgeInsets.only(right: 12.0),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(16),
-                                        child: kIsWeb &&
-                                                _imagensBytes.length > index
-                                            ? Image.memory(
-                                                _imagensBytes[index],
-                                                height: 180,
-                                                width: 180,
-                                                fit: BoxFit.cover,
-                                              )
-                                            : Image.file(
-                                                File(_imagensSelecionadas[index]
-                                                    .path),
-                                                height: 180,
-                                                width: 180,
-                                                fit: BoxFit.cover,
-                                              ),
+                              isExpanded: true,
+                              items: _categorias
+                                  .map(
+                                    (cat) => DropdownMenuItem(
+                                      value: cat.id,
+                                      child: Text(
+                                        cat.nome,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                    Positioned(
-                                      top: 8,
-                                      right: 20,
-                                      child: CircleAvatar(
-                                        radius: 16,
-                                        backgroundColor: Colors.black54,
-                                        child: IconButton(
-                                          padding: EdgeInsets.zero,
-                                          icon: const Icon(Icons.close,
-                                              size: 16, color: Colors.white),
-                                          onPressed: () =>
-                                              _removerImagem(index),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                );
+                                  )
+                                  .toList(),
+                              onChanged: (value) => setState(
+                                  () => _categoriaSelecionadaId = value),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Selecione uma categoria';
+                                }
+                                return null;
                               },
                             ),
-                          )
-                        else
-                          Container(
-                            height: 120,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(16),
-                              color: Colors.grey.shade100,
-                              border: Border.all(color: Colors.grey.shade200),
-                            ),
-                            child: const Center(
-                              child: Text('Nenhuma imagem selecionada'),
+                          ),
+                          const SizedBox(width: AppSpacing.xs),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4.0),
+                            child: IconButton(
+                              icon: const Icon(Icons.add_circle_outline),
+                              tooltip: 'Criar nova categoria',
+                              color: Theme.of(context).primaryColor,
+                              onPressed: _exibirDialogNovaCategoria,
                             ),
                           ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 32),
-                ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _publicarEvento,
-                  icon: _isLoading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation(Colors.white),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              SectionTitle('Cronograma'),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    children: [
+                      _DateTile(
+                        label: 'Data de início',
+                        value: _dataInicio,
+                        onTap: _selecionarDataInicio,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      _DateTile(
+                        label: 'Data de término',
+                        value: _dataFim,
+                        onTap: _selecionarDataFim,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              SectionTitle('Imagem e divulgação'),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _selecionarImagem,
+                        icon: const Icon(Icons.library_add_outlined),
+                        label: const Text('Adicionar imagens'),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      if (_imagensSelecionadas.isNotEmpty)
+                        SizedBox(
+                          height: 180,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _imagensSelecionadas.length,
+                            itemBuilder: (context, index) {
+                              return Stack(
+                                children: [
+                                  Padding(
+                                    padding:
+                                        const EdgeInsets.only(right: AppSpacing.sm),
+                                    child: ClipRRect(
+                                      borderRadius:
+                                          BorderRadius.circular(AppRadius.md),
+                                      child: kIsWeb &&
+                                              _imagensBytes.length > index
+                                          ? Image.memory(
+                                              _imagensBytes[index],
+                                              height: 180,
+                                              width: 180,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : Image.file(
+                                              File(_imagensSelecionadas[index]
+                                                  .path),
+                                              height: 180,
+                                              width: 180,
+                                              fit: BoxFit.cover,
+                                            ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: AppSpacing.xs,
+                                    right: AppSpacing.md,
+                                    child: CircleAvatar(
+                                      radius: 16,
+                                      backgroundColor: Colors.black54,
+                                      child: IconButton(
+                                        padding: EdgeInsets.zero,
+                                        icon: const Icon(Icons.close,
+                                            size: 16, color: Colors.white),
+                                        onPressed: () =>
+                                            _removerImagem(index),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
                           ),
                         )
-                      : const Icon(Icons.check_circle_outline),
-                  label: Text(_isLoading ? 'Publicando...' : 'Publicar evento'),
+                      else
+                        Container(
+                          height: 120,
+                          decoration: BoxDecoration(
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.md),
+                            color: AppColors.background,
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Center(
+                            child: Text(
+                              'Nenhuma imagem selecionada',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(color: AppColors.textMuted),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              ElevatedButton.icon(
+                onPressed: _isLoading ? null : _publicarEvento,
+                icon: _isLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation(Colors.white),
+                        ),
+                      )
+                    : const Icon(Icons.check_circle_outline),
+                label: Text(_isLoading ? 'Publicando...' : 'Publicar evento'),
+              ),
+            ],
           ),
         ),
       ),
@@ -751,22 +734,6 @@ class _EVRegisterState extends State<EVRegister> {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: Theme.of(
-        context,
-      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-    );
-  }
-}
-
 class _DateTile extends StatelessWidget {
   const _DateTile({
     required this.label,
@@ -783,18 +750,21 @@ class _DateTile extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(AppRadius.md),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: 18,
+        ),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: AppColors.border),
         ),
         child: Row(
           children: [
             const Icon(Icons.calendar_today_outlined),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.sm),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
