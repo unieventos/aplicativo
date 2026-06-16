@@ -202,7 +202,7 @@ class _SearchPageState extends State<SearchPage> {
     return TextField(
       controller: _searchController,
       textInputAction: TextInputAction.search,
-      style: const TextStyle(color: AppColors.textPrimary),
+      style: const TextStyle(color: AppColors.onPrimary),
       decoration: InputDecoration(
         hintText: 'Digite o nome do evento ou categoria',
         hintStyle: const TextStyle(color: Colors.white70),
