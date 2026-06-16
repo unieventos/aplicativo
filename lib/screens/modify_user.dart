@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/config/app_theme.dart';
 import 'package:flutter_application_1/models/usuario.dart'; // Modelo Usuario centralizado
 import 'package:flutter_application_1/services/api_service.dart'; // Importa a sua classe de API
 
 import 'package:flutter_application_1/models/course_option.dart';
-import 'package:flutter_application_1/services/user_service.dart';
+import 'package:flutter_application_1/widgets/app_feedback.dart';
+import 'package:flutter_application_1/widgets/branded_header.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ModifyUserApp extends StatefulWidget {
@@ -102,8 +104,7 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Falha ao carregar cursos: $e')));
+      AppFeedback.error(context, 'Falha ao carregar cursos: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoadingCursos = false);
@@ -165,23 +166,14 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
       if (!mounted) return;
 
       if (sucesso) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Usuário atualizado com sucesso!')),
-        );
+        AppFeedback.success(context, 'Usuário atualizado com sucesso!');
         Navigator.of(context).pop(true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erro ao atualizar usuário.')),
-        );
+        AppFeedback.error(context, 'Erro ao atualizar usuário.');
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao atualizar usuário: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppFeedback.error(context, 'Erro ao atualizar usuário: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -192,11 +184,14 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
   Widget _buildCursoDropdown() {
     if (_isLoadingCursos) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: 14,
+        ),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade200),
-          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: AppColors.border),
+          color: AppColors.surface,
         ),
         child: Row(
           children: const [
@@ -205,7 +200,7 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
               height: 18,
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
-            SizedBox(width: 12),
+            SizedBox(width: AppSpacing.sm),
             Text('Carregando cursos...'),
           ],
         ),
@@ -261,174 +256,177 @@ class _ModifyUserAppState extends State<ModifyUserApp> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Modificar usuário')),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-          child: Form(
-            key: _formKey,
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 40,
-                          backgroundColor:
-                              Theme.of(context).colorScheme.primary,
-                          child: Text(
-                            widget.usuario.initials,
-                            style: const TextStyle(
-                              fontSize: 28,
-                              color: Colors.white,
+    return BrandedScaffold(
+      header: BrandedHeader(
+        title: 'Editar usuário',
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.onPrimary),
+          onPressed: () => Navigator.maybePop(context),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 40,
+                        backgroundColor: AppColors.primary,
+                        child: Text(
+                          widget.usuario.initials,
+                          style: const TextStyle(
+                            fontSize: 28,
+                            color: AppColors.onPrimary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Editando ${widget.usuario.displayName}',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
                             ),
-                          ),
+                            const SizedBox(height: AppSpacing.xs),
+                            Text(
+                              'ID: ${widget.usuario.id}',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: AppColors.textMuted),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Editando ${widget.usuario.displayName}',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w600),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'ID: ${widget.usuario.id}',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(color: Colors.grey[600]),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: _nomeController,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(
-                        labelText: 'Nome',
-                        prefixIcon: Icon(Icons.person_outline),
                       ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Nome é obrigatório';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _sobrenomeController,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(
-                        labelText: 'Sobrenome',
-                        prefixIcon: Icon(Icons.person_2_outlined),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Sobrenome é obrigatório';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _loginController,
-                      decoration: const InputDecoration(
-                        labelText: 'Login',
-                        prefixIcon: Icon(Icons.person_outline),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'O login não pode ser vazio';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
-                        labelText: 'E-mail',
-                        prefixIcon: Icon(Icons.alternate_email),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'E-mail é obrigatório';
-                        }
-                        if (!value.contains('@')) {
-                          return 'E-mail inválido';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _buildCursoDropdown(),
-                    const SizedBox(height: 16),
-                    if (_isAdmin && !_isEditingSelf) ...[
-                      _buildRoleDropdown(),
-                      const SizedBox(height: 16),
                     ],
-                    TextFormField(
-                      controller: _senhaController,
-                      obscureText: _obscureText,
-                      decoration: InputDecoration(
-                        labelText: 'Nova senha (opcional)',
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscureText
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                          ),
-                          onPressed: () =>
-                              setState(() => _obscureText = !_obscureText),
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value != null &&
-                            value.isNotEmpty &&
-                            value.length < 6) {
-                          return 'Senha deve ter pelo menos 6 caracteres';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      onPressed: _isLoading ? null : _salvarAlteracoes,
-                      icon: _isLoading
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation(Colors.white),
-                              ),
-                            )
-                          : const Icon(Icons.save_outlined),
-                      label: Text(
-                        _isLoading ? 'Salvando...' : 'Salvar alterações',
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(height: AppSpacing.lg),
+              TextFormField(
+                controller: _nomeController,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Nome',
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Nome é obrigatório';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextFormField(
+                controller: _sobrenomeController,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Sobrenome',
+                  prefixIcon: Icon(Icons.person_2_outlined),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Sobrenome é obrigatório';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextFormField(
+                controller: _loginController,
+                decoration: const InputDecoration(
+                  labelText: 'Login',
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'O login não pode ser vazio';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'E-mail',
+                  prefixIcon: Icon(Icons.alternate_email),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'E-mail é obrigatório';
+                  }
+                  if (!value.contains('@')) {
+                    return 'E-mail inválido';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildCursoDropdown(),
+              const SizedBox(height: AppSpacing.md),
+              if (_isAdmin && !_isEditingSelf) ...[
+                _buildRoleDropdown(),
+                const SizedBox(height: AppSpacing.md),
+              ],
+              TextFormField(
+                controller: _senhaController,
+                obscureText: _obscureText,
+                decoration: InputDecoration(
+                  labelText: 'Nova senha (opcional)',
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureText
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                    ),
+                    onPressed: () =>
+                        setState(() => _obscureText = !_obscureText),
+                  ),
+                ),
+                validator: (value) {
+                  if (value != null &&
+                      value.isNotEmpty &&
+                      value.length < 6) {
+                    return 'Senha deve ter pelo menos 6 caracteres';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              ElevatedButton.icon(
+                onPressed: _isLoading ? null : _salvarAlteracoes,
+                icon: _isLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation(Colors.white),
+                        ),
+                      )
+                    : const Icon(Icons.save_outlined),
+                label: Text(
+                  _isLoading ? 'Salvando...' : 'Salvar alterações',
+                ),
+              ),
+            ],
           ),
         ),
       ),
