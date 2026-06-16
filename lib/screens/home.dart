@@ -88,12 +88,6 @@ class _EventosPageState extends State<EventosPage> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: Theme.of(context).primaryColor,
-        unselectedItemColor: Colors.grey[600],
-        showUnselectedLabels: false,
-        showSelectedLabels: false,
-        backgroundColor: Colors.white,
         items: [
           BottomNavigationBarItem(
             icon: Icon(Icons.celebration_outlined),

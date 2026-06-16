@@ -299,7 +299,7 @@ class _EditEventState extends State<EditEvent> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(errorMsg),
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.error,
               duration: const Duration(seconds: 5),
             ),
           );
@@ -420,7 +420,7 @@ class _EditEventState extends State<EditEvent> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text('Erro ao criar categoria: $e'),
-                                  backgroundColor: Colors.red,
+                                  backgroundColor: AppColors.error,
                                 ),
                               );
                             }
