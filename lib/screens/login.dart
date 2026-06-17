@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:flutter_application_1/config/app_theme.dart';
 import 'package:flutter_application_1/services/auth_service.dart';
@@ -228,10 +229,14 @@ class _LoginHeader extends StatelessWidget {
           if (!isLoading)
             Align(
               alignment: Alignment.topRight,
-              child: Image.asset(
-                'assets/logo.png',
+              child: SvgPicture.asset(
+                'assets/logo.svg',
                 height: 64,
                 fit: BoxFit.contain,
+                colorFilter: const ColorFilter.mode(
+                  AppColors.onPrimary,
+                  BlendMode.srcIn,
+                ),
               ),
             ),
           const SizedBox(height: 32),
