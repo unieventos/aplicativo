@@ -74,7 +74,7 @@ class _EditEventState extends State<EditEvent> {
         if (bytes != null && mounted) {
           setState(() {
             _imagensSelecionadas
-                .add(XFile.fromData(bytes, name: 'foto_$fotoId.jpg'));
+                .add(XFile.fromData(bytes, name: 'foto_${fotoId}.png'));
             _imagensBytes.add(bytes);
           });
         }
@@ -83,7 +83,7 @@ class _EditEventState extends State<EditEvent> {
     } else if (widget.evento.imagemBytes != null &&
         widget.evento.imagemBytes!.isNotEmpty) {
       final existingImage =
-          XFile.fromData(widget.evento.imagemBytes!, name: 'foto_atual.jpg');
+          XFile.fromData(widget.evento.imagemBytes!, name: 'foto_atual.png');
       setState(() {
         _imagensSelecionadas.add(existingImage);
         _imagensBytes.add(widget.evento.imagemBytes!);
